@@ -1,3 +1,4 @@
+
 fn main() {
-    println!("Hello, world!");
+    lockfree_benchmark::start_benchmark();
 }
