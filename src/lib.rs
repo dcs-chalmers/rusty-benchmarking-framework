@@ -1,6 +1,13 @@
-use lockfree;
+use crate::queues::lf_queue::LFQueue;
+
+pub mod queues;
 
 pub fn start_benchmark() {
+    let test_q: LFQueue<i32> =  LFQueue {
+        lfq: lockfree::queue::Queue::new(),
+    };
+    test_q.lfq.push(50);
+    println!("{}", test_q.lfq.pop().unwrap())
 }
 
 pub trait ConcurrentQueue<T> {
@@ -12,29 +19,4 @@ pub trait Handle<T> {
     fn pop(&self) -> Option<T>;
 }
 
-pub struct LFQueueHandle<'a, T> {
-    queue: &'a LFQueue<T>
-}
 
-pub struct LFQueue<T> {
-    lfq: lockfree::queue::Queue<T>
-}
-
-impl<T> ConcurrentQueue<T> for LFQueue<T> {
-    
-    fn register(&self) -> impl Handle<T> {
-        LFQueueHandle {
-            queue: self,
-        }
-    }
-}
-
-impl<T> Handle<T> for LFQueueHandle<'_, T> {
-    fn push(&self, item: T) {
-        self.queue.lfq.push(item);
-    }
-    
-    fn pop(&self) -> Option<T> {
-        self.queue.lfq.pop()
-    }
-}
