@@ -4,7 +4,7 @@ This is a project to test different implementations of lock-free based data stru
 ## How to use:
 To run the benchmark, 
 * download the the repo
-* Write in a terminal `run cargo` for standard values
+* Write in a terminal `cargo run` for standard values
 * To use specific values you can add different flags to the run command:
     * `-t` for specific time values
     * `-p` for specified amount of producers
