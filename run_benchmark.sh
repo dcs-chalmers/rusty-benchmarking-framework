@@ -3,7 +3,7 @@
 mkdir -p output
 
 if [ $# -eq 0 ]; then 
-    cargo run --release
+    time cargo run --release
 else
-    cargo run --release -- $1
+    time cargo run --release -- $1
 fi
