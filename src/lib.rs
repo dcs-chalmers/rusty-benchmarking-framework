@@ -4,6 +4,7 @@ use std::{
     sync::atomic::{AtomicUsize, AtomicBool, Ordering},
     sync::Barrier
 };
+use chrono;
 
 use clap::Parser;
 
@@ -90,13 +91,27 @@ pub fn start_benchmark() {
     let pops = pops.into_inner();
     // println!("into inner pushes");
     let pushes = pushes.into_inner();
+    
+    let mut outfile = match std::fs::File::create(format!("./output/{}.txt", chrono::offset::Local::now()
+        .to_string())) {
+        Ok(of) => of,
+        Err(e) => {
+            eprintln!("Error when creating outfile: {}", e);
+            return;
+        }
+    };
+    let mut string = String::new();
+    // Format the statistics into the string
+    string.push_str(&format!("Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64));
+    string.push_str(&format!("Number of pushes: {}\n", pushes));
+    string.push_str(&format!("Number of pops: {}\n", pops));
 
-    println!(
-        "Throughput: {}",
-        (pushes + pops) as f64 / time_limit as f64
-    );
-    println!("Number of pushes: {}", pushes);
-    println!("Number of pops: {}", pops);
+    // Write the string to the file
+    use std::io::Write;
+    if let Err(e) = outfile.write_all(string.as_bytes()) {
+        eprintln!("Error when writing output to outfile: {}", e)
+    }
+    println!("{}", string);
 }
 
 pub trait ConcurrentQueue<T> {
