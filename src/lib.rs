@@ -4,9 +4,11 @@ use std::{
     sync::atomic::{AtomicUsize, AtomicBool, Ordering},
     sync::Barrier
 };
-use chrono;
-
+use chrono::Local;
+use core_affinity::CoreId;
 use clap::Parser;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub mod queues;
 
@@ -20,36 +22,70 @@ struct Args {
     producers: usize,
     #[arg(short, long, default_value_t = 20)]
     consumers: usize,
+    #[arg(short, long, default_value_t = true)]
+    one_socket: bool,
+    #[arg(short, long, default_value_t = 1)]
+    iterations: u32
 }
 
-pub fn start_benchmark() {
-    let test_q: LFQueue<i32> =  LFQueue {
-        lfq: lockfree::queue::Queue::new(),
-    };
+pub fn start_benchmark() -> Result<(), std::io::Error> {
+
+
     let args = Args::parse();
+    let output_filename = String::from(format!("./output/{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&output_filename)?;
+    for i in 0..args.iterations {
+        writeln!(file, "Results from iteration {}:", i)?;
+        let test_q: LFQueue<i32> =  LFQueue {
+            lfq: lockfree::queue::Queue::new(),
+        };
+        benchmark_throughput(test_q, &args, &output_filename)?;
+    }
+    Ok(())
+}
+
+fn benchmark_throughput<C>(cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
+where 
+    C: ConcurrentQueue<i32> ,
+    for<'a> &'a C: Send
+{
+    // print!("results from {}", amount_of_times);
 
 
-    let time_limit: u64 = args.time_limit;
-    let barrier = Barrier::new(args.consumers + args.producers + 1);
+    let time_limit: u64 = config.time_limit;
+    let barrier = Barrier::new(config.consumers + config.producers + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
-    println!("Starting throughput benchmark with {} consumer and {} producers", args.consumers, args.producers);
+    println!("Starting throughput benchmark with {} consumer and {} producers", config.consumers, config.producers);
 
-    // let thread_count: i32 = 40;
     
+    // get cores for fairness of threads
+    let available_cores: Vec<CoreId> =
+        core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
+        let mut core_iter = available_cores.into_iter().cycle();
+
     thread::scope(|s| {
-        let queue = &test_q;
+        let queue = &cqueue;
         let pushes = &pushes;
         let pops = &pops;
         let done = &done;
         let barrier = &barrier;
-        let consumers = &args.consumers;
-        let producers = &args.producers;
-
+        let consumers = &config.consumers;
+        let producers = &config.producers;
+        let is_one_socket = &config.one_socket;
         for _ in 0..*producers{
+            let mut core : CoreId = core_iter.next().unwrap();
+            // if is_one_socket is true, make all thread ids even 
+            // (this was used for our testing enviroment to get one socket)
+            if *is_one_socket {
+                core = core_iter.next().unwrap();
+            }
             s.spawn(move || {
-                // println!("Thread: {}, working", i);
+                core_affinity::set_for_current(core);
                 let mut handle = queue.register();
                 // push
                 let mut l_pushes = 0; 
@@ -57,15 +93,19 @@ pub fn start_benchmark() {
                 while !done.load(Ordering::Relaxed) {
                     handle.push(1);
                     l_pushes += 1;
-                    
-                    // println!("Thread: {}, pushed!", i);
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
             }); 
         }
         for _ in 0..*consumers {
+            let mut core : CoreId = core_iter.next().unwrap();
+            // if is_one_socket is true, make all thread ids even 
+            // (this was used for our testing enviroment to get one socket)
+            if *is_one_socket {
+                core = core_iter.next().unwrap();
+            }
             s.spawn(move || {
-                // println!("Thread: {}, working", i);
+                core_affinity::set_for_current(core);
                 let mut handle = queue.register();
                 // pop
                 let mut l_pops = 0; 
@@ -73,8 +113,6 @@ pub fn start_benchmark() {
                 while !done.load(Ordering::Relaxed) {
                     handle.pop();
                     l_pops += 1;
-                    
-                    // println!("Thread: {}, popped!", i);
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
             }); 
@@ -92,27 +130,17 @@ pub fn start_benchmark() {
     // println!("into inner pushes");
     let pushes = pushes.into_inner();
     
-    let mut outfile = match std::fs::File::create(format!("./output/{}.txt", chrono::offset::Local::now()
-        .to_string())) {
-        Ok(of) => of,
-        Err(e) => {
-            eprintln!("Error when creating outfile: {}", e);
-            return;
-        }
-    };
-    let mut string = String::new();
-    // Format the statistics into the string
-    string.push_str(&format!("Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64));
-    string.push_str(&format!("Number of pushes: {}\n", pushes));
-    string.push_str(&format!("Number of pops: {}\n", pops));
+    let mut file = OpenOptions::new()
+        .append(true) // Set the file to append mode
+        .create(true) // Create the file if it doesn't exist
+        .open(&filename)?;
+    writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
+    writeln!(file, "Number of pushes: {}\n", pushes)?;
+    writeln!(file, "Number of pops: {}\n", pops)?;
 
-    // Write the string to the file
-    use std::io::Write;
-    if let Err(e) = outfile.write_all(string.as_bytes()) {
-        eprintln!("Error when writing output to outfile: {}", e)
-    }
-    println!("{}", string);
+    Ok(())
 }
+
 
 pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl Handle<T>;
