@@ -19,11 +19,12 @@ impl<T> ConcurrentQueue<T> for LFQueue<T> {
 }
 
 impl<T> Handle<T> for LFQueueHandle<'_, T> {
-    fn push(&self, item: T) {
+    fn push(&mut self, item: T) {
         self.queue.lfq.push(item);
     }
     
-    fn pop(&self) -> Option<T> {
+    fn pop(&mut self) -> Option<T> {
         self.queue.lfq.pop()
     }
+
 }
