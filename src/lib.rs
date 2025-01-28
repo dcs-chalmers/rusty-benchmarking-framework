@@ -34,7 +34,7 @@ pub fn start_benchmark() {
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
-
+    println!("Starting throughput benchmark with {} consumer and {} producers", args.consumers, args.producers);
 
     // let thread_count: i32 = 40;
     
@@ -50,7 +50,7 @@ pub fn start_benchmark() {
         for _ in 0..*producers{
             s.spawn(move || {
                 // println!("Thread: {}, working", i);
-                let handle = queue.register();
+                let mut handle = queue.register();
                 // push
                 let mut l_pushes = 0; 
                 barrier.wait();
@@ -66,8 +66,8 @@ pub fn start_benchmark() {
         for _ in 0..*consumers {
             s.spawn(move || {
                 // println!("Thread: {}, working", i);
-                let handle = queue.register();
-                    // pop
+                let mut handle = queue.register();
+                // pop
                 let mut l_pops = 0; 
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
@@ -119,8 +119,8 @@ pub trait ConcurrentQueue<T> {
 }
 
 pub trait Handle<T> {
-    fn push(&self, item: T);
-    fn pop(&self) -> Option<T>;
+    fn push(&mut self, item: T);
+    fn pop(&mut self) -> Option<T>;
 }
 
 
