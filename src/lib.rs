@@ -25,7 +25,11 @@ struct Args {
     #[arg(short, long, default_value_t = true)]
     one_socket: bool,
     #[arg(short, long, default_value_t = 1)]
-    iterations: u32
+    iterations: u32,
+    #[arg(short, long, default_value_t = false)]
+    empty_pops: bool,
+    #[arg(short, long, default_value_t = false)]
+    human_readable: bool,
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
@@ -38,7 +42,9 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .create(true)
         .open(&output_filename)?;
     for i in 0..args.iterations {
-        writeln!(file, "Results from iteration {}:", i)?;
+        if args.human_readable {
+            writeln!(file, "Results from iteration {}:", i)?;
+        }
         let test_q: LFQueue<i32> =  LFQueue {
             lfq: lockfree::queue::Queue::new(),
         };
@@ -111,32 +117,35 @@ where
                 let mut l_pops = 0; 
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
-                    handle.pop();
-                    l_pops += 1;
+                    match handle.pop() {
+                        Some(_) => l_pops += 1,
+                        None => {
+                            if config.empty_pops {
+                                l_pops += 1;
+                            }
+                        }
+                    }
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
             }); 
         }
-        // println!("Waiting");
         barrier.wait();
-        // println!("Sleeping");
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
-        // println!("Done");
         done.store(true, Ordering::Relaxed);
-        // println!("After done");
     });
-    // println!("into inner pops");
     let pops = pops.into_inner();
-    // println!("into inner pushes");
     let pushes = pushes.into_inner();
-    
     let mut file = OpenOptions::new()
-        .append(true) // Set the file to append mode
-        .create(true) // Create the file if it doesn't exist
+        .append(true)
+        .create(true)
         .open(&filename)?;
-    writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
-    writeln!(file, "Number of pushes: {}\n", pushes)?;
-    writeln!(file, "Number of pops: {}\n", pops)?;
+    if config.human_readable {
+        writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
+        writeln!(file, "Number of pushes: {}\n", pushes)?;
+        writeln!(file, "Number of pops: {}\n", pops)?;
+    } else {
+        writeln!(file, "{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops)?;
+    }
 
     Ok(())
 }

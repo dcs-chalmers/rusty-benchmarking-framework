@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 chrono = "0.4.39"
 clap = { version = "4.5.27", features = ["derive"] }
+core_affinity = "0.8.1"
 lockfree = "0.5.1"
