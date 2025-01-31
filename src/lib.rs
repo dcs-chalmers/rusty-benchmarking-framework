@@ -1,4 +1,4 @@
-use crate::queues::lf_queue::LFQueue;
+
 use std::{
     thread,
     sync::atomic::{AtomicUsize, AtomicBool, Ordering},
@@ -7,6 +7,7 @@ use std::{
 use chrono::Local;
 use core_affinity::CoreId;
 use clap::Parser;
+use queues::{basic_queue::{BQueue, BasicQueue}, lf_queue::LFQueue};
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -48,6 +49,9 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         let test_q: LFQueue<i32> =  LFQueue {
             lfq: lockfree::queue::Queue::new(),
         };
+        // let test_q: BasicQueue<i32> = BasicQueue {
+        //     bqueue: BQueue::new()
+        // };
         benchmark_throughput(test_q, &args, &output_filename)?;
     }
     Ok(())
