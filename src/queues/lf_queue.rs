@@ -28,3 +28,27 @@ impl<T> Handle<T> for LFQueueHandle<'_, T> {
     }
 
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_lfq() {
+        let q: LFQueue<i32> = LFQueue {
+            lfq: lockfree::queue::Queue::new()
+        };
+        q.lfq.push(1);
+        assert_eq!(q.lfq.pop().unwrap(), 1);
+    }
+    #[test]
+    fn register_lfq() {
+        let q: LFQueue<i32> = LFQueue {
+            lfq: lockfree::queue::Queue::new()
+        };
+        let mut handle = q.register();
+        handle.push(1);
+        assert_eq!(handle.pop().unwrap(), 1);
+
+    }
+}
