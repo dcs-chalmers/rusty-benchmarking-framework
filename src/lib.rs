@@ -29,7 +29,7 @@ struct Args {
     iterations: u32,
     #[arg(short, long, default_value_t = false)]
     empty_pops: bool,
-    #[arg(short, long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     human_readable: bool,
 }
 
@@ -165,3 +165,17 @@ pub trait Handle<T> {
 }
 
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_lfq() {
+        let q: LFQueue<i32> = LFQueue {
+            lfq: lockfree::queue::Queue::new()
+        };
+        q.lfq.push(1);
+        assert_eq!(q.lfq.pop().unwrap(), 1);
+    }
+}
