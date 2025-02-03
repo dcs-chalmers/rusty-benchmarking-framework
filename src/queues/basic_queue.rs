@@ -6,11 +6,11 @@ pub struct BQueue<T> {
 }
 
 impl<T> BQueue<T> {
-    fn pop(&self) -> Option<T> {
+    pub fn pop(&self) -> Option<T> {
         let mut q = self.basic_queue.lock().unwrap();
         q.pop_front()
     }
-    fn push(&self, item: T) {
+    pub fn push(&self, item: T) {
         let mut q = self.basic_queue.lock().unwrap();
         q.push_back(item);
     }
