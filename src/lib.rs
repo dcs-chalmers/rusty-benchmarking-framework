@@ -170,6 +170,8 @@ pub trait Handle<T> {
 mod tests {
     use super::*;
 
+
+    // Remove create tests?
     #[test]
     fn create_lfq() {
         let q: LFQueue<i32> = LFQueue {
@@ -177,5 +179,33 @@ mod tests {
         };
         q.lfq.push(1);
         assert_eq!(q.lfq.pop().unwrap(), 1);
+    }
+    #[test]
+    fn create_bq() {
+        let q: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        q.bqueue.push(1);
+        assert_eq!(q.bqueue.pop().unwrap(), 1);
+    }
+    #[test]
+    fn register_lfq() {
+        let q: LFQueue<i32> = LFQueue {
+            lfq: lockfree::queue::Queue::new()
+        };
+        let mut handle = q.register();
+        handle.push(1);
+        assert_eq!(handle.pop().unwrap(), 1);
+
+    }
+    #[test]
+    fn register_bq() {
+        let q: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new() 
+        };
+        let mut handle = q.register();
+        handle.push(1);
+        assert_eq!(handle.pop().unwrap(), 1);
+
     }
 }
