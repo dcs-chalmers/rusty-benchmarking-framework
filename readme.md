@@ -12,8 +12,8 @@ To run the benchmark,
     * `-o`, `--one-socket` to run on one socket (specific for our test environment).
     * `-i`, `--iterations` to specify how many iterations to run the benchmark.
     * `-e`, `--empty-pops` if you want to include empty dequeue operations.
-    * `-h`, `--human-readable` if you want the output to be human readable.
-    * `--help` to print help.
+    * `--human-readable` if you want the output to be human readable.
+    * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
 
 So to run using cargo:
