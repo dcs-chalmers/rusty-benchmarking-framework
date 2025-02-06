@@ -1,10 +1,12 @@
 
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "memory_Tracking")]
+#[cfg(feature = "memory_tracking")]
 use jemallocator::Jemalloc;
+#[cfg(feature = "memory_tracking")]
+use jemalloc_ctl::{stats, epoch};
 
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "memory_Tracking")]
+#[cfg(feature = "memory_tracking")]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
@@ -174,6 +176,34 @@ where
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
             }); 
+        }
+        #[cfg(feature = "memory_tracking")]
+        {
+            let mut core : CoreId = core_iter.next().unwrap();
+            // if is_one_socket is true, make all thread ids even 
+            // (this was used for our testing enviroment to get one socket)
+            if *is_one_socket {
+                core = core_iter.next().unwrap();
+            }
+            let output_filename = String::from(format!("./output/mem{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
+            let mut memfile = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&output_filename)?;
+            s.spawn(move|| {
+                core_affinity::set_for_current(core);
+                
+                while !done.load(Ordering::Relaxed) {
+                    // Update stats
+                    epoch::advance().unwrap();
+                    
+                    // Get allocated bytes
+                    let allocated = stats::allocated::read().unwrap();
+                    writeln!(memfile, "{}", allocated);
+
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            });
         }
         barrier.wait();
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
