@@ -29,7 +29,7 @@ struct Args {
     iterations: u32,
     #[arg(short, long, default_value_t = false)]
     empty_pops: bool,
-    #[arg(short, long, default_value_t = false)]
+    #[arg(long, default_value_t = false)]
     human_readable: bool,
 }
 
@@ -165,5 +165,3 @@ pub trait Handle<T> {
     fn push(&mut self, item: T);
     fn pop(&mut self) -> Option<T>;
 }
-
-

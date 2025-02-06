@@ -6,11 +6,11 @@ pub struct BQueue<T> {
 }
 
 impl<T> BQueue<T> {
-    fn pop(&self) -> Option<T> {
+    pub fn pop(&self) -> Option<T> {
         let mut q = self.basic_queue.lock().unwrap();
         q.pop_front()
     }
-    fn push(&self, item: T) {
+    pub fn push(&self, item: T) {
         let mut q = self.basic_queue.lock().unwrap();
         q.push_back(item);
     }
@@ -43,5 +43,32 @@ impl<T> Handle<T> for BasicQueueHandle<'_, T> {
     }
     fn pop(&mut self) -> Option<T> {
         self.queue.bqueue.pop()
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    // Remove create tests?
+    #[test]
+    fn create_bq() {
+        let q: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        q.bqueue.push(1);
+        assert_eq!(q.bqueue.pop().unwrap(), 1);
+    }
+    #[test]
+    fn register_bq() {
+        let q: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new() 
+        };
+        let mut handle = q.register();
+        handle.push(1);
+        assert_eq!(handle.pop().unwrap(), 1);
+
     }
 }
