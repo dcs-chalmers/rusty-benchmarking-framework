@@ -1,10 +1,10 @@
 
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "memory_Tracking")]
+#[cfg(feature = "memory_tracking")]
 use jemallocator::Jemalloc;
 
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "memory_Tracking")]
+#[cfg(feature = "memory_tracking")]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
