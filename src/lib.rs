@@ -131,7 +131,7 @@ where
             if *is_one_socket {
                 core = core_iter.next().unwrap();
             }
-            println!("{:?}", core);
+            // println!("{:?}", core);
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
@@ -153,7 +153,7 @@ where
             if *is_one_socket {
                 core = core_iter.next().unwrap();
             }
-            println!("{:?}", core);
+            // println!("{:?}", core);
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
@@ -175,9 +175,6 @@ where
                 pops.fetch_add(l_pops, Ordering::Relaxed);
             }); 
         }
-        // s.spawn(move || {
-
-        // });
         barrier.wait();
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
         done.store(true, Ordering::Relaxed);
