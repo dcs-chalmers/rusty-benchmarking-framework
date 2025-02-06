@@ -1,4 +1,13 @@
 
+#[cfg(not(target_os = "windows"))]
+#[cfg(feature = "memory_Tracking")]
+use jemallocator::Jemalloc;
+
+#[cfg(not(target_os = "windows"))]
+#[cfg(feature = "memory_Tracking")]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 use std::{
     thread,
     sync::atomic::{AtomicUsize, AtomicBool, Ordering},
@@ -30,11 +39,13 @@ struct Args {
     empty_pops: bool,
     #[arg(long, default_value_t = false)]
     human_readable: bool,
+    #[arg(short, long, default_value_t = 10000)]
+    queue_size: u32,
+    #[arg(short, long, default_value_t = 1)]
+    delay_nanoseconds: u64
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
-
-
     let args = Args::parse();
     let output_filename = String::from(format!("./output/{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
     let mut file = OpenOptions::new()
@@ -48,6 +59,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         }
         #[cfg(feature = "lockfree_queue")]
         {
+            println!("Running benchmark on: lockfree::queue:Queue");
             use crate::queues::lf_queue::LFQueue;
             let test_q: LFQueue<i32> =  LFQueue {
                 lfq: lockfree::queue::Queue::new(),
@@ -57,6 +69,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         #[cfg(feature = "basic_queue")]
         {
             use crate::queues::basic_queue::{BasicQueue, BQueue};
+            println!("Running benchmark on: Basic queue");
             let test_q: BasicQueue<i32> = BasicQueue {
                 bqueue: BQueue::new()
             };
@@ -64,16 +77,18 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         }
         #[cfg(feature = "concurrent_queue")]
         {
+            println!("Running benchmark on: concurrent_queue::ConcurrentQueue");
             let test_q: queues::concurrent_queue::CQueue<i32> = queues::concurrent_queue::CQueue {
-                cq: concurrent_queue::ConcurrentQueue::bounded(10000)
+                cq: concurrent_queue::ConcurrentQueue::bounded(args.queue_size as usize)
             };
             benchmark_throughput(test_q, &args, &output_filename)?;
         }
         #[cfg(feature = "array_queue")]
         {
             use crate::queues::array_queue::AQueue;
+            println!("Running benchmark on: crossbeam::queue::ArrayQueue");
             let test_q: AQueue<i32> = AQueue{
-                array_queue: crossbeam::queue::ArrayQueue::new(10000)
+                array_queue: crossbeam::queue::ArrayQueue::new(args.queue_size as usize)
             };
             //#[cfg(all(trait = "array_queue", trait = "throughput"))]
             //#[cfg(trait = "throughput")]
@@ -88,16 +103,12 @@ where
     C: ConcurrentQueue<i32> ,
     for<'a> &'a C: Send
 {
-    // print!("results from {}", amount_of_times);
-
-
     let time_limit: u64 = config.time_limit;
     let barrier = Barrier::new(config.consumers + config.producers + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
     println!("Starting throughput benchmark with {} consumer and {} producers", config.consumers, config.producers);
-
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -120,6 +131,7 @@ where
             if *is_one_socket {
                 core = core_iter.next().unwrap();
             }
+            println!("{:?}", core);
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
@@ -129,6 +141,7 @@ where
                 while !done.load(Ordering::Relaxed) {
                     handle.push(1);
                     l_pushes += 1;
+                    std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
             }); 
@@ -140,6 +153,7 @@ where
             if *is_one_socket {
                 core = core_iter.next().unwrap();
             }
+            println!("{:?}", core);
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
@@ -155,10 +169,15 @@ where
                             }
                         }
                     }
+                    std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
+
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
             }); 
         }
+        // s.spawn(move || {
+
+        // });
         barrier.wait();
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
         done.store(true, Ordering::Relaxed);
