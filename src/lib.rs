@@ -7,7 +7,6 @@ use std::{
 use chrono::Local;
 use core_affinity::CoreId;
 use clap::Parser;
-use queues::{basic_queue::{BQueue, BasicQueue}, lf_queue::LFQueue};
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -42,19 +41,44 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .append(true)
         .create(true)
         .open(&output_filename)?;
+    writeln!(file, "Throughput,Enqueues,Dequeues")?;
     for i in 0..args.iterations {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
-        } else {
-            writeln!(file, "Throughput,Enqueues,Dequeues")?;
         }
-        let test_q: LFQueue<i32> =  LFQueue {
-            lfq: lockfree::queue::Queue::new(),
-        };
-        // let test_q: BasicQueue<i32> = BasicQueue {
-        //     bqueue: BQueue::new()
-        // };
-        benchmark_throughput(test_q, &args, &output_filename)?;
+        #[cfg(feature = "lockfree_queue")]
+        {
+            use crate::queues::lf_queue::LFQueue;
+            let test_q: LFQueue<i32> =  LFQueue {
+                lfq: lockfree::queue::Queue::new(),
+            };
+            benchmark_throughput(test_q, &args, &output_filename)?;
+        }
+        #[cfg(feature = "basic_queue")]
+        {
+            use crate::queues::basic_queue::{BasicQueue, BQueue};
+            let test_q: BasicQueue<i32> = BasicQueue {
+                bqueue: BQueue::new()
+            };
+            benchmark_throughput(test_q, &args, &output_filename)?;
+        }
+        #[cfg(feature = "concurrent_queue")]
+        {
+            let test_q: queues::concurrent_queue::CQueue<i32> = queues::concurrent_queue::CQueue {
+                cq: concurrent_queue::ConcurrentQueue::bounded(10000)
+            };
+            benchmark_throughput(test_q, &args, &output_filename)?;
+        }
+        #[cfg(feature = "array_queue")]
+        {
+            use crate::queues::array_queue::AQueue;
+            let test_q: AQueue<i32> = AQueue{
+                array_queue: crossbeam::queue::ArrayQueue::new(10000)
+            };
+            //#[cfg(all(trait = "array_queue", trait = "throughput"))]
+            //#[cfg(trait = "throughput")]
+            benchmark_throughput(test_q, &args, &output_filename)?;
+        }
     }
     Ok(())
 }

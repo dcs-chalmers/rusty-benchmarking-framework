@@ -1,2 +1,8 @@
+#[cfg(feature = "lockfree_queue")]
 pub mod lf_queue;
+#[cfg(feature = "basic_queue")]
 pub mod basic_queue;
+#[cfg(feature = "concurrent_queue")]
+pub mod concurrent_queue;
+#[cfg(feature = "array_queue")]
+pub mod array_queue;
