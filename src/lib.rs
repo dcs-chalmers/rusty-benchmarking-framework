@@ -45,6 +45,8 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     for i in 0..args.iterations {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
+        } else {
+            writeln!(file, "Throughput,Enqueues,Dequeues")?;
         }
         let test_q: LFQueue<i32> =  LFQueue {
             lfq: lockfree::queue::Queue::new(),
