@@ -2,9 +2,28 @@
 This is a project to test different implementations of lock-free based data structures to measure their output and performance.
 
 ## How to use:
-To run the benchmark, 
-* download the the repo
-* Write in a terminal `cargo run` for standard values
+To run the benchmark, first clone the repository.
+Then compile for the queue you want to test. Do this by using the `--features`
+flag in cargo. To run for a basic lock-based queue:
+```bash
+# Create the output folder first
+mkdir output
+# Basic queue, benchmark measures throughput
+cargo run --features basic_queue --release
+# Basic queue, benchmark measures throughput and memory allocation
+cargo run --features basic_queue,memory_tracking --release
+```
+## Queue implementations and features
+Implemented queues are:
+* `basic_queue` - A `VecDeque` with a mutex lock.
+* `lockfree_queue` - A lock-free queue from the crate `lockfree`.
+* `concurrent_queue` - A queue from the crate `concurrent-queue`.
+* `array_queue` - A queue from the crate `crossbeam`.
+Optional extra feature:
+* `memory_tracking` - Writes to a file the memory allocated by the program
+during the execution. Requires `jemalloc`.
+
+## Flags
 * To use specific values you can add different flags to the run command:
     * `-t`, `--time-limit` for specific time values.
     * `-p`, `--producers` for specified amount of producers.
@@ -15,9 +34,8 @@ To run the benchmark,
     * `--human-readable` if you want the output to be human readable.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
+    * `-d` `--delay-nanoseconds` to change the delay between operations.
 
-So to run using cargo:
-`cargo run -- -t *specified value* -p *specified amount* -c *specified amount*`
 
 # TODO
 * Fix different implementations for queues
