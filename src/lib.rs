@@ -1,17 +1,14 @@
-
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "memory_tracking")]
 use jemallocator::Jemalloc;
+#[cfg(feature = "memory_tracking")]
+use jemalloc_ctl::{stats, epoch};
 
 #[cfg(not(target_os = "windows"))]
-#[cfg(feature = "memory_tracking")]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
 use std::{
-    thread,
-    sync::atomic::{AtomicUsize, AtomicBool, Ordering},
-    sync::Barrier
+    sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc, Barrier}, thread::{self, JoinHandle},
 };
 use chrono::Local;
 use core_affinity::CoreId;
@@ -47,12 +44,47 @@ struct Args {
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
+    let done = Arc::new(AtomicBool::new(false));
+    #[cfg(feature = "memory_tracking")]
+    let mem_thread_handle: JoinHandle<_>;
+    #[cfg(feature = "memory_tracking")]
+    {
+        // TODO: Check if core stuff is possible here as well.
+        // let mut core : CoreId = core_iter.next().unwrap();
+        // if is_one_socket is true, make all thread ids even 
+        // (this was used for our testing enviroment to get one socket)
+        // if *is_one_socket {
+        //     core = core_iter.next().unwrap();
+        // }
+        let output_filename = String::from(format!("./output/mem{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
+        let mut memfile = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&output_filename)?;
+        let done = Arc::clone(&done);
+        mem_thread_handle = thread::spawn(move|| -> Result<(), std::io::Error>{
+            
+            while !done.load(Ordering::Relaxed) {
+                // Update stats
+                if let Err(e) = epoch::advance() {
+                    eprintln!("Error occured while advancing epoch: {}", e);
+                }
+                // Get allocated bytes
+                let allocated = stats::allocated::read().unwrap();
+                writeln!(memfile, "{}", allocated)?;
+
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Ok(())
+        });
+    }
     let output_filename = String::from(format!("./output/{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
         .open(&output_filename)?;
-    writeln!(file, "Throughput,Enqueues,Dequeues")?;
+    // TODO: Create queue enum to support writing of queue type to file.
+    writeln!(file, "Throughput,Enqueues,Dequeues,Queue")?;
     for i in 0..args.iterations {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
@@ -90,11 +122,16 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             let test_q: AQueue<i32> = AQueue{
                 array_queue: crossbeam::queue::ArrayQueue::new(args.queue_size as usize)
             };
-            //#[cfg(all(trait = "array_queue", trait = "throughput"))]
-            //#[cfg(trait = "throughput")]
             benchmark_throughput(test_q, &args, &output_filename)?;
         }
     }
+    #[cfg(feature = "memory_tracking")]
+    {
+        done.store(true, Ordering::Relaxed);
+        if let Err(e) = mem_thread_handle.join().unwrap() {
+            eprintln!("Error joining memory tracking thread: {}", e);
+        }
+    }  
     Ok(())
 }
 
@@ -115,7 +152,7 @@ where
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
         let mut core_iter = available_cores.into_iter().cycle();
 
-    thread::scope(|s| {
+    let _ = thread::scope(|s| -> Result<(), std::io::Error>{
         let queue = &cqueue;
         let pushes = &pushes;
         let pops = &pops;
@@ -124,6 +161,7 @@ where
         let consumers = &config.consumers;
         let producers = &config.producers;
         let is_one_socket = &config.one_socket;
+
         for _ in 0..*producers{
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
@@ -178,6 +216,7 @@ where
         barrier.wait();
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
         done.store(true, Ordering::Relaxed);
+        Ok(())
     });
     let pops = pops.into_inner();
     let pushes = pushes.into_inner();
