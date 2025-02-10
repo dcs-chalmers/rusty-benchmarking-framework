@@ -6,3 +6,5 @@ pub mod basic_queue;
 pub mod concurrent_queue;
 #[cfg(feature = "array_queue")]
 pub mod array_queue;
+#[cfg(feature = "bounded_ringbuffer")]
+pub mod bounded_ringbuffer;
