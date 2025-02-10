@@ -16,10 +16,11 @@ cargo run --features basic_queue,memory_tracking --release
 ## Queue implementations and features
 Implemented queues are:
 * `basic_queue` - A `VecDeque` with a mutex lock.
+* `bounded_ringbuffer` -A simple own implemented ringbuffer using a `Vec`.
 * `lockfree_queue` - A lock-free queue from the crate `lockfree`.
 * `concurrent_queue` - A queue from the crate `concurrent-queue`.
 * `array_queue` - A queue from the crate `crossbeam`.
-Optional extra feature:
+### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program
 during the execution. Requires `jemalloc`.
 
@@ -35,6 +36,7 @@ during the execution. Requires `jemalloc`.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
     * `-d` `--delay-nanoseconds` to change the delay between operations.
+    * `--path` to change where the output of the benchmark is put.
 
 
 # TODO

@@ -16,6 +16,9 @@ impl <T> ConcurrentQueue<T> for AQueue<T> {
             queue: self,
         }
     }
+    fn get_id(&self) -> String {
+        return String::from("ArrayQueue")
+    }
 }
 
 impl<T> Handle<T> for AQueueHandle<'_, T>{

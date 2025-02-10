@@ -37,7 +37,9 @@ struct Args {
     #[arg(short, long, default_value_t = 10000)]
     queue_size: u32,
     #[arg(short, long, default_value_t = 1)]
-    delay_nanoseconds: u64
+    delay_nanoseconds: u64,
+    #[arg(long = "path", default_value_t = String::from("./output"))]
+    path_output: String 
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
@@ -54,7 +56,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         // if *is_one_socket {
         //     core = core_iter.next().unwrap();
         // }
-        let output_filename = String::from(format!("./output/mem{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
+        let output_filename = String::from(format!("/mem{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
         let mut memfile = OpenOptions::new()
             .append(true)
             .create(true)
@@ -76,13 +78,13 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             Ok(())
         });
     }
-    let output_filename = String::from(format!("./output/{}", Local::now().format("%Y%m%d%H%M%S").to_string()));
+    let output_filename = String::from(format!("{}/{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
         .open(&output_filename)?;
     // TODO: Create queue enum to support writing of queue type to file.
-    writeln!(file, "Throughput,Enqueues,Dequeues,Queue")?;
+    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype")?;
     for i in 0..args.iterations {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
@@ -237,15 +239,85 @@ where
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops)?;
+        writeln!(file, "{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
     }
 
     Ok(())
 }
 
+#[allow(dead_code)]
+fn benchmark_ping_pong<C> (cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
+where
+C: ConcurrentQueue<i32> ,
+    for<'a> &'a C: Send
+{
+    let time_limit: u64 = config.time_limit;
+    let barrier = Barrier::new(config.consumers + config.producers + 1);
+    let pops  = AtomicUsize::new(0);
+    let pushes = AtomicUsize::new(0);
+    let done = AtomicBool::new(false);
+    println!("Starting throughput benchmark with {} consumer and {} producers", config.consumers, config.producers);
+    
+    // get cores for fairness of threads
+    let available_cores: Vec<CoreId> =
+        core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
+        let mut core_iter = available_cores.into_iter().cycle();
+
+    let _ = std::thread::scope(|s| -> Result<(), std::io::Error>{
+        let queue = &cqueue;
+        let pushes = &pushes;
+        let pops = &pops;
+        let done = &done;
+        let barrier = &barrier;
+        let thread_count = config.consumers + config.producers;
+        let is_one_socket = &config.one_socket;
+
+        for _ in 0..thread_count{
+            let mut core : CoreId = core_iter.next().unwrap();
+            // if is_one_socket is true, make all thread ids even 
+            // (this was used for our testing enviroment to get one socket)
+            if *is_one_socket {
+                core = core_iter.next().unwrap();
+            }
+            // println!("{:?}", core);
+            s.spawn(move || {
+                core_affinity::set_for_current(core);
+                let mut handle = queue.register();
+                // push
+                let mut l_pushes = 0; 
+                barrier.wait();
+                while !done.load(Ordering::Relaxed) {
+                    handle.push(1);
+                    l_pushes += 1;
+                    std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
+                }
+                pushes.fetch_add(l_pushes, Ordering::Relaxed);
+            }); 
+        }
+        barrier.wait();
+        std::thread::sleep(std::time::Duration::from_secs(time_limit));
+        done.store(true, Ordering::Relaxed);
+        Ok(())
+    });
+    let pops = pops.into_inner();
+    let pushes = pushes.into_inner();
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&filename)?;
+    if config.human_readable {
+        writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
+        writeln!(file, "Number of pushes: {}\n", pushes)?;
+        writeln!(file, "Number of pops: {}\n", pops)?;
+    } else {
+        writeln!(file, "{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
+    }
+    Ok(())
+}
 
 pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl Handle<T>;
+    fn get_id(&self) -> String;
 }
 
 pub trait Handle<T> {

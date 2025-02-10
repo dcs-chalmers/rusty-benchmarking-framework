@@ -10,11 +10,13 @@ pub struct LFQueue<T> {
 }
 
 impl<T> ConcurrentQueue<T> for LFQueue<T> {
-    
     fn register(&self) -> impl Handle<T> {
         LFQueueHandle {
             queue: self,
         }
+    }
+    fn get_id(&self) -> String {
+        return String::from("Lockfree")
     }
 }
 

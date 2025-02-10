@@ -9,11 +9,13 @@ pub struct CQueue<T> {
 }
 
 impl<T> ConcurrentQueue<T> for CQueue<T> {
-    
     fn register(&self) -> impl Handle<T> {
         CQueueHandle {
             queue: self,
         }
+    }
+    fn get_id(&self) -> String {
+        return String::from("ConcurrentQueue")
     }
 }
 
