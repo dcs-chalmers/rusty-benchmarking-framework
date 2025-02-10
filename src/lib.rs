@@ -244,7 +244,7 @@ where
 
     Ok(())
 }
-
+/*
 #[allow(dead_code)]
 fn benchmark_ping_pong<C> (cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
 where
@@ -314,7 +314,7 @@ C: ConcurrentQueue<i32> ,
     }
     Ok(())
 }
-
+ */
 pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl Handle<T>;
     fn get_id(&self) -> String;
