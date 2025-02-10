@@ -62,7 +62,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         let _done = Arc::clone(&_done);
         mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
             
-            while !done.load(Ordering::Relaxed) {
+            while !_done.load(Ordering::Relaxed) {
                 // Update stats
                 if let Err(e) = epoch::advance() {
                     eprintln!("Error occured while advancing epoch: {}", e);
