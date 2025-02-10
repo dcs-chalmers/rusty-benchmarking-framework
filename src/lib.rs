@@ -56,7 +56,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         // if *is_one_socket {
         //     core = core_iter.next().unwrap();
         // }
-        let output_filename = String::from(format!("/mem{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
+        let output_filename = String::from(format!("/mem{}{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
         let mut memfile = OpenOptions::new()
             .append(true)
             .create(true)
