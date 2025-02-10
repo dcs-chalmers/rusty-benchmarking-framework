@@ -7,9 +7,7 @@ use jemalloc_ctl::{stats, epoch};
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-use std::{
-    sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc, Barrier}, thread::{self, JoinHandle},
-};
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Arc, Barrier};
 use chrono::Local;
 use core_affinity::CoreId;
 use clap::Parser;
@@ -44,9 +42,9 @@ struct Args {
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
-    let done = Arc::new(AtomicBool::new(false));
+    let _done = Arc::new(AtomicBool::new(false));
     #[cfg(feature = "memory_tracking")]
-    let mem_thread_handle: JoinHandle<_>;
+    let mem_thread_handle: std::sync::thread::JoinHandle<_>;
     #[cfg(feature = "memory_tracking")]
     {
         // TODO: Check if core stuff is possible here as well.
@@ -136,7 +134,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     }
     #[cfg(feature = "memory_tracking")]
     {
-        done.store(true, Ordering::Relaxed);
+        _done.store(true, Ordering::Relaxed);
         if let Err(e) = mem_thread_handle.join().unwrap() {
             eprintln!("Error joining memory tracking thread: {}", e);
         }
@@ -144,6 +142,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn benchmark_throughput<C>(cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
 where 
     C: ConcurrentQueue<i32> ,
@@ -161,7 +160,7 @@ where
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
         let mut core_iter = available_cores.into_iter().cycle();
 
-    let _ = thread::scope(|s| -> Result<(), std::io::Error>{
+    let _ = std::thread::scope(|s| -> Result<(), std::io::Error>{
         let queue = &cqueue;
         let pushes = &pushes;
         let pops = &pops;

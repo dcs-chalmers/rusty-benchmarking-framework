@@ -21,8 +21,8 @@ impl<T: Clone + Default> BRingBuffer<T> {
     }
 
     pub fn pop(&self) -> Option<T>{
-        let mut buf = self.bounded_ringbuffer.lock().unwrap();
-        let mut tail = self.tail.lock().unwrap();
+        let buf = self.bounded_ringbuffer.lock().unwrap();
+        let tail = self.tail.lock().unwrap();
         let mut head = self.head.lock().unwrap();
         let mut empty = self.empty.lock().unwrap();
 
