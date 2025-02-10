@@ -44,7 +44,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let _done = Arc::new(AtomicBool::new(false));
     #[cfg(feature = "memory_tracking")]
-    let mem_thread_handle: std::sync::thread::JoinHandle<_>;
+    let mem_thread_handle: std::thread::JoinHandle<_>;
     #[cfg(feature = "memory_tracking")]
     {
         // TODO: Check if core stuff is possible here as well.
@@ -59,8 +59,8 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             .append(true)
             .create(true)
             .open(&output_filename)?;
-        let done = Arc::clone(&done);
-        mem_thread_handle = thread::spawn(move|| -> Result<(), std::io::Error>{
+        let _done = Arc::clone(&_done);
+        mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
             
             while !done.load(Ordering::Relaxed) {
                 // Update stats
