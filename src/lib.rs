@@ -124,6 +124,15 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             };
             benchmark_throughput(test_q, &args, &output_filename)?;
         }
+        #[cfg(feature = "bounded_ringbuffer")]
+        {
+            use crate::queues::bounded_ringbuffer::{BRingBuffer, BoundedRingBuffer};
+            println!("Running benchmark on: Bounded ringbuffer");
+            let test_q: BoundedRingBuffer<i32> = BoundedRingBuffer {
+                brbuffer: BRingBuffer::new(args.queue_size as usize)
+            };
+            benchmark_throughput(test_q, &args, &output_filename)?;
+        }
     }
     #[cfg(feature = "memory_tracking")]
     {

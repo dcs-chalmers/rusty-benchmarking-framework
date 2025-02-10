@@ -34,11 +34,7 @@ impl<T: Clone + Default> BRingBuffer<T> {
         *head = (*head + 1) % self.capacity;
 
         *empty = *head == *tail;
-        /*
-        let item = buf[*head].clone();
-        *head = (*head + 1) % self.capacity;
-        *empty = false;
-        */
+        
         Some(item)
     }
 
@@ -157,5 +153,12 @@ mod tests{
         assert_eq!(buffer.pop(), Some(30));
         assert_eq!(buffer.pop(), None);
     }
+
+    #[test]
+    fn empty_pop(){
+        let buffer: BRingBuffer<i32> = BRingBuffer::new(5);
+        assert_eq!(buffer.pop(), None);
+    }
+
 
 }
