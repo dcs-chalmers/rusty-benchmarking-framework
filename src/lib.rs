@@ -13,6 +13,7 @@ use core_affinity::CoreId;
 use clap::Parser;
 use std::fs::OpenOptions;
 use std::io::Write;
+use rand::Rng;
 
 pub mod queues;
 
@@ -39,7 +40,10 @@ struct Args {
     #[arg(short, long, default_value_t = 1)]
     delay_nanoseconds: u64,
     #[arg(long = "path", default_value_t = String::from("./output"))]
-    path_output: String 
+    path_output: String,
+    #[arg(short,long,default_value_t = String::from("basic"))]
+    benchmark: String
+
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
@@ -56,7 +60,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         // if *is_one_socket {
         //     core = core_iter.next().unwrap();
         // }
-        let output_filename = String::from(format!("/mem{}{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
+        let output_filename = String::from(format!("{}/mem{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
         let mut memfile = OpenOptions::new()
             .append(true)
             .create(true)
@@ -83,8 +87,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .append(true)
         .create(true)
         .open(&output_filename)?;
-    // TODO: Create queue enum to support writing of queue type to file.
-    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype")?;
+    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark")?;
     for i in 0..args.iterations {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
@@ -96,7 +99,11 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             let test_q: LFQueue<i32> =  LFQueue {
                 lfq: lockfree::queue::Queue::new(),
             };
-            benchmark_throughput(test_q, &args, &output_filename)?;
+            match args.benchmark.as_str() {
+                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
+                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
+                _ => benchmark_throughput(test_q, &args, &output_filename)?,
+            }
         }
         #[cfg(feature = "basic_queue")]
         {
@@ -105,7 +112,11 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             let test_q: BasicQueue<i32> = BasicQueue {
                 bqueue: BQueue::new()
             };
-            benchmark_throughput(test_q, &args, &output_filename)?;
+            match args.benchmark.as_str() {
+                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
+                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
+                _ => benchmark_throughput(test_q, &args, &output_filename)?,
+            }
         }
         #[cfg(feature = "concurrent_queue")]
         {
@@ -113,7 +124,11 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             let test_q: queues::concurrent_queue::CQueue<i32> = queues::concurrent_queue::CQueue {
                 cq: concurrent_queue::ConcurrentQueue::bounded(args.queue_size as usize)
             };
-            benchmark_throughput(test_q, &args, &output_filename)?;
+            match args.benchmark.as_str() {
+                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
+                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
+                _ => benchmark_throughput(test_q, &args, &output_filename)?,
+            }
         }
         #[cfg(feature = "array_queue")]
         {
@@ -122,7 +137,11 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             let test_q: AQueue<i32> = AQueue{
                 array_queue: crossbeam::queue::ArrayQueue::new(args.queue_size as usize)
             };
-            benchmark_throughput(test_q, &args, &output_filename)?;
+            match args.benchmark.as_str() {
+                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
+                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
+                _ => benchmark_throughput(test_q, &args, &output_filename)?,
+            }
         }
         #[cfg(feature = "bounded_ringbuffer")]
         {
@@ -131,7 +150,11 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             let test_q: BoundedRingBuffer<i32> = BoundedRingBuffer {
                 brbuffer: BRingBuffer::new(args.queue_size as usize)
             };
-            benchmark_throughput(test_q, &args, &output_filename)?;
+            match args.benchmark.as_str() {
+                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
+                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
+                _ => benchmark_throughput(test_q, &args, &output_filename)?,
+            }
         }
     }
     #[cfg(feature = "memory_tracking")]
@@ -239,12 +262,12 @@ where
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
+        writeln!(file, "{},{},{},{},{},{},Basic Throughput",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
     }
 
     Ok(())
 }
-/*
+
 #[allow(dead_code)]
 fn benchmark_ping_pong<C> (cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
 where
@@ -256,7 +279,7 @@ C: ConcurrentQueue<i32> ,
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
-    println!("Starting throughput benchmark with {} consumer and {} producers", config.consumers, config.producers);
+    println!("Starting pingpong benchmark with {} threads", config.consumers + config.producers);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -283,15 +306,30 @@ C: ConcurrentQueue<i32> ,
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
-                // push
                 let mut l_pushes = 0; 
+                let mut l_pops = 0;
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
-                    handle.push(1);
-                    l_pushes += 1;
+                    let is_consumer = rand::rng().random::<bool>();
+                    if is_consumer {
+                        match handle.pop() {
+                            Some(_) => l_pops += 1,
+                            None => {
+                                if config.empty_pops {
+                                    l_pops += 1;
+                                }
+                            }
+                        }
+                    } else {
+                        handle.push(1);
+                        l_pushes += 1;
+                    }
                     std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
                 }
+
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
+                pops.fetch_add(l_pops, Ordering::Relaxed);
+                // println!("{}: Pushed: {}, Popped: {}", i, l_pushes, l_pops)
             }); 
         }
         barrier.wait();
@@ -310,11 +348,11 @@ C: ConcurrentQueue<i32> ,
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
+        writeln!(file, "{},{},{},{},{},{},PingPong",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
     }
     Ok(())
 }
- */
+
 pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl Handle<T>;
     fn get_id(&self) -> String;

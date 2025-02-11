@@ -11,6 +11,7 @@ core_affinity = "0.8.1"
 lockfree = { version = "0.5.1", optional = true }
 crossbeam = { version = "0.8", optional = true }
 jemalloc-ctl = {version = "0.5.4", optional = true}
+rand = "0.9.0"
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = "0.5.4"
