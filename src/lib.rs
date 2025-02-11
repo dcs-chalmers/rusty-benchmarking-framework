@@ -46,6 +46,21 @@ struct Args {
 
 }
 
+macro_rules! implement_benchmark {
+    ($feature:literal, $wrapper:ty, $desc:expr, $args:expr, $output_filename:expr) => {
+        #[cfg(feature = $feature)]
+        {
+            println!("Running benchmark on: {}", $desc);
+            let test_q: $wrapper = <$wrapper>::new($args.queue_size as usize);
+            match $args.benchmark.as_str() {
+                "basic" => benchmark_throughput(test_q, &$args, &$output_filename)?,
+                "pingpong" => benchmark_ping_pong(test_q, &$args, &$output_filename)?,
+                _ => benchmark_throughput(test_q, &$args, &$output_filename)?,
+            }
+        }
+    };
+}
+
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let _done = Arc::new(AtomicBool::new(false));
@@ -92,70 +107,31 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
         }
-        #[cfg(feature = "lockfree_queue")]
-        {
-            println!("Running benchmark on: lockfree::queue:Queue");
-            use crate::queues::lf_queue::LFQueue;
-            let test_q: LFQueue<i32> =  LFQueue {
-                lfq: lockfree::queue::Queue::new(),
-            };
-            match args.benchmark.as_str() {
-                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
-                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
-                _ => benchmark_throughput(test_q, &args, &output_filename)?,
-            }
-        }
-        #[cfg(feature = "basic_queue")]
-        {
-            use crate::queues::basic_queue::{BasicQueue, BQueue};
-            println!("Running benchmark on: Basic queue");
-            let test_q: BasicQueue<i32> = BasicQueue {
-                bqueue: BQueue::new()
-            };
-            match args.benchmark.as_str() {
-                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
-                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
-                _ => benchmark_throughput(test_q, &args, &output_filename)?,
-            }
-        }
-        #[cfg(feature = "concurrent_queue")]
-        {
-            println!("Running benchmark on: concurrent_queue::ConcurrentQueue");
-            let test_q: queues::concurrent_queue::CQueue<i32> = queues::concurrent_queue::CQueue {
-                cq: concurrent_queue::ConcurrentQueue::bounded(args.queue_size as usize)
-            };
-            match args.benchmark.as_str() {
-                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
-                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
-                _ => benchmark_throughput(test_q, &args, &output_filename)?,
-            }
-        }
-        #[cfg(feature = "array_queue")]
-        {
-            use crate::queues::array_queue::AQueue;
-            println!("Running benchmark on: crossbeam::queue::ArrayQueue");
-            let test_q: AQueue<i32> = AQueue{
-                array_queue: crossbeam::queue::ArrayQueue::new(args.queue_size as usize)
-            };
-            match args.benchmark.as_str() {
-                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
-                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
-                _ => benchmark_throughput(test_q, &args, &output_filename)?,
-            }
-        }
-        #[cfg(feature = "bounded_ringbuffer")]
-        {
-            use crate::queues::bounded_ringbuffer::{BRingBuffer, BoundedRingBuffer};
-            println!("Running benchmark on: Bounded ringbuffer");
-            let test_q: BoundedRingBuffer<i32> = BoundedRingBuffer {
-                brbuffer: BRingBuffer::new(args.queue_size as usize)
-            };
-            match args.benchmark.as_str() {
-                "basic" => benchmark_throughput(test_q, &args, &output_filename)?,
-                "pingpong" => benchmark_ping_pong(test_q, &args, &output_filename)?,
-                _ => benchmark_throughput(test_q, &args, &output_filename)?,
-            }
-        }
+        implement_benchmark!("lockfree_queue",
+            crate::queues::lf_queue::LFQueue<i32>,
+            "lockfree::queue:Queue",
+            args,
+            output_filename);
+        implement_benchmark!("basic_queue",
+            crate::queues::basic_queue::BasicQueue<i32>,
+            "Basic Queue",
+            args,
+            output_filename);
+        implement_benchmark!("concurrent_queue",
+            crate::queues::concurrent_queue::CQueue<i32>,
+            "concurrent_queue::ConcurrentQueue",
+            args,
+            output_filename);
+        implement_benchmark!("array_queue",
+            crate::queues::array_queue::AQueue<i32>,
+            "crossbeam::queue::ArrayQueue",
+            args,
+            output_filename);
+        implement_benchmark!("bounded_ringbuffer",
+            crate::queues::bounded_ringbuffer::BoundedRingBuffer<i32>,
+            "Bounded ringbuffer",
+            args,
+            output_filename);
     }
     #[cfg(feature = "memory_tracking")]
     {
@@ -356,6 +332,7 @@ C: ConcurrentQueue<i32> ,
 pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl Handle<T>;
     fn get_id(&self) -> String;
+    fn new(size: usize) -> Self;
 }
 
 pub trait Handle<T> {

@@ -17,6 +17,11 @@ impl<T> ConcurrentQueue<T> for CQueue<T> {
     fn get_id(&self) -> String {
         return String::from("ConcurrentQueue")
     }
+    fn new(size: usize) -> Self {
+        CQueue {
+            cq: concurrent_queue::ConcurrentQueue::bounded(size),
+        }
+    }
 }
 
 impl<T> Handle<T> for CQueueHandle<'_, T> {
