@@ -19,6 +19,11 @@ impl <T> ConcurrentQueue<T> for AQueue<T> {
     fn get_id(&self) -> String {
         return String::from("ArrayQueue")
     }
+    fn new(size: usize) -> Self {
+        AQueue {
+            array_queue: ArrayQueue::new(size),
+        }
+    }
 }
 
 impl<T> Handle<T> for AQueueHandle<'_, T>{

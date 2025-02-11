@@ -38,6 +38,11 @@ impl<T> ConcurrentQueue<T> for BasicQueue<T> {
     fn get_id(&self) -> String {
         return String::from("BasicQueue")
     }
+    fn new(_size: usize) -> Self {
+        BasicQueue {
+            bqueue: BQueue::new()
+        }
+    }
 }
 
 impl<T> Handle<T> for BasicQueueHandle<'_, T> {

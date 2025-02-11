@@ -18,6 +18,11 @@ impl<T> ConcurrentQueue<T> for LFQueue<T> {
     fn get_id(&self) -> String {
         return String::from("Lockfree")
     }
+    fn new(_size: usize) -> Self {
+        LFQueue {
+            lfq: lockfree::queue::Queue::new(),
+        }
+    }
 }
 
 impl<T> Handle<T> for LFQueueHandle<'_, T> {

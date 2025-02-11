@@ -78,7 +78,7 @@ impl<T> Handle<T> for BRingBufferHandle<'_, T>{
     } 
 } 
 
-impl <T>ConcurrentQueue<T> for BoundedRingBuffer<T>{
+impl <T: Clone + Default>ConcurrentQueue<T> for BoundedRingBuffer<T>{
     fn register(&self) -> impl Handle<T>{
         BRingBufferHandle::<T> {
             queue: self,
@@ -86,6 +86,11 @@ impl <T>ConcurrentQueue<T> for BoundedRingBuffer<T>{
     }
     fn get_id(&self) -> String {
         return String::from("BoundedRingbuffer")
+    }
+    fn new(size: usize) -> Self {
+        BoundedRingBuffer {
+            brbuffer: BRingBuffer::new(size),
+        } 
     }
 }
 
