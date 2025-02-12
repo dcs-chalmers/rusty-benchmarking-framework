@@ -18,15 +18,6 @@ use std::io::Write;
 pub mod queues;
 pub mod benchmarks;
 
-#[allow(dead_code)]
-enum QueueName {
-    Basic,
-    Array,
-    Ringbuffer,
-    Concurrent,
-    Lockfree,
-}
-
 // TODO: Add thread count option for pingpong, instead of relying on 
 // consumers/producers flags.
 #[derive(Parser, Debug)]
