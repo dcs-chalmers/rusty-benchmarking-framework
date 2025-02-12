@@ -1,31 +1,11 @@
+// TODO: Write tests for this module.
 use core_affinity::CoreId;
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
+use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
 use crate::{ConcurrentQueue, Args, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
 
-/// # Explanation:
-/// A macro used to add your queue to the benchmark.
-/// * `$feature:&str` - The name of the queue/feature.
-/// * `$wrapper` - The queue type. Queue must implement `ConcurrentQueue` trait.
-/// * `$desc` - A description to be printed when the queue gets benchmarked.
-/// * `$args` - The argument struct created by clap.
-/// * `$output_filename` - Name of the file to be written to.
-#[macro_export]
-macro_rules! implement_benchmark {
-    ($feature:literal, $wrapper:ty, $desc:expr, $args:expr, $output_filename:expr, $benchmark_id:expr) => {
-        #[cfg(feature = $feature)]
-        {
-            println!("Running benchmark on: {}", $desc);
-            let test_q: $wrapper = <$wrapper>::new($args.queue_size as usize);
-            match $args.benchmark {
-                Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, &$args, &$output_filename, &$benchmark_id)?,
-                Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, &$args, &$output_filename, &$benchmark_id)?,
-            }
-        }
-    };
-}
 /// Possible benchmark types.
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
 pub enum Benchmarks {
@@ -36,22 +16,118 @@ pub enum Benchmarks {
     PingPong
 }
 
+impl Display for Benchmarks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Benchmarks::Basic => write!(f, "Basic"),
+            Benchmarks::PingPong => write!(f, "PingPong"),
+        }
+    }
+}
+
+/// Benchmark config struct
+/// Needs to be fully filled for benchmarks to be able to run.
+pub struct BenchConfig {
+    pub args: Args,
+    pub date_time: String,
+    pub benchmark_id: String,
+    pub output_filename: String,
+}
+
+
+/// # Explanation:
+/// A macro used to add your queue to the benchmark.
+/// * `$feature:&str` - The name of the queue/feature.
+/// * `$wrapper` - The queue type. Queue must implement `ConcurrentQueue` trait.
+/// * `$desc` - A description to be printed when the queue gets benchmarked.
+/// * `$bench_conf` - The benchmark config struct.
+#[macro_export]
+macro_rules! implement_benchmark {
+    ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
+        #[cfg(feature = $feature)]
+        {
+            use std::sync::{atomic::AtomicBool, Arc};
+
+            println!("Running benchmark on: {}", $desc);
+            let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
+
+//////////////////////////////////// MEMORY TRACKING ///////////////////////////
+            #[cfg(feature = "memory_tracking")]
+            let _done = Arc::new(AtomicBool::new(false));
+            #[cfg(feature = "memory_tracking")]
+            let mem_thread_handle: std::thread::JoinHandle<_>;
+            #[cfg(feature = "memory_tracking")]
+            {
+                use std::sync::atomic::Ordering;
+                // TODO: Check if core stuff is possible here as well.
+                // let mut core : CoreId = core_iter.next().unwrap();
+                // if is_one_socket is true, make all thread ids even 
+                // (this was used for our testing enviroment to get one socket)
+                // if *is_one_socket {
+                //     core = core_iter.next().unwrap();
+                // }
+                let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
+                let mut memfile = OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(&output_filename)?;
+                writeln!(memfile, "Memory Allocated,Queuetype,Benchmark,Test ID")?;
+                let _done = Arc::clone(&_done);
+                let benchmark_id = $bench_conf.benchmark_id.clone();
+                let queue_type = test_q.get_id();
+                let bench_type = $bench_conf.args.benchmark; 
+                mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
+                    while !_done.load(Ordering::Relaxed) {
+                        // Update stats
+                        if let Err(e) = epoch::advance() {
+                            eprintln!("Error occured while advancing epoch: {}", e);
+                        }
+                        // Get allocated bytes
+                        let allocated = stats::allocated::read().unwrap();
+                        writeln!(memfile, "{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id)?;
+
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                    Ok(())
+                });
+            }
+////////////////////////////////////// MEMORY END //////////////////////////////
+            
+            match $bench_conf.args.benchmark {
+                Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
+                Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+            }
+
+//////////////////////////////////// MEMORY TRACKING ///////////////////////////
+            #[cfg(feature = "memory_tracking")]
+            {
+                use std::sync::atomic::Ordering;
+                _done.store(true, Ordering::Relaxed);
+                if let Err(e) = mem_thread_handle.join().unwrap() {
+                    eprintln!("Error joining memory tracking thread: {}", e);
+                }
+            }  
+////////////////////////////////////// MEMORY END //////////////////////////////
+        }
+    };
+}
+
 /// # Explanation:
 /// A simple benchmark that measures the throughput of a queue.
 /// Has by default a 1ns delay between each operation, but this can be changed
 /// through flags passed to the program.
 #[allow(dead_code)]
-pub fn benchmark_throughput<C>(cqueue: C, config: &Args, filename: &String, benchmark_id: &String) -> Result<(), std::io::Error>
+pub fn benchmark_throughput<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
     C: ConcurrentQueue<i32> ,
     for<'a> &'a C: Send
 {
-    let time_limit: u64 = config.time_limit;
-    let barrier = Barrier::new(config.consumers + config.producers + 1);
+    let time_limit: u64 = bench_conf.args.time_limit;
+    let barrier = Barrier::new(bench_conf.args.consumers + bench_conf.args.producers + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
-    println!("Starting throughput benchmark with {} consumer and {} producers", config.consumers, config.producers);
+    println!("Starting throughput benchmark with {} consumer and {} producers", bench_conf.args.consumers, bench_conf.args.producers);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -64,9 +140,9 @@ where
         let pops = &pops;
         let done = &done;
         let barrier = &barrier;
-        let consumers = &config.consumers;
-        let producers = &config.producers;
-        let is_one_socket = &config.one_socket;
+        let consumers = &bench_conf.args.consumers;
+        let producers = &bench_conf.args.producers;
+        let is_one_socket = &bench_conf.args.one_socket;
 
         for _ in 0..*producers{
             let mut core : CoreId = core_iter.next().unwrap();
@@ -85,7 +161,7 @@ where
                 while !done.load(Ordering::Relaxed) {
                     handle.push(1);
                     l_pushes += 1;
-                    std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
+                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
             }); 
@@ -108,12 +184,12 @@ where
                     match handle.pop() {
                         Some(_) => l_pops += 1,
                         None => {
-                            if config.empty_pops {
+                            if bench_conf.args.empty_pops {
                                 l_pops += 1;
                             }
                         }
                     }
-                    std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
+                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
 
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
@@ -129,30 +205,30 @@ where
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
-        .open(&filename)?;
-    if config.human_readable {
+        .open(&bench_conf.output_filename)?;
+    if bench_conf.args.human_readable {
         writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{},{},{},{},Basic,{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id(), benchmark_id)?;
+        writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
     }
 
     Ok(())
 }
 
 #[allow(dead_code)]
-pub fn benchmark_ping_pong<C> (cqueue: C, config: &Args, filename: &String, benchmark_id: &String) -> Result<(), std::io::Error>
+pub fn benchmark_ping_pong<C> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where
 C: ConcurrentQueue<i32> ,
     for<'a> &'a C: Send
 {
-    let time_limit: u64 = config.time_limit;
-    let barrier = Barrier::new(config.consumers + config.producers + 1);
+    let time_limit: u64 = bench_conf.args.time_limit;
+    let barrier = Barrier::new(bench_conf.args.consumers + bench_conf.args.producers + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
-    println!("Starting pingpong benchmark with {} threads", config.consumers + config.producers);
+    println!("Starting pingpong benchmark with {} threads", bench_conf.args.consumers + bench_conf.args.producers);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -165,8 +241,8 @@ C: ConcurrentQueue<i32> ,
         let pops = &pops;
         let done = &done;
         let barrier = &barrier;
-        let thread_count = config.consumers + config.producers;
-        let is_one_socket = &config.one_socket;
+        let thread_count = bench_conf.args.consumers + bench_conf.args.producers;
+        let is_one_socket = &bench_conf.args.one_socket;
 
         for _i in 0..thread_count{
             let mut core : CoreId = core_iter.next().unwrap();
@@ -184,11 +260,11 @@ C: ConcurrentQueue<i32> ,
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
                     let random_float = rand::rng().random::<f64>();
-                    if random_float > config.spread {
+                    if random_float > bench_conf.args.spread {
                         match handle.pop() {
                             Some(_) => l_pops += 1,
                             None => {
-                                if config.empty_pops {
+                                if bench_conf.args.empty_pops {
                                     l_pops += 1;
                                 }
                             }
@@ -197,12 +273,12 @@ C: ConcurrentQueue<i32> ,
                         handle.push(1);
                         l_pushes += 1;
                     }
-                    std::thread::sleep(std::time::Duration::from_nanos(config.delay_nanoseconds));
+                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
                 }
 
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 pops.fetch_add(l_pops, Ordering::Relaxed);
-                if config.human_readable {
+                if bench_conf.args.human_readable {
                     println!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
                 }
             }); 
@@ -217,13 +293,13 @@ C: ConcurrentQueue<i32> ,
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
-        .open(&filename)?;
-    if config.human_readable {
+        .open(&bench_conf.output_filename)?;
+    if bench_conf.args.human_readable {
         writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{},{},{},{},PingPong,{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id(), benchmark_id)?;
+        writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
     }
     Ok(())
 }
