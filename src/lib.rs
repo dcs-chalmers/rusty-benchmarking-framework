@@ -15,33 +15,52 @@ use std::io::Write;
 pub mod queues;
 pub mod benchmarks;
 
+
+
+// TODO: Add thread count option for pingpong, instead of relying on 
+// consumers/producers flags.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    // Duration of test
+    /// Duration of each benchmark
     #[arg(short, long, default_value_t = 10)]
     time_limit: u64,
-    // Amount of producers to be used for basic throughput test.
+    /// Amount of producers to be used for basic throughput test.
     #[arg(short, long, default_value_t = 20)]
     producers: usize,
+    /// Amount of consumers to be used for basic throughput test.
     #[arg(short, long, default_value_t = 20)]
     consumers: usize,
+    /// Attemps to only use on socket. Specific for the developers test environment.
     #[arg(short, long, default_value_t = true)]
     one_socket: bool,
+    /// How many times the chosen benchmark should be run.
     #[arg(short, long, default_value_t = 1)]
     iterations: u32,
+    /// Count empty pop operations. Off by default.
     #[arg(short, long, default_value_t = false)]
     empty_pops: bool,
+    /// Make the output of the benchmark human readable.
     #[arg(long, default_value_t = false)]
     human_readable: bool,
+    /// Set the size of the bounded queues.
     #[arg(short, long, default_value_t = 10000)]
     queue_size: u32,
+    /// Set the delay between operations. Default is 1ns.
     #[arg(short, long, default_value_t = 1)]
     delay_nanoseconds: u64,
+    /// Set the output path for the result files.
     #[arg(long = "path", default_value_t = String::from("./output"))]
     path_output: String,
+    // TODO: Check if the benchmark flag can use an enum.
+
+    /// Choose which benchmark to run. Either "basic" or "pingpong".
     #[arg(short,long,default_value_t = String::from("basic"))]
-    benchmark: String
+    benchmark: String,
+    /// Decide the spread of producers/consumers for the pingpong benchmark.
+    /// Ex. 0.3 means 30% produce 70% consume.
+    #[arg(long = "spread", default_value_t = 0.5)]
+    spread: f64,
 
 }
 

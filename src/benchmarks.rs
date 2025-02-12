@@ -11,7 +11,7 @@ use std::io::Write;
 /// * `$wrapper` - The queue type. Queue must implement `ConcurrentQueue` trait.
 /// * `$desc` - A description to be printed when the queue gets benchmarked.
 /// * `$args` - The argument struct created by clap.
-/// * `$output_filename` - Name of the file to be written to. TODO: Remove this
+/// * `$output_filename` - Name of the file to be written to.
 #[macro_export]
 macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $desc:expr, $args:expr, $output_filename:expr) => {
@@ -160,7 +160,7 @@ C: ConcurrentQueue<i32> ,
         let thread_count = config.consumers + config.producers;
         let is_one_socket = &config.one_socket;
 
-        for _ in 0..thread_count{
+        for _i in 0..thread_count{
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
             // (this was used for our testing enviroment to get one socket)
@@ -175,8 +175,8 @@ C: ConcurrentQueue<i32> ,
                 let mut l_pops = 0;
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
-                    let is_consumer = rand::rng().random::<bool>();
-                    if is_consumer {
+                    let random_float = rand::rng().random::<f64>();
+                    if random_float > config.spread {
                         match handle.pop() {
                             Some(_) => l_pops += 1,
                             None => {
@@ -194,7 +194,9 @@ C: ConcurrentQueue<i32> ,
 
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 pops.fetch_add(l_pops, Ordering::Relaxed);
-                // println!("{}: Pushed: {}, Popped: {}", i, l_pushes, l_pops)
+                if config.human_readable {
+                    println!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
+                }
             }); 
         }
         barrier.wait();
