@@ -14,14 +14,14 @@ use std::io::Write;
 /// * `$output_filename` - Name of the file to be written to.
 #[macro_export]
 macro_rules! implement_benchmark {
-    ($feature:literal, $wrapper:ty, $desc:expr, $args:expr, $output_filename:expr) => {
+    ($feature:literal, $wrapper:ty, $desc:expr, $args:expr, $output_filename:expr, $benchmark_id:expr) => {
         #[cfg(feature = $feature)]
         {
             println!("Running benchmark on: {}", $desc);
             let test_q: $wrapper = <$wrapper>::new($args.queue_size as usize);
             match $args.benchmark {
-                Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, &$args, &$output_filename)?,
-                Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, &$args, &$output_filename)?,
+                Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, &$args, &$output_filename, &$benchmark_id)?,
+                Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, &$args, &$output_filename, &$benchmark_id)?,
             }
         }
     };
@@ -41,7 +41,7 @@ pub enum Benchmarks {
 /// Has by default a 1ns delay between each operation, but this can be changed
 /// through flags passed to the program.
 #[allow(dead_code)]
-pub fn benchmark_throughput<C>(cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
+pub fn benchmark_throughput<C>(cqueue: C, config: &Args, filename: &String, benchmark_id: &String) -> Result<(), std::io::Error>
 where 
     C: ConcurrentQueue<i32> ,
     for<'a> &'a C: Send
@@ -135,14 +135,14 @@ where
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{},{},{},{},Basic Throughput",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
+        writeln!(file, "{},{},{},{},{},{},Basic,{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id(), benchmark_id)?;
     }
 
     Ok(())
 }
 
 #[allow(dead_code)]
-pub fn benchmark_ping_pong<C> (cqueue: C, config: &Args, filename: &String) -> Result<(), std::io::Error>
+pub fn benchmark_ping_pong<C> (cqueue: C, config: &Args, filename: &String, benchmark_id: &String) -> Result<(), std::io::Error>
 where
 C: ConcurrentQueue<i32> ,
     for<'a> &'a C: Send
@@ -223,7 +223,7 @@ C: ConcurrentQueue<i32> ,
         writeln!(file, "Number of pushes: {}\n", pushes)?;
         writeln!(file, "Number of pops: {}\n", pops)?;
     } else {
-        writeln!(file, "{},{},{},{},{},{},PingPong",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id())?;
+        writeln!(file, "{},{},{},{},{},{},PingPong,{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, config.consumers, config.producers, cqueue.get_id(), benchmark_id)?;
     }
     Ok(())
 }

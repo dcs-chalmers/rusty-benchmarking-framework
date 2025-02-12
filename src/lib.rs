@@ -7,16 +7,27 @@ use jemalloc_ctl::{stats, epoch};
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
+use std::fmt::Display;
 use std::sync::{atomic::AtomicBool, Arc};
 use chrono::Local;
 use clap::Parser;
 use std::fs::OpenOptions;
 use std::io::Write;
 use crate::benchmarks::Benchmarks;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
 pub mod queues;
 pub mod benchmarks;
 
-
+#[allow(dead_code)]
+enum QueueName {
+    Basic,
+    Array,
+    Ringbuffer,
+    Concurrent,
+    Lockfree,
+}
 
 // TODO: Add thread count option for pingpong, instead of relying on 
 // consumers/producers flags.
@@ -66,6 +77,12 @@ pub struct Args {
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let _done = Arc::new(AtomicBool::new(false));
+    let date_time = Local::now().format("%Y%m%d%H%M%S").to_string();
+    let benchmark_id = {
+        let mut hasher = DefaultHasher::new();
+        date_time.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    };
     #[cfg(feature = "memory_tracking")]
     let mem_thread_handle: std::thread::JoinHandle<_>;
     #[cfg(feature = "memory_tracking")]
@@ -78,14 +95,16 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         // if *is_one_socket {
         //     core = core_iter.next().unwrap();
         // }
-        let output_filename = String::from(format!("{}/mem{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
+        let output_filename = String::from(format!("{}/mem{}", args.path_output, date_time));
         let mut memfile = OpenOptions::new()
             .append(true)
             .create(true)
             .open(&output_filename)?;
+        writeln!(memfile, "Memory Allocated,Queuetype,Test ID")?;
         let _done = Arc::clone(&_done);
+        let benchmark_id = benchmark_id.clone();
         mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
-            
+            let queue_type = get_queuetype(); 
             while !_done.load(Ordering::Relaxed) {
                 // Update stats
                 if let Err(e) = epoch::advance() {
@@ -93,19 +112,19 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
                 }
                 // Get allocated bytes
                 let allocated = stats::allocated::read().unwrap();
-                writeln!(memfile, "{}", allocated)?;
+                writeln!(memfile, "{},{},{}", allocated,queue_type, &benchmark_id)?;
 
                 std::thread::sleep(std::time::Duration::from_millis(50));
             }
             Ok(())
         });
     }
-    let output_filename = String::from(format!("{}/{}", args.path_output, Local::now().format("%Y%m%d%H%M%S").to_string()));
+    let output_filename = String::from(format!("{}/{}", args.path_output, date_time));
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
         .open(&output_filename)?;
-    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark")?;
+    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID")?;
     for i in 0..args.iterations {
         if args.human_readable {
             writeln!(file, "Results from iteration {}:", i)?;
@@ -114,27 +133,32 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::lf_queue::LFQueue<i32>,
             "lockfree::queue:Queue",
             args,
-            output_filename);
+            output_filename,
+            &benchmark_id);
         implement_benchmark!("basic_queue",
             crate::queues::basic_queue::BasicQueue<i32>,
             "Basic Queue",
             args,
-            output_filename);
+            output_filename,
+            &benchmark_id);
         implement_benchmark!("concurrent_queue",
             crate::queues::concurrent_queue::CQueue<i32>,
             "concurrent_queue::ConcurrentQueue",
             args,
-            output_filename);
+            output_filename,
+            &benchmark_id);
         implement_benchmark!("array_queue",
             crate::queues::array_queue::AQueue<i32>,
             "crossbeam::queue::ArrayQueue",
             args,
-            output_filename);
+            output_filename,
+            &benchmark_id);
         implement_benchmark!("bounded_ringbuffer",
             crate::queues::bounded_ringbuffer::BoundedRingBuffer<i32>,
             "Bounded ringbuffer",
             args,
-            output_filename);
+            output_filename,
+            &benchmark_id);
     }
     #[cfg(feature = "memory_tracking")]
     {
@@ -145,6 +169,41 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         }
     }  
     Ok(())
+}
+
+impl Display for QueueName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueueName::Basic        => write!(f, "BasicQueue"),
+            QueueName::Array        => write!(f, "ArrayQueue"),
+            QueueName::Ringbuffer   => write!(f, "BoundedRingbuffer"),
+            QueueName::Concurrent   => write!(f, "ConcurrentQueue"),
+            QueueName::Lockfree     => write!(f, "Lockfree"),
+        }
+    }
+}
+
+fn get_queuetype() -> QueueName {
+    #[cfg(feature = "basic_queue")]
+    {
+        return QueueName::Basic;
+    }
+    #[cfg(feature = "array_queue")]
+    {
+        return QueueName::Array;
+    }
+    #[cfg(feature = "bounded_ringbuffer")]
+    {
+        return QueueName::Ringbuffer;
+    }
+    #[cfg(feature = "concurrent_queue")]
+    {
+        return QueueName::Concurrent;
+    }
+    #[cfg(feature = "lockfree_queue")]
+    {
+        return QueueName::Lockfree;
+    }
 }
 
 pub trait ConcurrentQueue<T> {
