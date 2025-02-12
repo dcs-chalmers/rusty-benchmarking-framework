@@ -53,8 +53,6 @@ pub struct Args {
     /// Set the output path for the result files.
     #[arg(long = "path", default_value_t = String::from("./output"))]
     path_output: String,
-    // TODO: Check if the benchmark flag can use an enum.
-
     /// Choose which benchmark to run.
     #[arg(value_enum)]
     benchmark: Benchmarks,
