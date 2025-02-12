@@ -46,14 +46,12 @@ macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
-            use std::sync::{atomic::AtomicBool, Arc};
-
             println!("Running benchmark on: {}", $desc);
             let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
             #[cfg(feature = "memory_tracking")]
-            let _done = Arc::new(AtomicBool::new(false));
+            let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
             #[cfg(feature = "memory_tracking")]
             let mem_thread_handle: std::thread::JoinHandle<_>;
             #[cfg(feature = "memory_tracking")]
@@ -66,16 +64,25 @@ macro_rules! implement_benchmark {
                 // if *is_one_socket {
                 //     core = core_iter.next().unwrap();
                 // }
-                let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
-                let mut memfile = OpenOptions::new()
-                    .append(true)
-                    .create(true)
-                    .open(&output_filename)?;
-                writeln!(memfile, "Memory Allocated,Queuetype,Benchmark,Test ID")?;
-                let _done = Arc::clone(&_done);
+                let _done = std::sync::Arc::clone(&_done);
                 let benchmark_id = $bench_conf.benchmark_id.clone();
                 let queue_type = test_q.get_id();
                 let bench_type = $bench_conf.args.benchmark; 
+                let to_stdout = $bench_conf.args.write_to_stdout;
+
+                let mut memfile = if !to_stdout {
+                    let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
+                    let mut file = OpenOptions::new()
+                        .append(true)
+                        .create(true)
+                        .open(&output_filename)?;
+                    writeln!(file, "Memory Allocated,Queuetype,Benchmark,Test ID")?;
+                    Some(file)
+                } else {
+                    println!("Memory Allocated,Queuetype,Benchmark,Test ID");
+                    None
+                };
+
                 mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
                     while !_done.load(Ordering::Relaxed) {
                         // Update stats
@@ -84,7 +91,13 @@ macro_rules! implement_benchmark {
                         }
                         // Get allocated bytes
                         let allocated = stats::allocated::read().unwrap();
-                        writeln!(memfile, "{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id)?;
+
+                        let output = format!("{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id);
+                        
+                        match &mut memfile {
+                            Some(file) => writeln!(file, "{}", output)?,
+                            None => println!("{}", output),
+                        }
 
                         std::thread::sleep(std::time::Duration::from_millis(50));
                     }
@@ -202,16 +215,20 @@ where
     });
     let pops = pops.into_inner();
     let pushes = pushes.into_inner();
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(&bench_conf.output_filename)?;
-    if bench_conf.args.human_readable {
-        writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
-        writeln!(file, "Number of pushes: {}\n", pushes)?;
-        writeln!(file, "Number of pops: {}\n", pops)?;
+    if !bench_conf.args.write_to_stdout {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_conf.output_filename)?;
+        if bench_conf.args.human_readable {
+            writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
+            writeln!(file, "Number of pushes: {}\n", pushes)?;
+            writeln!(file, "Number of pops: {}\n", pops)?;
+        } else {
+            writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
+        }
     } else {
-        writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
+        println!("{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id);
     }
 
     Ok(())
@@ -290,16 +307,28 @@ C: ConcurrentQueue<i32> ,
     });
     let pops = pops.into_inner();
     let pushes = pushes.into_inner();
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(&bench_conf.output_filename)?;
-    if bench_conf.args.human_readable {
-        writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
-        writeln!(file, "Number of pushes: {}\n", pushes)?;
-        writeln!(file, "Number of pops: {}\n", pops)?;
+    if !bench_conf.args.write_to_stdout {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_conf.output_filename)?;
+        if bench_conf.args.human_readable {
+            writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
+            writeln!(file, "Number of pushes: {}\n", pushes)?;
+            writeln!(file, "Number of pops: {}\n", pops)?;
+        } else {
+            writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
+        }
     } else {
-        writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
+        println!("{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id);
     }
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
 }

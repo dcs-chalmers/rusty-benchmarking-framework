@@ -60,6 +60,8 @@ pub struct Args {
     /// Ex. 0.3 means 30% produce 70% consume.
     #[arg(long = "spread", default_value_t = 0.5)]
     spread: f64,
+    #[arg(long ="write-stdout", default_value_t = false)]
+    write_to_stdout: bool
 
 }
 
