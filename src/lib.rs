@@ -12,6 +12,7 @@ use chrono::Local;
 use clap::Parser;
 use std::fs::OpenOptions;
 use std::io::Write;
+use crate::benchmarks::Benchmarks;
 pub mod queues;
 pub mod benchmarks;
 
@@ -54,9 +55,9 @@ pub struct Args {
     path_output: String,
     // TODO: Check if the benchmark flag can use an enum.
 
-    /// Choose which benchmark to run. Either "basic" or "pingpong".
-    #[arg(short,long,default_value_t = String::from("basic"))]
-    benchmark: String,
+    /// Choose which benchmark to run.
+    #[arg(value_enum)]
+    benchmark: Benchmarks,
     /// Decide the spread of producers/consumers for the pingpong benchmark.
     /// Ex. 0.3 means 30% produce 70% consume.
     #[arg(long = "spread", default_value_t = 0.5)]

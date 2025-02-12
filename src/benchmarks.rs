@@ -19,13 +19,21 @@ macro_rules! implement_benchmark {
         {
             println!("Running benchmark on: {}", $desc);
             let test_q: $wrapper = <$wrapper>::new($args.queue_size as usize);
-            match $args.benchmark.as_str() {
-                "basic" => crate::benchmarks::benchmark_throughput(test_q, &$args, &$output_filename)?,
-                "pingpong" => crate::benchmarks::benchmark_ping_pong(test_q, &$args, &$output_filename)?,
-                _ => crate::benchmarks::benchmark_throughput(test_q, &$args, &$output_filename)?,
+            match $args.benchmark {
+                Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, &$args, &$output_filename)?,
+                Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, &$args, &$output_filename)?,
             }
         }
     };
+}
+/// Possible benchmark types.
+#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+pub enum Benchmarks {
+    /// Basic throughput test. Decide amount of producers and consumers using flags.
+    Basic,
+    /// A test where each thread performs both consume and produce based on a random floating point
+    /// value. Spread is decided using the `--spread` flag.
+    PingPong
 }
 
 /// # Explanation:
