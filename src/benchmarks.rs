@@ -328,7 +328,100 @@ C: ConcurrentQueue<i32> ,
 
 #[cfg(test)]
 mod tests {
+    use crate::queues::basic_queue::{BQueue, BasicQueue};
+
     use super::*;
+    
+    #[test]
+    fn run_basic() {
+        let args = Args {
+            time_limit: 1,
+            producers: 5,
+            consumers: 5,
+            one_socket: true,
+            iterations: 1,
+            empty_pops: false,
+            human_readable: false,
+            queue_size: 10000,
+            delay_nanoseconds: 1,
+            path_output: "".to_string(),
+            benchmark: Benchmarks::Basic,
+            spread: 0.5,
+            write_to_stdout: true,
+        };
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test1".to_string(),
+            output_filename: "".to_string()
+        };
+        let basic_queue: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        if let Err(_) = benchmark_throughput(basic_queue, &bench_conf) {
+            panic!();
+        }
+    }
+    #[test]
+    fn run_pingpong() {
+        let args = Args {
+            time_limit: 1,
+            producers: 5,
+            consumers: 5,
+            one_socket: true,
+            iterations: 1,
+            empty_pops: false,
+            human_readable: false,
+            queue_size: 10000,
+            delay_nanoseconds: 1,
+            path_output: "".to_string(),
+            benchmark: Benchmarks::Basic,
+            spread: 0.5,
+            write_to_stdout: true,
+        };
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        let basic_queue: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        if let Err(_) = benchmark_ping_pong(basic_queue, &bench_conf) {
+            panic!();
+        }
+    }
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn test_macro() -> Result<(), std::io::Error> {
+        use jemalloc_ctl::{stats, epoch};
 
-
+        let args = Args {
+            time_limit: 1,
+            producers: 5,
+            consumers: 5,
+            one_socket: true,
+            iterations: 1,
+            empty_pops: false,
+            human_readable: false,
+            queue_size: 10000,
+            delay_nanoseconds: 1,
+            path_output: "".to_string(),
+            benchmark: Benchmarks::Basic,
+            spread: 0.5,
+            write_to_stdout: true,
+        };
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        implement_benchmark!("basic_queue",
+            BasicQueue<i32>,
+            "Testing macro",
+            &bench_conf);
+        Ok(())
+    }
 }
