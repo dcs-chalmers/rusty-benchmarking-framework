@@ -108,6 +108,14 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::bounded_ringbuffer::BoundedRingBuffer<i32>,
             "Bounded ringbuffer",
             &bench_conf);
+        implement_benchmark!("atomic_queue",
+            crate::queues::atomic_queue::AtomicQueue<i32>,
+            "atomic_queue::bounded",
+            &bench_conf);
+        implement_benchmark!("scc_queue",
+            crate::queues::scc_queue::SCCQueue<i32>,
+            "scc:Queue",
+            &bench_conf)
     }
     Ok(())
 }

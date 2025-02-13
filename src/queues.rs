@@ -8,3 +8,11 @@ pub mod concurrent_queue;
 pub mod array_queue;
 #[cfg(feature = "bounded_ringbuffer")]
 pub mod bounded_ringbuffer;
+// #[cfg(feature = "delay_queue")]
+// pub mod delay_queue;
+// #[cfg(feature = "chute_queue")]
+// pub mod chute_queue;
+#[cfg(feature = "atomic_queue")]
+pub mod atomic_queue;
+#[cfg(feature = "scc_queue")]
+pub mod scc_queue;
