@@ -63,7 +63,7 @@ pub struct Args {
     write_to_stdout: bool,
     /// Set the thread count for the pingpong benchmark.
     #[arg(long = "thread-count", default_value_t = 20)]
-    thread_count: u32,
+    thread_count: usize,
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {

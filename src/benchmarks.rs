@@ -241,7 +241,7 @@ C: ConcurrentQueue<i32> ,
     for<'a> &'a C: Send
 {
     let time_limit: u64 = bench_conf.args.time_limit;
-    let barrier = Barrier::new(bench_conf.args.consumers + bench_conf.args.producers + 1);
+    let barrier = Barrier::new(bench_conf.args.thread_count + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
@@ -348,6 +348,7 @@ mod tests {
             benchmark: Benchmarks::Basic,
             spread: 0.5,
             write_to_stdout: true,
+            thread_count: 20,
         };
         let bench_conf = BenchConfig {
             args,
@@ -378,6 +379,7 @@ mod tests {
             benchmark: Benchmarks::Basic,
             spread: 0.5,
             write_to_stdout: true,
+            thread_count: 20,
         };
         let bench_conf = BenchConfig {
             args,
@@ -411,6 +413,7 @@ mod tests {
             benchmark: Benchmarks::Basic,
             spread: 0.5,
             write_to_stdout: true,
+            thread_count: 20,
         };
         let bench_conf = BenchConfig {
             args,
