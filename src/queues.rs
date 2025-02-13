@@ -1,5 +1,5 @@
 #[cfg(feature = "lockfree_queue")]
-pub mod lf_queue;
+pub mod lockfree_queue;
 #[cfg(feature = "basic_queue")]
 pub mod basic_queue;
 #[cfg(feature = "concurrent_queue")]
@@ -16,3 +16,10 @@ pub mod bounded_ringbuffer;
 pub mod atomic_queue;
 #[cfg(feature = "scc_queue")]
 pub mod scc_queue;
+#[cfg(feature = "scc2_queue")]
+pub mod scc2_queue;
+#[cfg(feature = "lf_queue")]
+pub mod lf_queue;
+#[cfg(feature = "wfqueue")]
+pub mod wfqueue;
+

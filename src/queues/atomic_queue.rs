@@ -33,3 +33,25 @@ impl<T> Handle<T> for AtomicQueueHandle<'_, T> {
         self.queue.queue.pop()
     }
 }
+
+
+ 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_atomic_queue() {
+        let q: AtomicQueue<i32> = AtomicQueue::new(1000);
+        q.queue.push(1);
+        assert_eq!(q.queue.pop().unwrap(), 1);
+    }
+    #[test]
+    fn register_atomic_queue() {
+        let q: AtomicQueue<i32> = AtomicQueue::new(1000);
+        let mut handle = q.register();
+        handle.push(1);
+        assert_eq!(handle.pop().unwrap(), 1);
+
+    }
+}

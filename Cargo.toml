@@ -16,6 +16,9 @@ delay-queue = { version = "0.2.0", optional = true}
 chute = { version = "0.2.1", optional = true }
 atomic-queue = {version = "2.2.0", optional = true}
 scc = {version = "2.3.3", optional = true}
+scc2 = {version = "2.4.1", optional = true}
+lf-queue = { version = "0.1.0", optional = true }
+wfqueue = { git = "https://github.com/WilleBerg/wfqueue", branch = "master", optional = true }
 
 
 [target.'cfg(unix)'.dependencies]
@@ -33,3 +36,6 @@ delay_queue = ["dep:delay-queue"]
 chute_queue = ["dep:chute"]
 atomic_queue = ["dep:atomic-queue"]
 scc_queue = ["dep:scc"]
+scc2_queue = ["dep:scc2"]
+lf_queue = ["dep:lf-queue"]
+wfqueue = ["dep:wfqueue"]

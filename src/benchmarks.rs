@@ -1,4 +1,3 @@
-// TODO: Write tests for this module.
 use core_affinity::CoreId;
 use rand::Rng;
 use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
@@ -130,9 +129,10 @@ macro_rules! implement_benchmark {
 /// Has by default a 1ns delay between each operation, but this can be changed
 /// through flags passed to the program.
 #[allow(dead_code)]
-pub fn benchmark_throughput<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_throughput<C, T>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentQueue<i32> ,
+    C: ConcurrentQueue<T>,
+    T: Default,
     for<'a> &'a C: Send
 {
     let time_limit: u64 = bench_conf.args.time_limit;
@@ -172,7 +172,7 @@ where
                 let mut l_pushes = 0; 
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
-                    handle.push(1);
+                    handle.push(T::default());
                     l_pushes += 1;
                     std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
                 }
@@ -235,9 +235,10 @@ where
 }
 
 #[allow(dead_code)]
-pub fn benchmark_ping_pong<C> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_ping_pong<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where
-C: ConcurrentQueue<i32> ,
+C: ConcurrentQueue<T>,
+T: Default,
     for<'a> &'a C: Send
 {
     let time_limit: u64 = bench_conf.args.time_limit;
@@ -287,7 +288,7 @@ C: ConcurrentQueue<i32> ,
                             }
                         }
                     } else {
-                        handle.push(1);
+                        handle.push(T::default());
                         l_pushes += 1;
                     }
                     std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
@@ -326,6 +327,9 @@ C: ConcurrentQueue<i32> ,
 }
 
 
+
+
+
 #[cfg(test)]
 mod tests {
     use crate::queues::basic_queue::{BQueue, BasicQueue};
@@ -334,22 +338,7 @@ mod tests {
     
     #[test]
     fn run_basic() {
-        let args = Args {
-            time_limit: 1,
-            producers: 5,
-            consumers: 5,
-            one_socket: true,
-            iterations: 1,
-            empty_pops: false,
-            human_readable: false,
-            queue_size: 10000,
-            delay_nanoseconds: 1,
-            path_output: "".to_string(),
-            benchmark: Benchmarks::Basic,
-            spread: 0.5,
-            write_to_stdout: true,
-            thread_count: 20,
-        };
+        let args = Args::default();
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -365,22 +354,7 @@ mod tests {
     }
     #[test]
     fn run_pingpong() {
-        let args = Args {
-            time_limit: 1,
-            producers: 5,
-            consumers: 5,
-            one_socket: true,
-            iterations: 1,
-            empty_pops: false,
-            human_readable: false,
-            queue_size: 10000,
-            delay_nanoseconds: 1,
-            path_output: "".to_string(),
-            benchmark: Benchmarks::Basic,
-            spread: 0.5,
-            write_to_stdout: true,
-            thread_count: 20,
-        };
+        let args = Args::default();
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -399,22 +373,7 @@ mod tests {
     fn test_macro() -> Result<(), std::io::Error> {
         use jemalloc_ctl::{stats, epoch};
 
-        let args = Args {
-            time_limit: 1,
-            producers: 5,
-            consumers: 5,
-            one_socket: true,
-            iterations: 1,
-            empty_pops: false,
-            human_readable: false,
-            queue_size: 10000,
-            delay_nanoseconds: 1,
-            path_output: "".to_string(),
-            benchmark: Benchmarks::Basic,
-            spread: 0.5,
-            write_to_stdout: true,
-            thread_count: 20,
-        };
+        let args = Args::default();
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -426,5 +385,69 @@ mod tests {
             "Testing macro",
             &bench_conf);
         Ok(())
+    }
+    #[test]
+    fn run_basic_with_string() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test1".to_string(),
+            output_filename: "".to_string()
+        };
+        let basic_queue: BasicQueue<String> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        if let Err(_) = benchmark_throughput(basic_queue, &bench_conf) {
+            panic!();
+        }
+    }
+    #[test]
+    fn run_pingpong_with_string() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        let basic_queue: BasicQueue<String> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        if let Err(_) = benchmark_ping_pong(basic_queue, &bench_conf) {
+            panic!();
+        }
+    }
+    #[test]
+    fn run_basic_with_struct() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test1".to_string(),
+            output_filename: "".to_string()
+        };
+        let basic_queue: BasicQueue<Args> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        if let Err(_) = benchmark_throughput(basic_queue, &bench_conf) {
+            panic!();
+        }
+    }
+    #[test]
+    fn run_pingpong_with_struct() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        let basic_queue: BasicQueue<Args> = BasicQueue {
+            bqueue: BQueue::new()
+        };
+        if let Err(_) = benchmark_ping_pong(basic_queue, &bench_conf) {
+            panic!();
+        }
     }
 }
