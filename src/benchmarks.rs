@@ -258,7 +258,7 @@ C: ConcurrentQueue<i32> ,
         let pops = &pops;
         let done = &done;
         let barrier = &barrier;
-        let thread_count = bench_conf.args.consumers + bench_conf.args.producers;
+        let thread_count = bench_conf.args.thread_count; 
         let is_one_socket = &bench_conf.args.one_socket;
 
         for _i in 0..thread_count{

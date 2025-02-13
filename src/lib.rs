@@ -18,8 +18,6 @@ use std::io::Write;
 pub mod queues;
 pub mod benchmarks;
 
-// TODO: Add thread count option for pingpong, instead of relying on 
-// consumers/producers flags.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
@@ -60,9 +58,12 @@ pub struct Args {
     /// Ex. 0.3 means 30% produce 70% consume.
     #[arg(long = "spread", default_value_t = 0.5)]
     spread: f64,
+    /// If set to true, benchmark will output to stdout instead of to files.
     #[arg(long ="write-stdout", default_value_t = false)]
-    write_to_stdout: bool
-
+    write_to_stdout: bool,
+    /// Set the thread count for the pingpong benchmark.
+    #[arg(long = "thread-count", default_value_t = 20)]
+    thread_count: u32,
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
