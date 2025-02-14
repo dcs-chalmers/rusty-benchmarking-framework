@@ -1,12 +1,11 @@
 use crate::{ConcurrentQueue, Handle};
 
+pub struct LFQueue<T> {
+    pub lfq: lf_queue::Queue<T>
+}
 
 pub struct LFQueueHandle<'a, T> {
     queue: &'a LFQueue<T>
-}
-
-pub struct LFQueue<T> {
-    pub lfq: lockfree::queue::Queue<T>
 }
 
 impl<T> ConcurrentQueue<T> for LFQueue<T> {
@@ -16,11 +15,11 @@ impl<T> ConcurrentQueue<T> for LFQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("Lockfree")
+        return String::from("LFQueue")
     }
     fn new(_size: usize) -> Self {
         LFQueue {
-            lfq: lockfree::queue::Queue::new(),
+            lfq: lf_queue::Queue::new()
         }
     }
 }
@@ -36,26 +35,24 @@ impl<T> Handle<T> for LFQueueHandle<'_, T> {
 
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn create_lfq() {
-        let q: LFQueue<i32> = LFQueue {
-            lfq: lockfree::queue::Queue::new()
-        };
+    fn create_lf_queue() {
+        let q: LFQueue<i32> = LFQueue::new(1000);
         q.lfq.push(1);
         assert_eq!(q.lfq.pop().unwrap(), 1);
     }
     #[test]
-    fn register_lfq() {
-        let q: LFQueue<i32> = LFQueue {
-            lfq: lockfree::queue::Queue::new()
-        };
+    fn register_lf_queue() {
+        let q: LFQueue<i32> = LFQueue::new(1000);
         let mut handle = q.register();
         handle.push(1);
         assert_eq!(handle.pop().unwrap(), 1);
 
     }
 }
+

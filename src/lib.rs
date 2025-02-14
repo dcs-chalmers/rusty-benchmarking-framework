@@ -86,10 +86,9 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .create(true)
         .open(&bench_conf.output_filename)?;
     writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID")?;
-
     for _ in 0..bench_conf.args.iterations {
         implement_benchmark!("lockfree_queue",
-            crate::queues::lf_queue::LFQueue<i32>,
+            crate::queues::lockfree_queue::LockfreeQueue<i32>,
             "lockfree::queue:Queue",
             &bench_conf);
         implement_benchmark!("basic_queue",
@@ -108,6 +107,26 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::bounded_ringbuffer::BoundedRingBuffer<i32>,
             "Bounded ringbuffer",
             &bench_conf);
+        implement_benchmark!("atomic_queue",
+            crate::queues::atomic_queue::AtomicQueue<i32>,
+            "atomic_queue::bounded",
+            &bench_conf);
+        implement_benchmark!("scc_queue",
+            crate::queues::scc_queue::SCCQueue<i32>,
+            "scc::Queue",
+            &bench_conf);
+        implement_benchmark!("scc2_queue",
+            crate::queues::scc2_queue::SCC2Queue<i32>,
+            "scc2::Queue",
+            &bench_conf);
+        implement_benchmark!("lf_queue", 
+            crate::queues::lf_queue::LFQueue<i32>,
+            "lf_queue::Queue",
+            &bench_conf);
+        implement_benchmark!("wfqueue",
+            crate::queues::wfqueue::WFQueue<Box<i32>>,
+            "wfqueue::Wfqueue",
+            &bench_conf)
     }
     Ok(())
 }
@@ -121,4 +140,25 @@ pub trait ConcurrentQueue<T> {
 pub trait Handle<T> {
     fn push(&mut self, item: T);
     fn pop(&mut self) -> Option<T>;
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Args {
+            time_limit: 1,
+            producers: 5,
+            consumers: 5,
+            one_socket: true,
+            iterations: 1,
+            empty_pops: false,
+            human_readable: false,
+            queue_size: 10000,
+            delay_nanoseconds: 1,
+            path_output: "".to_string(),
+            benchmark: Benchmarks::Basic,
+            spread: 0.5,
+            write_to_stdout: true,
+            thread_count: 20,
+        }
+    } 
 }
