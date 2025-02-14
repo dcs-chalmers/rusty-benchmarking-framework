@@ -1,9 +1,11 @@
 use core_affinity::CoreId;
+use log::debug;
 use rand::Rng;
 use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
 use crate::{ConcurrentQueue, Args, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::mpsc;
 
 /// Possible benchmark types.
 #[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
@@ -68,7 +70,7 @@ macro_rules! implement_benchmark {
                 let queue_type = test_q.get_id();
                 let bench_type = $bench_conf.args.benchmark; 
                 let to_stdout = $bench_conf.args.write_to_stdout;
-
+                
                 let mut memfile = if !to_stdout {
                     let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
                     let mut file = OpenOptions::new()
@@ -140,6 +142,7 @@ where
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
+    let (tx, rx) = mpsc::channel();
     println!("Starting throughput benchmark with {} consumer and {} producers", bench_conf.args.consumers, bench_conf.args.producers);
     
     // get cores for fairness of threads
@@ -153,6 +156,7 @@ where
         let pops = &pops;
         let done = &done;
         let barrier = &barrier;
+        let tx = &tx;
         let consumers = &bench_conf.args.consumers;
         let producers = &bench_conf.args.producers;
         let is_one_socket = &bench_conf.args.one_socket;
@@ -177,6 +181,7 @@ where
                     std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
+                tx.send(l_pushes).unwrap();
             }); 
         }
         for _ in 0..*consumers {
@@ -206,15 +211,40 @@ where
 
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
+                tx.send(l_pops).unwrap();
             }); 
         }
+        debug!("Waiting for barrier");
         barrier.wait();
+        debug!("Done waiting for barries. Going to sleep.");
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
         done.store(true, Ordering::Relaxed);
         Ok(())
     });
+    drop(tx);
+    debug!("TX Dropped");
     let pops = pops.into_inner();
     let pushes = pushes.into_inner();
+
+    // Fairness
+    let ops_per_thread = {
+        let mut vals = vec![];
+        for received in rx {
+            vals.push(received);
+        };
+        vals
+    };
+    let fairness = calc_fairness(ops_per_thread, pops, pushes);
+    let formatted = format!("{},{},{},{},{},{},{},{},{}",
+        (pushes + pops) as f64 / time_limit as f64,
+        pushes,
+        pops,
+        bench_conf.args.consumers,
+        bench_conf.args.producers,
+        cqueue.get_id(),
+        bench_conf.args.benchmark,
+        bench_conf.benchmark_id,
+        fairness);
     if !bench_conf.args.write_to_stdout {
         let mut file = OpenOptions::new()
             .append(true)
@@ -225,13 +255,35 @@ where
             writeln!(file, "Number of pushes: {}\n", pushes)?;
             writeln!(file, "Number of pops: {}\n", pops)?;
         } else {
-            writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
+            writeln!(file, "{}", formatted)?;
         }
     } else {
-        println!("{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id);
+        println!("{}", formatted);
     }
 
     Ok(())
+}
+
+
+fn calc_fairness(ops_per_thread: Vec<usize>, pops: usize, pushes: usize) -> f64 {
+    debug!("Calculating fairness");
+    let sum: usize = ops_per_thread.iter().sum();
+    assert_eq!(sum, (pushes + pops));
+    let length: f64 = ops_per_thread.len() as f64;
+    let completely_fair: f64 = sum as f64 / length;
+    debug!("The vector {:?}", ops_per_thread);
+    debug!("Sum: {}, Push: {}, Pop: {}, Fair: {}, Lenght: {}",sum, pushes, pops, completely_fair, length);
+    let deviation: f64 = f64::sqrt(ops_per_thread.iter()
+        .map(|&v| {
+
+            let val = f64::powi(v as f64 - completely_fair, 2);
+            debug!("Thread deviations: {}", val);
+            val
+        })
+        .sum::<f64>() / length);
+    let fairness: f64 = 1.0 - (deviation / completely_fair);
+    debug!("Calculated fairness: {}", fairness);
+    fairness
 }
 
 #[allow(dead_code)]
@@ -246,7 +298,8 @@ T: Default,
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
-    println!("Starting pingpong benchmark with {} threads", bench_conf.args.consumers + bench_conf.args.producers);
+    let (tx, rx) = mpsc::channel();
+    println!("Starting pingpong benchmark with {} threads", bench_conf.args.thread_count);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -261,7 +314,7 @@ T: Default,
         let barrier = &barrier;
         let thread_count = bench_conf.args.thread_count; 
         let is_one_socket = &bench_conf.args.one_socket;
-
+        let tx = &tx;
         for _i in 0..thread_count{
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
@@ -296,6 +349,7 @@ T: Default,
 
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 pops.fetch_add(l_pops, Ordering::Relaxed);
+                tx.send(l_pops + l_pushes).unwrap();
                 if bench_conf.args.human_readable {
                     println!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
                 }
@@ -306,8 +360,28 @@ T: Default,
         done.store(true, Ordering::Relaxed);
         Ok(())
     });
+    drop(tx);
     let pops = pops.into_inner();
     let pushes = pushes.into_inner();
+    // Fairness
+    let ops_per_thread = {
+        let mut vals = vec![];
+        for received in rx {
+            vals.push(received);
+        }
+        vals
+    };
+    let fairness = calc_fairness(ops_per_thread, pops, pushes);
+    let formatted = format!("{},{},{},{},{},{},{},{},{}",
+        (pushes + pops) as f64 / time_limit as f64,
+        pushes,
+        pops,
+        bench_conf.args.consumers,
+        bench_conf.args.producers,
+        cqueue.get_id(),
+        bench_conf.args.benchmark,
+        bench_conf.benchmark_id,
+        fairness);
     if !bench_conf.args.write_to_stdout {
         let mut file = OpenOptions::new()
             .append(true)
@@ -318,10 +392,10 @@ T: Default,
             writeln!(file, "Number of pushes: {}\n", pushes)?;
             writeln!(file, "Number of pops: {}\n", pops)?;
         } else {
-            writeln!(file, "{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)?;
+            writeln!(file, "{}", formatted)?;
         }
     } else {
-        println!("{},{},{},{},{},{},{},{}",(pushes + pops) as f64 / time_limit as f64, pushes, pops, bench_conf.args.consumers, bench_conf.args.producers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id);
+        println!("{}", formatted);
     }
     Ok(())
 }

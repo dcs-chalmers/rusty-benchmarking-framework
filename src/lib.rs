@@ -8,13 +8,13 @@ use jemalloc_ctl::{stats, epoch};
 static GLOBAL: Jemalloc = Jemalloc;
 
 use chrono::Local;
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use crate::benchmarks::Benchmarks;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::fs::OpenOptions;
 use std::io::Write;
-
+use log::{self, debug};
 pub mod queues;
 pub mod benchmarks;
 
@@ -31,7 +31,7 @@ pub struct Args {
     #[arg(short, long, default_value_t = 20)]
     consumers: usize,
     /// Attemps to only use on socket. Specific for the developers test environment.
-    #[arg(short, long, default_value_t = true)]
+    #[arg(short, long, default_value_t = true, action = ArgAction::SetFalse)]
     one_socket: bool,
     /// How many times the chosen benchmark should be run.
     #[arg(short, long, default_value_t = 1)]
@@ -74,6 +74,8 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         date_time.hash(&mut hasher);
         format!("{:x}", hasher.finish())
     };
+    debug!("Benchmark ID: {}", benchmark_id) ;
+    debug!("Arguments: {:?}", args);
     let output_filename = String::from(format!("{}/{}", args.path_output, date_time));
     let bench_conf = benchmarks::BenchConfig {
         args,
@@ -85,7 +87,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .append(true)
         .create(true)
         .open(&bench_conf.output_filename)?;
-    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID")?;
+    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID,Fairness")?;
     for _ in 0..bench_conf.args.iterations {
         implement_benchmark!("lockfree_queue",
             crate::queues::lockfree_queue::LockfreeQueue<i32>,
