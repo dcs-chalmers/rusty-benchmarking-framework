@@ -8,7 +8,7 @@ use jemalloc_ctl::{stats, epoch};
 static GLOBAL: Jemalloc = Jemalloc;
 
 use chrono::Local;
-use clap::Parser;
+use clap::{ArgAction, Parser};
 use crate::benchmarks::Benchmarks;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -31,7 +31,7 @@ pub struct Args {
     #[arg(short, long, default_value_t = 20)]
     consumers: usize,
     /// Attemps to only use on socket. Specific for the developers test environment.
-    #[arg(short, long, default_value_t = true)]
+    #[arg(short, long, default_value_t = true, action = ArgAction::SetFalse)]
     one_socket: bool,
     /// How many times the chosen benchmark should be run.
     #[arg(short, long, default_value_t = 1)]

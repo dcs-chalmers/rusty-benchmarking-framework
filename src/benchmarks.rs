@@ -273,14 +273,17 @@ fn calc_fairness(ops_per_thread: Vec<usize>, pops: usize, pushes: usize) -> f64 
     let completely_fair: f64 = sum as f64 / length;
     debug!("The vector {:?}", ops_per_thread);
     debug!("Sum: {}, Push: {}, Pop: {}, Fair: {}, Lenght: {}",sum, pushes, pops, completely_fair, length);
-    ops_per_thread.iter()
+    let deviation: f64 = f64::sqrt(ops_per_thread.iter()
         .map(|&v| {
 
-            let val = v as f64 / completely_fair;
-            debug!("Thread fairness: {}", val);
+            let val = f64::powi(v as f64 - completely_fair, 2);
+            debug!("Thread deviations: {}", val);
             val
         })
-        .sum::<f64>() / length
+        .sum::<f64>() / length);
+    let fairness: f64 = 1.0 - (deviation / completely_fair);
+    debug!("Calculated fairness: {}", fairness);
+    fairness
 }
 
 #[allow(dead_code)]
