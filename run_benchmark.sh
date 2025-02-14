@@ -11,4 +11,12 @@ cargo run --release --features memory_tracking,concurrent_queue -- -t 1 ping-pon
 cargo run --release --features memory_tracking,concurrent_queue -- -t 1 basic 
 cargo run --release --features memory_tracking,bounded_ringbuffer -- -t 1 ping-pong
 cargo run --release --features memory_tracking,bounded_ringbuffer -- -t 1 basic 
+cargo run --release --features memory_tracking,atomic_queue -- -t 1 ping-pong
+cargo run --release --features memory_tracking,atomic_queue -- -t 1 basic 
+cargo run --release --features memory_tracking,wfqueue -- -t 1 ping-pong
+cargo run --release --features memory_tracking,wfqueue -- -t 1 basic 
+cargo run --release --features memory_tracking,scc_queue -- -t 1 ping-pong
+cargo run --release --features memory_tracking,scc_queue -- -t 1 basic 
+cargo run --release --features memory_tracking,scc2_queue -- -t 1 ping-pong
+cargo run --release --features memory_tracking,scc2_queue -- -t 1 basic 
 bat output/*

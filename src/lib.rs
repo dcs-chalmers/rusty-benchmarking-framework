@@ -14,7 +14,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::fs::OpenOptions;
 use std::io::Write;
-
+use log::{self, debug};
 pub mod queues;
 pub mod benchmarks;
 
@@ -74,6 +74,8 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         date_time.hash(&mut hasher);
         format!("{:x}", hasher.finish())
     };
+    debug!("Benchmark ID: {}", benchmark_id) ;
+    debug!("Arguments: {:?}", args);
     let output_filename = String::from(format!("{}/{}", args.path_output, date_time));
     let bench_conf = benchmarks::BenchConfig {
         args,
@@ -85,7 +87,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .append(true)
         .create(true)
         .open(&bench_conf.output_filename)?;
-    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID")?;
+    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID,Fairness")?;
     for _ in 0..bench_conf.args.iterations {
         implement_benchmark!("lockfree_queue",
             crate::queues::lockfree_queue::LockfreeQueue<i32>,
