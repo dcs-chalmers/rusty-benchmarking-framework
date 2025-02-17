@@ -1,5 +1,5 @@
 use core_affinity::CoreId;
-use log::debug;
+use log::{debug, trace, warn};
 use rand::Rng;
 use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
 use crate::{ConcurrentQueue, Args, Handle};
@@ -235,12 +235,13 @@ where
         vals
     };
     let fairness = calc_fairness(ops_per_thread, pops, pushes);
-    let formatted = format!("{},{},{},{},{},{},{},{},{}",
+    let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
         bench_conf.args.consumers,
         bench_conf.args.producers,
+        bench_conf.args.thread_count,
         cqueue.get_id(),
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
@@ -372,12 +373,13 @@ T: Default,
         vals
     };
     let fairness = calc_fairness(ops_per_thread, pops, pushes);
-    let formatted = format!("{},{},{},{},{},{},{},{},{}",
+    let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
         bench_conf.args.consumers,
         bench_conf.args.producers,
+        bench_conf.args.thread_count,
         cqueue.get_id(),
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,

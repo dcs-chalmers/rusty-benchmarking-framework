@@ -87,7 +87,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .append(true)
         .create(true)
         .open(&bench_conf.output_filename)?;
-    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Queuetype,Benchmark,Test ID,Fairness")?;
+    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness")?;
     for _ in 0..bench_conf.args.iterations {
         implement_benchmark!("lockfree_queue",
             crate::queues::lockfree_queue::LockfreeQueue<i32>,
