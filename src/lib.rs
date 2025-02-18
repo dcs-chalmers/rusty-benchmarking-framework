@@ -14,7 +14,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::fs::OpenOptions;
 use std::io::Write;
-use log::{self, debug};
+#[allow(unused_imports)]
+use log::{self, debug, info, error};
 pub mod queues;
 pub mod benchmarks;
 
@@ -39,9 +40,6 @@ pub struct Args {
     /// Count empty pop operations. Off by default.
     #[arg(short, long, default_value_t = false)]
     empty_pops: bool,
-    /// Make the output of the benchmark human readable.
-    #[arg(long, default_value_t = false)]
-    human_readable: bool,
     /// Set the size of the bounded queues.
     #[arg(short, long, default_value_t = 10000)]
     queue_size: u32,
@@ -153,7 +151,6 @@ impl Default for Args {
             one_socket: true,
             iterations: 1,
             empty_pops: false,
-            human_readable: false,
             queue_size: 10000,
             delay_nanoseconds: 1,
             path_output: "".to_string(),

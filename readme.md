@@ -32,7 +32,6 @@ during the execution. Requires `jemalloc`.
     * `-o`, `--one-socket` to run on one socket (specific for our test environment).
     * `-i`, `--iterations` to specify how many iterations to run the benchmark.
     * `-e`, `--empty-pops` if you want to include empty dequeue operations.
-    * `--human-readable` if you want the output to be human readable.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
     * `-d` `--delay-nanoseconds` to change the delay between operations.

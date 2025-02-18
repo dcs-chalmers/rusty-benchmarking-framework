@@ -1,5 +1,5 @@
 use core_affinity::CoreId;
-use log::{debug, trace, warn};
+use log::{debug, trace, info};
 use rand::Rng;
 use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
 use crate::{ConcurrentQueue, Args, Handle};
@@ -47,7 +47,7 @@ macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
-            println!("Running benchmark on: {}", $desc);
+            info!("Running benchmark on: {}", $desc);
             let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -71,6 +71,7 @@ macro_rules! implement_benchmark {
                 let bench_type = $bench_conf.args.benchmark; 
                 let to_stdout = $bench_conf.args.write_to_stdout;
                 
+                // Create file if printing to stdout is disabled
                 let mut memfile = if !to_stdout {
                     let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
                     let mut file = OpenOptions::new()
@@ -83,7 +84,8 @@ macro_rules! implement_benchmark {
                     println!("Memory Allocated,Queuetype,Benchmark,Test ID");
                     None
                 };
-
+                
+                // Spawn thread to check total memory allocated every 50ms
                 mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
                     while !_done.load(Ordering::Relaxed) {
                         // Update stats
@@ -106,19 +108,20 @@ macro_rules! implement_benchmark {
                 });
             }
 ////////////////////////////////////// MEMORY END //////////////////////////////
-            
+            // Select which benchmark to use
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                 Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
+            // Join the thread again
             #[cfg(feature = "memory_tracking")]
             {
                 use std::sync::atomic::Ordering;
                 _done.store(true, Ordering::Relaxed);
                 if let Err(e) = mem_thread_handle.join().unwrap() {
-                    eprintln!("Error joining memory tracking thread: {}", e);
+                    log::error!("Couldnt join memory tracking thread: {}", e);
                 }
             }  
 ////////////////////////////////////// MEMORY END //////////////////////////////
@@ -143,7 +146,7 @@ where
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
     let (tx, rx) = mpsc::channel();
-    println!("Starting throughput benchmark with {} consumer and {} producers", bench_conf.args.consumers, bench_conf.args.producers);
+    info!("Starting throughput benchmark with {} consumer and {} producers", bench_conf.args.consumers, bench_conf.args.producers);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -161,14 +164,14 @@ where
         let producers = &bench_conf.args.producers;
         let is_one_socket = &bench_conf.args.one_socket;
 
-        for _ in 0..*producers{
+        for i in 0..*producers{
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
             // (this was used for our testing enviroment to get one socket)
             if *is_one_socket {
                 core = core_iter.next().unwrap();
             }
-            // println!("{:?}", core);
+            trace!("Thread: {} Core: {:?}", i, core);
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
@@ -178,26 +181,29 @@ where
                 while !done.load(Ordering::Relaxed) {
                     handle.push(T::default());
                     l_pushes += 1;
+                    // Add some delay to simulate real workload
                     std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
+                // Thread sends its total operations down the channel for fairness calculations
                 tx.send(l_pushes).unwrap();
             }); 
         }
-        for _ in 0..*consumers {
+        for i in 0..*consumers {
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
             // (this was used for our testing enviroment to get one socket)
             if *is_one_socket {
                 core = core_iter.next().unwrap();
             }
-            // println!("{:?}", core);
+            trace!("Thread: {} Core: {:?}", i, core);
             s.spawn(move || {
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
                 // pop
                 let mut l_pops = 0; 
                 barrier.wait();
+                // TODO: add empty pops probably to fairness calculations
                 while !done.load(Ordering::Relaxed) {
                     match handle.pop() {
                         Some(_) => l_pops += 1,
@@ -211,6 +217,7 @@ where
 
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
+                // Thread sends its total operations down the channel for fairness calculations
                 tx.send(l_pops).unwrap();
             }); 
         }
@@ -227,6 +234,7 @@ where
     let pushes = pushes.into_inner();
 
     // Fairness
+    // Get total operations per thread
     let ops_per_thread = {
         let mut vals = vec![];
         for received in rx {
@@ -251,13 +259,9 @@ where
             .append(true)
             .create(true)
             .open(&bench_conf.output_filename)?;
-        if bench_conf.args.human_readable {
-            writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
-            writeln!(file, "Number of pushes: {}\n", pushes)?;
-            writeln!(file, "Number of pops: {}\n", pops)?;
-        } else {
-            writeln!(file, "{}", formatted)?;
-        }
+
+        writeln!(file, "{}", formatted)?;
+
     } else {
         println!("{}", formatted);
     }
@@ -351,9 +355,7 @@ T: Default,
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 tx.send(l_pops + l_pushes).unwrap();
-                if bench_conf.args.human_readable {
-                    println!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
-                }
+                debug!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
             }); 
         }
         barrier.wait();
@@ -384,18 +386,13 @@ T: Default,
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
         fairness);
+    // Write to file or stdout depending on flag
     if !bench_conf.args.write_to_stdout {
         let mut file = OpenOptions::new()
             .append(true)
             .create(true)
             .open(&bench_conf.output_filename)?;
-        if bench_conf.args.human_readable {
-            writeln!(file, "Throughput: {}\n", (pushes + pops) as f64 / time_limit as f64)?;
-            writeln!(file, "Number of pushes: {}\n", pushes)?;
-            writeln!(file, "Number of pops: {}\n", pops)?;
-        } else {
-            writeln!(file, "{}", formatted)?;
-        }
+        writeln!(file, "{}", formatted)?;
     } else {
         println!("{}", formatted);
     }
@@ -447,6 +444,7 @@ mod tests {
     #[test]
     #[cfg(not(target_os = "windows"))]
     fn test_macro() -> Result<(), std::io::Error> {
+        #[allow(unused_imports)]
         use jemalloc_ctl::{stats, epoch};
 
         let args = Args::default();
