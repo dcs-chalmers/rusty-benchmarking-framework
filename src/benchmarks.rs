@@ -1,5 +1,5 @@
 use core_affinity::CoreId;
-use log::{debug, trace, info};
+use log::{debug, error, info, trace};
 use rand::Rng;
 use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
 use crate::{ConcurrentQueue, Args, Handle};
@@ -202,15 +202,17 @@ where
                 let mut handle = queue.register();
                 // pop
                 let mut l_pops = 0; 
+                let mut empty_pops = 0;
                 barrier.wait();
                 // TODO: add empty pops probably to fairness calculations
                 while !done.load(Ordering::Relaxed) {
                     match handle.pop() {
                         Some(_) => l_pops += 1,
                         None => {
-                            if bench_conf.args.empty_pops {
-                                l_pops += 1;
-                            }
+                            // if bench_conf.args.empty_pops {
+                            //     l_pops += 1;
+                            // }
+                            empty_pops += 1;
                         }
                     }
                     std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
@@ -218,12 +220,12 @@ where
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
-                tx.send(l_pops).unwrap();
+                tx.send(l_pops + empty_pops).unwrap();
             }); 
         }
         debug!("Waiting for barrier");
         barrier.wait();
-        debug!("Done waiting for barries. Going to sleep.");
+        debug!("Done waiting for barrier. Going to sleep.");
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
         done.store(true, Ordering::Relaxed);
         Ok(())
@@ -242,7 +244,7 @@ where
         };
         vals
     };
-    let fairness = calc_fairness(ops_per_thread, pops, pushes);
+    let fairness = calc_fairness(ops_per_thread);
     let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
@@ -269,24 +271,37 @@ where
     Ok(())
 }
 
-
-fn calc_fairness(ops_per_thread: Vec<usize>, pops: usize, pushes: usize) -> f64 {
+/// Calculates the fairness based on paper: [A Study of the Behavior of Synchronization Methods in Commonly Used Languages and Systems](https://ieeexplore.ieee.org/document/6569906).
+pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
     debug!("Calculating fairness");
     let sum: usize = ops_per_thread.iter().sum();
-    assert_eq!(sum, (pushes + pops));
-    let length: f64 = ops_per_thread.len() as f64;
-    let completely_fair: f64 = sum as f64 / length;
-    debug!("The vector {:?}", ops_per_thread);
-    debug!("Sum: {}, Push: {}, Pop: {}, Fair: {}, Lenght: {}",sum, pushes, pops, completely_fair, length);
-    let deviation: f64 = f64::sqrt(ops_per_thread.iter()
-        .map(|&v| {
 
-            let val = f64::powi(v as f64 - completely_fair, 2);
-            debug!("Thread deviations: {}", val);
-            val
-        })
-        .sum::<f64>() / length);
-    let fairness: f64 = 1.0 - (deviation / completely_fair);
+    let length: f64 = ops_per_thread.len() as f64;
+    debug!("The vector {:?}", ops_per_thread);
+    debug!("Sum: {}, Length: {}",sum, length);
+
+    // The thread that does the least amount of ops
+    let minop: f64 = match ops_per_thread.iter().min() {
+        Some(&val) => val as f64,
+        None => {
+            error!("No record of operations: {:?}", ops_per_thread);
+            panic!();
+        }
+    };
+    trace!("Minop fairness: {}", minop);
+
+    // The thread that does the most amount of ops
+    let maxop: f64 = match ops_per_thread.iter().max() {
+        Some(&val) => val as f64,
+        None => {
+            error!("No record of operations: {:?}", ops_per_thread);
+            panic!();
+        }
+    };
+    trace!("Maxop fairness: {}", maxop);
+    
+    let fairness: f64 = f64::min((length * minop) /  sum as f64, sum as f64 / (length * maxop));
+    
     debug!("Calculated fairness: {}", fairness);
     fairness
 }
@@ -374,7 +389,7 @@ T: Default,
         }
         vals
     };
-    let fairness = calc_fairness(ops_per_thread, pops, pushes);
+    let fairness = calc_fairness(ops_per_thread);
     let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
