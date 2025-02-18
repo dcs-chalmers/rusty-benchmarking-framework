@@ -126,7 +126,20 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         implement_benchmark!("wfqueue",
             crate::queues::wfqueue::WFQueue<Box<i32>>,
             "wfqueue::Wfqueue",
-            &bench_conf)
+            &bench_conf);
+        implement_benchmark!("lockfree_stack",
+            crate::queues::lockfree_stack::LockfreeStack<i32>,
+            "lockfree::stack",
+            &bench_conf);
+        implement_benchmark!("scc_stack",
+            crate::queues::scc_stack::SCCStack<i32>,
+            "scc::Stack",
+            &bench_conf);
+        implement_benchmark!("scc2_stack",
+            crate::queues::scc2_stack::SCC2Stack<i32>,
+            "scc2::Stack",
+            &bench_conf);
+        
     }
     Ok(())
 }

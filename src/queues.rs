@@ -22,4 +22,10 @@ pub mod scc2_queue;
 pub mod lf_queue;
 #[cfg(feature = "wfqueue")]
 pub mod wfqueue;
+#[cfg(feature = "scc_stack")]
+pub mod scc_stack;
+#[cfg(feature = "scc2_stack")]
+pub mod scc2_stack;
+#[cfg(feature = "lockfree_stack")]
+pub mod lockfree_stack;
 
