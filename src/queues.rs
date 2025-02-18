@@ -28,4 +28,6 @@ pub mod scc_stack;
 pub mod scc2_stack;
 #[cfg(feature = "lockfree_stack")]
 pub mod lockfree_stack;
+#[cfg(feature = "ms_queue")]
+pub mod ms_queue;
 
