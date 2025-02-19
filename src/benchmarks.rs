@@ -186,11 +186,13 @@ where
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
-                tx.send(l_pushes).unwrap();
+                if let Err(e) = tx.send(l_pushes) {
+                    error!("Error sending operations down the channel: {}", e);
+                };
             }); 
         }
         for i in 0..*consumers {
-            let mut core : CoreId = core_iter.next().unwrap();
+            let mut core : CoreId = core_iter.next().expect("Core iter error");
             // if is_one_socket is true, make all thread ids even 
             // (this was used for our testing enviroment to get one socket)
             if *is_one_socket {
@@ -220,7 +222,9 @@ where
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
-                tx.send(l_pops + empty_pops).unwrap();
+                if let Err(e) = tx.send(l_pops + empty_pops) {
+                    error!("Error sending operations down the channel: {}", e);
+                };
             }); 
         }
         debug!("Waiting for barrier");
@@ -319,7 +323,7 @@ T: Default,
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
     let (tx, rx) = mpsc::channel();
-    println!("Starting pingpong benchmark with {} threads", bench_conf.args.thread_count);
+    info!("Starting pingpong benchmark with {} threads", bench_conf.args.thread_count);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -370,7 +374,7 @@ T: Default,
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 tx.send(l_pops + l_pushes).unwrap();
-                debug!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
+                trace!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
             }); 
         }
         barrier.wait();

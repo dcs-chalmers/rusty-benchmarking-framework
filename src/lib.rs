@@ -139,6 +139,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::scc2_stack::SCC2Stack<i32>,
             "scc2::Stack",
             &bench_conf);
+        implement_benchmark!("ms_queue",
+            crate::queues::ms_queue::MSQueue<i32>,
+            "MSQueue",
+            &bench_conf);
         
     }
     Ok(())
