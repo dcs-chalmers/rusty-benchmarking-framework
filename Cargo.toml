@@ -28,7 +28,7 @@ jemallocator = "0.5.4"
 jemalloc-ctl = "0.5.4"
 
 [features]
-default = ["ms_queue"]
+default = []
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 concurrent_queue = ["dep:concurrent-queue"]
