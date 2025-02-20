@@ -1,29 +1,47 @@
-# Lock-free benchmarking tool
-This is a project to test different implementations of lock-free based data structures to measure their output and performance.
+# Queue benchmarking tool
+This is a project to benchmark different implementations of queues (currently 
+FIFO, LIFO, bounded or unbounded) to measure their output and performance.
 
 ## How to use:
-To run the benchmark, first clone the repository.
-Then compile for the queue you want to test. Do this by using the `--features`
-flag in cargo. To run for a basic lock-based queue:
+```bash
+# Using cargo run
+cargo run --release --features <Queue type>,<Optional feature> -- <Benchmark type> <Optional flags>
+# Alternatively
+cargo build --release --features <Queue type>,<Optional feature>
+./target/release/lockfree-benchmark <Benchmark type> <Optional flags>
+```
+
+To run for a basic lock-based queue:
 ```bash
 # Create the output folder first
 mkdir output
 # Basic queue, benchmark measures throughput
-cargo run --features basic_queue --release
+cargo run --features basic_queue --release -- basic
 # Basic queue, benchmark measures throughput and memory allocation
-cargo run --features basic_queue,memory_tracking --release
+cargo run --features basic_queue,memory_tracking --release -- basic
 ```
+This will compile and run the benchmarking tool. It will run the `basic` benchmark on the `basic_queue` implementation and produce a file in the `./output` with information from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
+## Benchmark types
+* `basic` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
+* `ping-pong` - Measures throughput and fairness. Threads alternate between producers and consumers randomly. You can choose the spread of producers/consumers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the test.
 ## Queue implementations and features
 Implemented queues are:
-* `basic_queue` - A `VecDeque` with a mutex lock.
-* `bounded_ringbuffer` -A simple own implemented ringbuffer using a `Vec`.
-* `lockfree_queue` - A lock-free queue from the crate `lockfree`.
-* `concurrent_queue` - A queue from the crate `concurrent-queue`.
-* `array_queue` - A queue from the crate `crossbeam`.
+* `array_queue` - A queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
+* `basic_queue` - A `VecDeque` with a mutex lock.  [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/basic_queue.rs) 
+* `bounded_ringbuffer` -A simple ringbuffer. [Implementation](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/bounded_ringbuffer.rs)
+* `concurrent_queue` - A queue from the crate [`concurrent-queue`](https://crates.io/crates/concurrent-queue).
+* `lf_queue` - An unbounded lock-free queue from the crate [`lf-queue`](https://crates.io/crates/lf-queue)
+* `lockfree_queue` - A lock-free unbounded queue from the crate [`lockfree`](https://crates.io/crates/lockfree).
+* `lockfree_stack` - A lock-free unbounded stack from the crate [`lockfree`](https://crates.io/crates/lockfree).
+* `ms_queue` - An unbounded lock-free queue. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/ms_queue.rs)
+* `scc2_queue` - An unbounded lock-free queue from the crate [`scc2`](https://crates.io/crates/scc2).
+* `scc2_stack` - An unbounded lock-free stack from the crate [`scc2`](https://crates.io/crates/scc2).
+* `scc_queue` - An unbounded lock-free queue from the crate [`scc`](https://crates.io/crates/scc).
+* `scc_stack` - An unbounded lock-free stack from the crate [`scc`](https://crates.io/crates/scc).
+* `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) by William to be able to be compiled.
 ### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program
-during the execution. Requires `jemalloc`.
-
+during the execution. Requires `jemalloc`, so should work on most UNIX systems.
 ## Flags
 * To use specific values you can add different flags to the run command:
     * `-t`, `--time-limit` for specific time values.
@@ -32,12 +50,11 @@ during the execution. Requires `jemalloc`.
     * `-o`, `--one-socket` to run on one socket (specific for our test environment).
     * `-i`, `--iterations` to specify how many iterations to run the benchmark.
     * `-e`, `--empty-pops` if you want to include empty dequeue operations.
+    * `-q`, `--queue-size` to specify the sizes of bounded queues.
+    * `-d`, `--delay-nanosecond` to specify how many nanoseconds delay between each operation.
+    * `--spread` - To specify the spread for the `ping-pong` benchmark type.
+    * `--write-stdout` - If you want to output to stdout instead of a file.
+    * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
-    * `-d` `--delay-nanoseconds` to change the delay between operations.
     * `--path` to change where the output of the benchmark is put.
-
-
-# TODO
-* Fix different implementations for queues
-* Add to config to be able to choose which queue to test
