@@ -13,6 +13,8 @@ cargo build --release --features <Queue type>,<Optional feature>
 
 To run for a basic lock-based queue:
 ```bash
+# Create the output folder first
+mkdir output
 # Basic queue, benchmark measures throughput
 cargo run --features basic_queue --release -- basic
 # Basic queue, benchmark measures throughput and memory allocation
@@ -20,6 +22,7 @@ cargo run --features basic_queue,memory_tracking --release -- basic
 ```
 This will compile and run the benchmarking tool. It will run the `basic` benchmark on the `basic_queue` implementation and produce a file in the `./output` with information from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
 ## Benchmark types
+You have to choose which type of benchmark you want to run on your queue. They have sub commands specific to themselves. Use the `--help` flag after specifying queue type to print a help text about the sub commands.
 * `basic` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
 * `ping-pong` - Measures throughput and fairness. Threads alternate between producers and consumers randomly. You can choose the spread of producers/consumers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the test.
 ## Queue implementations and features
@@ -43,21 +46,24 @@ during the execution. Requires `jemalloc`, so should work on most UNIX systems.
 - `silent-release` - Compiles the benchmarking tool without any logging. Need to pass the `--no-default-features`  to work.
 - `verbose-release` - Compiles the benchmarking tool with all log levels. Need to pass the `--no-default-features`  to work.
 ## Flags
-* To use specific values you can add different flags to the run command:
+To use specific values you can add different flags to the run command:
+* General flags:
     * `-t`, `--time-limit` for specific time values.
-    * `-p`, `--producers` for specified amount of producers.
-    * `-c`, `--consumers` for specified amount of consumers.
     * `-o`, `--one-socket` to run on one socket (specific for our test environment).
     * `-i`, `--iterations` to specify how many iterations to run the benchmark.
     * `-e`, `--empty-pops` if you want to include empty dequeue operations.
     * `-q`, `--queue-size` to specify the sizes of bounded queues.
     * `-d`, `--delay-nanosecond` to specify how many nanoseconds delay between each operation.
-    * `--spread` - To specify the spread for the `ping-pong` benchmark type.
     * `--write-stdout` - If you want to output to stdout instead of a file.
-    * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
     * `--path` to change where the output of the benchmark is put.
+* `basic` benchmark type sub commands:
+    * `-p`, `--producers` for specified amount of producers.
+    * `-c`, `--consumers` for specified amount of consumers.
+- `ping-pong` benchmark type sub commands:
+    * `--spread` - To specify the spread for the `ping-pong` benchmark type.
+    * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
 ## Logging
 The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
 1. `error`

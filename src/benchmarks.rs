@@ -1,30 +1,11 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::{fmt::Display, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}};
-use crate::{ConcurrentQueue, Args, Handle};
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
+use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::mpsc;
-
-/// Possible benchmark types.
-#[derive(Copy, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
-pub enum Benchmarks {
-    /// Basic throughput test. Decide amount of producers and consumers using flags.
-    Basic,
-    /// A test where each thread performs both consume and produce based on a random floating point
-    /// value. Spread is decided using the `--spread` flag.
-    PingPong
-}
-
-impl Display for Benchmarks {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Benchmarks::Basic => write!(f, "Basic"),
-            Benchmarks::PingPong => write!(f, "PingPong"),
-        }
-    }
-}
 
 /// Benchmark config struct
 /// Needs to be fully filled for benchmarks to be able to run.
@@ -34,7 +15,6 @@ pub struct BenchConfig {
     pub benchmark_id: String,
     pub output_filename: String,
 }
-
 
 /// # Explanation:
 /// A macro used to add your queue to the benchmark.
@@ -68,7 +48,7 @@ macro_rules! implement_benchmark {
                 let _done = std::sync::Arc::clone(&_done);
                 let benchmark_id = $bench_conf.benchmark_id.clone();
                 let queue_type = test_q.get_id();
-                let bench_type = $bench_conf.args.benchmark; 
+                let bench_type = format!("{}", $bench_conf.args.benchmark);
                 let to_stdout = $bench_conf.args.write_to_stdout;
                 
                 // Create file if printing to stdout is disabled
@@ -110,8 +90,8 @@ macro_rules! implement_benchmark {
 ////////////////////////////////////// MEMORY END //////////////////////////////
             // Select which benchmark to use
             match $bench_conf.args.benchmark {
-                Benchmarks::Basic     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
+                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -140,13 +120,21 @@ where
     T: Default,
     for<'a> &'a C: Send
 {
+    let producers = bench_conf
+        .get_producers()
+        .expect("Should not be able to get here if Benchmark != Basic");
+    let consumers = bench_conf
+        .get_consumers()
+        .expect("Should not be able to get here if Benchmark != Basic");
+
+
     let time_limit: u64 = bench_conf.args.time_limit;
-    let barrier = Barrier::new(bench_conf.args.consumers + bench_conf.args.producers + 1);
+    let barrier = Barrier::new(consumers + producers + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
     let (tx, rx) = mpsc::channel();
-    info!("Starting throughput benchmark with {} consumer and {} producers", bench_conf.args.consumers, bench_conf.args.producers);
+    info!("Starting throughput benchmark with {} consumer and {} producers", consumers, producers);
     
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
@@ -160,11 +148,11 @@ where
         let done = &done;
         let barrier = &barrier;
         let tx = &tx;
-        let consumers = &bench_conf.args.consumers;
-        let producers = &bench_conf.args.producers;
+        let &consumers = &consumers;
+        let &producers = &producers;
         let is_one_socket = &bench_conf.args.one_socket;
 
-        for i in 0..*producers{
+        for i in 0..producers{
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
             // (this was used for our testing enviroment to get one socket)
@@ -191,7 +179,7 @@ where
                 };
             }); 
         }
-        for i in 0..*consumers {
+        for i in 0..consumers {
             let mut core : CoreId = core_iter.next().expect("Core iter error");
             // if is_one_socket is true, make all thread ids even 
             // (this was used for our testing enviroment to get one socket)
@@ -253,9 +241,9 @@ where
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
-        bench_conf.args.consumers,
-        bench_conf.args.producers,
-        bench_conf.args.thread_count,
+        consumers,
+        producers,
+        -1,
         cqueue.get_id(),
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
@@ -317,14 +305,19 @@ C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
+    let thread_count = bench_conf
+        .get_thread_count()
+        .expect("Should not get here if Benchmark != PingPong");
     let time_limit: u64 = bench_conf.args.time_limit;
-    let barrier = Barrier::new(bench_conf.args.thread_count + 1);
+    let barrier = Barrier::new(thread_count + 1);
     let pops  = AtomicUsize::new(0);
     let pushes = AtomicUsize::new(0);
     let done = AtomicBool::new(false);
     let (tx, rx) = mpsc::channel();
-    info!("Starting pingpong benchmark with {} threads", bench_conf.args.thread_count);
+    info!("Starting pingpong benchmark with {} threads", thread_count);
     
+
+
     // get cores for fairness of threads
     let available_cores: Vec<CoreId> =
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
@@ -336,7 +329,10 @@ T: Default,
         let pops = &pops;
         let done = &done;
         let barrier = &barrier;
-        let thread_count = bench_conf.args.thread_count; 
+        let &thread_count = &thread_count; 
+        let &spread = &bench_conf
+            .get_spread()
+            .expect("Should not get here if Benchmark != PingPong");
         let is_one_socket = &bench_conf.args.one_socket;
         let tx = &tx;
         for _i in 0..thread_count{
@@ -355,7 +351,7 @@ T: Default,
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
                     let random_float = rand::rng().random::<f64>();
-                    if random_float > bench_conf.args.spread {
+                    if random_float > spread {
                         match handle.pop() {
                             Some(_) => l_pops += 1,
                             None => {
@@ -398,9 +394,9 @@ T: Default,
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
-        bench_conf.args.consumers,
-        bench_conf.args.producers,
-        bench_conf.args.thread_count,
+        -1,
+        -1,
+        thread_count,
         cqueue.get_id(),
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
@@ -418,9 +414,32 @@ T: Default,
     Ok(())
 }
 
-
-
-
+impl BenchConfig {
+    fn get_thread_count(&self) -> Option<usize> {
+        if let Benchmarks::PingPong(s) = &self.args.benchmark {
+            return Some(s.thread_count);
+        }
+        None
+    }
+    fn get_spread(&self) -> Option<f64> {
+        if let Benchmarks::PingPong(s) = &self.args.benchmark {
+            return Some(s.spread);
+        }
+        None
+    }
+    fn get_consumers(&self) -> Option<usize> {
+        if let Benchmarks::Basic(s) = &self.args.benchmark {
+            return Some(s.consumers);
+        }
+        None
+    }
+    fn get_producers(&self) -> Option<usize> {
+        if let Benchmarks::Basic(s) = &self.args.benchmark {
+            return Some(s.producers);
+        }
+        None
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -446,7 +465,8 @@ mod tests {
     }
     #[test]
     fn run_pingpong() {
-        let args = Args::default();
+        let mut args = Args::default();
+        args.benchmark = Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 });
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -497,7 +517,8 @@ mod tests {
     }
     #[test]
     fn run_pingpong_with_string() {
-        let args = Args::default();
+        let mut args = Args::default();
+        args.benchmark = Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 });
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -529,7 +550,8 @@ mod tests {
     }
     #[test]
     fn run_pingpong_with_struct() {
-        let args = Args::default();
+        let mut args = Args::default();
+        args.benchmark = Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 });
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),

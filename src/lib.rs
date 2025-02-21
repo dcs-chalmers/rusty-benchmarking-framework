@@ -8,9 +8,9 @@ use jemalloc_ctl::{stats, epoch};
 static GLOBAL: Jemalloc = Jemalloc;
 
 use chrono::Local;
-use clap::{ArgAction, Parser};
-use crate::benchmarks::Benchmarks;
+use clap::{ArgAction, Parser, Subcommand, Args as ClapArgs};
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -25,12 +25,6 @@ pub struct Args {
     /// Duration of each benchmark
     #[arg(short, long, default_value_t = 10)]
     time_limit: u64,
-    /// Amount of producers to be used for basic throughput test.
-    #[arg(short, long, default_value_t = 20)]
-    producers: usize,
-    /// Amount of consumers to be used for basic throughput test.
-    #[arg(short, long, default_value_t = 20)]
-    consumers: usize,
     /// Attemps to only use on socket. Specific for the developers test environment.
     #[arg(short, long, default_value_t = true, action = ArgAction::SetFalse)]
     one_socket: bool,
@@ -50,19 +44,52 @@ pub struct Args {
     #[arg(long = "path", default_value_t = String::from("./output"))]
     path_output: String,
     /// Choose which benchmark to run.
-    #[arg(value_enum)]
+    #[command(subcommand)]
     benchmark: Benchmarks,
+    /// If set to true, benchmark will output to stdout instead of to files.
+    #[arg(long ="write-stdout", default_value_t = false)]
+    write_to_stdout: bool,
+}
+
+/// Possible benchmark types.
+#[derive(Subcommand, Debug)]
+pub enum Benchmarks {
+    /// Basic throughput test. Decide amount of producers and consumers using flags.
+    Basic(BasicArgs),
+    /// A test where each thread performs both consume and produce based on a random floating point
+    /// value. Spread is decided using the `--spread` flag.
+    PingPong(PingPongArgs),
+}
+
+#[derive(ClapArgs,Debug)]
+pub struct BasicArgs {
+    /// Amount of producers to be used for basic throughput test.
+    #[arg(short, long, default_value_t = 20)]
+    producers: usize,
+    /// Amount of consumers to be used for basic throughput test.
+    #[arg(short, long, default_value_t = 20)]
+    consumers: usize,
+}
+#[derive(ClapArgs,Debug)]
+pub struct PingPongArgs {
+    /// Set the thread count for the pingpong benchmark.
+    #[arg(long = "thread-count", default_value_t = 20)]
+    thread_count: usize,
     /// Decide the spread of producers/consumers for the pingpong benchmark.
     /// Ex. 0.3 means 30% produce 70% consume.
     #[arg(long = "spread", default_value_t = 0.5)]
     spread: f64,
-    /// If set to true, benchmark will output to stdout instead of to files.
-    #[arg(long ="write-stdout", default_value_t = false)]
-    write_to_stdout: bool,
-    /// Set the thread count for the pingpong benchmark.
-    #[arg(long = "thread-count", default_value_t = 20)]
-    thread_count: usize,
 }
+
+impl Display for Benchmarks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Benchmarks::Basic(_) => write!(f, "Basic"),
+            Benchmarks::PingPong(_) => write!(f, "PingPong"),
+        }
+    }
+}
+
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
@@ -171,18 +198,14 @@ impl Default for Args {
     fn default() -> Self {
         Args {
             time_limit: 1,
-            producers: 5,
-            consumers: 5,
             one_socket: true,
             iterations: 1,
             empty_pops: false,
             queue_size: 10000,
             delay_nanoseconds: 1,
             path_output: "".to_string(),
-            benchmark: Benchmarks::Basic,
-            spread: 0.5,
+            benchmark: Benchmarks::Basic(BasicArgs { producers: 5, consumers: 5 }),
             write_to_stdout: true,
-            thread_count: 20,
         }
     } 
 }
