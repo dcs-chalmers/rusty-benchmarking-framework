@@ -67,13 +67,21 @@ pub struct Args {
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let date_time = Local::now().format("%Y%m%d%H%M%S").to_string();
+    // Create benchmark hashed id
     let benchmark_id = {
         let mut hasher = DefaultHasher::new();
         date_time.hash(&mut hasher);
         format!("{:x}", hasher.finish())
     };
+
     debug!("Benchmark ID: {}", benchmark_id) ;
     debug!("Arguments: {:?}", args);
+    
+    // Create dir if it doesnt already exist.
+    if !std::path::Path::new(&args.path_output).exists() {
+        std::fs::create_dir(&args.path_output)?;
+    }
+
     let output_filename = String::from(format!("{}/{}", args.path_output, date_time));
     let bench_conf = benchmarks::BenchConfig {
         args,

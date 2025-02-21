@@ -13,8 +13,6 @@ cargo build --release --features <Queue type>,<Optional feature>
 
 To run for a basic lock-based queue:
 ```bash
-# Create the output folder first
-mkdir output
 # Basic queue, benchmark measures throughput
 cargo run --features basic_queue --release -- basic
 # Basic queue, benchmark measures throughput and memory allocation
