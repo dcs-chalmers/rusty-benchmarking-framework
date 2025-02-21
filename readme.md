@@ -42,6 +42,8 @@ Implemented queues are:
 ### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program
 during the execution. Requires `jemalloc`, so should work on most UNIX systems.
+- `silent-release` - Compiles the benchmarking tool without any logging. Need to pass the `--no-default-features`  to work.
+- `verbose-release` - Compiles the benchmarking tool with all log levels. Need to pass the `--no-default-features`  to work.
 ## Flags
 * To use specific values you can add different flags to the run command:
     * `-t`, `--time-limit` for specific time values.
@@ -58,3 +60,22 @@ during the execution. Requires `jemalloc`, so should work on most UNIX systems.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
     * `--path` to change where the output of the benchmark is put.
+## Logging
+The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
+1. `error`
+2. `warn`
+3. `info`
+4. `debug`
+5. `trace`
+```bash
+# Example
+RUST_LOG=info cargo run --feature basic_queue -- basic
+```
+When compiling for debug, it will be able to log all these levels. When compiling for release it will by default only have the `warn` and `error` levels. If you want a release version with more logging you can compile with the `verbose-release` feature. If you want a release completely void of logging you can compile it with the feature `silent-release`. However, you will need to pass the `--no-default-features` flag to cargo as well.
+```bash
+#  Example verbose
+RUST_LOG=verbose cargo run --release --features verbose-release,basic_queue --no-default-features -- basic
+# Or in two steps
+cargo build --release --features verbose-release,basic_queue --no-default-features
+RUST_LOG=trace ./target/release/lockfree-benchmark basic
+```
