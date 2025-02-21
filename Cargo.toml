@@ -49,5 +49,26 @@ scc_stack = ["dep:scc"]
 scc2_stack = ["dep:scc2"]
 lockfree_stack = ["dep:lockfree"]
 ms_queue = ["dep:haphazard"]
+
+all_queues = [
+    "lockfree_queue",
+    "basic_queue",
+    "concurrent_queue",
+    "array_queue",
+    "memory_tracking",
+    "bounded_ringbuffer",
+    "delay_queue",
+    "chute_queue",
+    "atomic_queue",
+    "scc_queue",
+    "scc2_queue",
+    "lf_queue",
+    "wfqueue",
+    "scc_stack",
+    "scc2_stack",
+    "lockfree_stack",
+    "ms_queue"
+]
+
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
 silent-release = ["log/release_max_level_off"]
