@@ -5,16 +5,14 @@ FIFO, LIFO, bounded or unbounded) to measure their output and performance.
 ## How to use:
 ```bash
 # Using cargo run
-cargo run --release --features <Queue type>,<Optional feature> -- <Benchmark type> <Optional flags>
+cargo run --release --features <Queue type>,<Optional feature> -- <General optional flags> <Benchmark type> <Optional flags for benchmark type>
 # Alternatively
 cargo build --release --features <Queue type>,<Optional feature>
-./target/release/lockfree-benchmark <Benchmark type> <Optional flags>
+./target/release/lockfree-benchmark <General optional flags> <Benchmark type> <Optional flags for benchmark type>
 ```
 
 To run for a basic lock-based queue:
 ```bash
-# Create the output folder first
-mkdir output
 # Basic queue, benchmark measures throughput
 cargo run --features basic_queue --release -- basic
 # Basic queue, benchmark measures throughput and memory allocation
