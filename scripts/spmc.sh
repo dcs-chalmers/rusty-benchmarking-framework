@@ -28,8 +28,8 @@ for FEATURE in "${FEATURE_ARRAY[@]}"; do
     
     # Loop through thread counts and run cargo command
     for ((i = CONSUMERS_START; i <= CONSUMERS_END; i += STEP)); do
-        echo "Running with producer count: $i"
-        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 basic -p $i -c 1
+        echo "Running with producer count: $i on feature $FEATURE"
+        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 basic -p 1 -c $i
     done
 done
 
