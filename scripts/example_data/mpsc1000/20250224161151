@@ -1,0 +1,11 @@
+Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness
+2621868,2618985,2883,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.9123662976168136
+2611726,2608870,2856,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.7933045043775648
+2581126,2578286,2840,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.8705045782344605
+2614618,2611704,2914,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.870393304107904
+2600910,2597994,2916,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.9174331019624082
+2599611,2596792,2819,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.8480068748747409
+2602420,2599566,2854,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.9188378509233713
+2573273,2570400,2873,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.8461706161763637
+2605754,2602925,2829,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.902487512563632
+2592235,2589335,2900,1,901,-1,BoundedRingbuffer,Basic,e31ea0c0bdeeb7ef,0.7982254695272613
