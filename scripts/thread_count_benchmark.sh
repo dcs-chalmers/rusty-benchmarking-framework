@@ -29,9 +29,6 @@ for FEATURE in "${FEATURE_ARRAY[@]}"; do
     # Loop through thread counts and run cargo command
     for ((i = START_THREADS; i <= END_THREADS; i += THREAD_STEP)); do
         echo "Running with thread count: $i"
-        cargo run --release --features "$FEATURE" -- -t 1 -i 10 ping-pong --thread-count $i
-        
-        # Add a small delay between runs (optional)
-        sleep 1
+        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 ping-pong --thread-count $i
     done
 done
