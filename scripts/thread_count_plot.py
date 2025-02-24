@@ -77,7 +77,8 @@ def plot_results(df):
                 queue_data[metric],
                 marker=marker_style,
                 linestyle=line_style,
-                label=qtype
+                label=qtype,
+                markevery=5,
             )
 
         axes[i].set_title(title)
