@@ -205,8 +205,8 @@ where
                             empty_pops += 1;
                         }
                     }
-                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
-
+                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    let _ = rand::rng().random::<f64>();
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
@@ -364,7 +364,7 @@ T: Default,
                         handle.push(T::default());
                         l_pushes += 1;
                     }
-                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    let _ = rand::rng().random::<f64>();
                 }
 
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
