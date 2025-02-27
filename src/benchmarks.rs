@@ -170,7 +170,9 @@ where
                     handle.push(T::default());
                     l_pushes += 1;
                     // Add some delay to simulate real workload
-                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    for _ in 0..bench_conf.args.delay {
+                        let _ = rand::rng().random::<f64>();
+                    }
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
@@ -205,11 +207,9 @@ where
                             empty_pops += 1;
                         }
                     }
-                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
-                    for _ in 0..10 {
-                        let _some_num = rand::rng().random::<f64>();
+                    for _ in 0..bench_conf.args.delay {
+                        let _ = rand::rng().random::<f64>();
                     }
-
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
@@ -367,9 +367,8 @@ T: Default,
                         handle.push(T::default());
                         l_pushes += 1;
                     }
-                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
-                    for _ in 0..10 {
-                        let _some_num = rand::rng().random::<f64>();
+                    for _ in 0..bench_conf.args.delay {
+                        let _ = rand::rng().random::<f64>();
                     }
                 }
 

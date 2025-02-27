@@ -37,9 +37,10 @@ pub struct Args {
     /// Set the size of the bounded queues.
     #[arg(short, long, default_value_t = 10000)]
     queue_size: u32,
-    /// Set the delay between operations. Default is 1ns.
-    #[arg(short, long, default_value_t = 1)]
-    delay_nanoseconds: u64,
+    /// Set the amount of floating point numbers generated between each operation. Default is 10
+    /// (~25-30μs).
+    #[arg(short, long, default_value_t = 10)]
+    delay: u64,
     /// Set the output path for the result files.
     #[arg(long = "path", default_value_t = String::from("./output"))]
     path_output: String,
@@ -206,7 +207,7 @@ impl Default for Args {
             iterations: 1,
             empty_pops: false,
             queue_size: 10000,
-            delay_nanoseconds: 1,
+            delay: 10,
             path_output: "".to_string(),
             benchmark: Benchmarks::Basic(BasicArgs { producers: 5, consumers: 5 }),
             write_to_stdout: true,
