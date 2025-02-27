@@ -375,7 +375,7 @@ T: Default,
                     }
                     // let _ = rand::rng().random::<f64>();
                     // let _ = rand::rng().random::<f64>();
-                    for _ in 0..5 {
+                    for _ in 0..10 {
                         let _ = rand::rng().random::<f64>();
                     }
                 }
