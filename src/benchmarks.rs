@@ -1,7 +1,7 @@
 use core_affinity::CoreId;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, trace};
 use rand::Rng;
-use std::{sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}, time};
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -170,12 +170,9 @@ where
                     handle.push(T::default());
                     l_pushes += 1;
                     // Add some delay to simulate real workload
-                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
-                    // for _ in 0..10 {
-                    //     let _ = rand::rng().random::<u64>();
-                    // }
-                    let _ = rand::rng().random::<f64>();
-                    let _ = rand::rng().random::<f64>();
+                    for _ in 0..bench_conf.args.delay {
+                        let _ = rand::rng().random::<f64>();
+                    }
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
@@ -210,12 +207,9 @@ where
                             empty_pops += 1;
                         }
                     }
-                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
-                    // for _ in 0..10 {
-                    //     let _ = rand::rng().random::<u64>();
-                    // }
-                    let _ = rand::rng().random::<f64>();
-                    let _ = rand::rng().random::<f64>();
+                    for _ in 0..bench_conf.args.delay {
+                        let _ = rand::rng().random::<f64>();
+                    }
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
                 // Thread sends its total operations down the channel for fairness calculations
@@ -314,13 +308,6 @@ C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
-    let now = time::Instant::now();
-    let mut _sum = 0.0;
-    for _ in 0..500 {
-        let r = rand::rng().random::<f64>();
-        _sum += r;
-    }
-    warn!("After: {:?}", now.elapsed());
     let thread_count = bench_conf
         .get_thread_count()
         .expect("Should not get here if Benchmark != PingPong");
@@ -380,9 +367,7 @@ T: Default,
                         handle.push(T::default());
                         l_pushes += 1;
                     }
-                    // let _ = rand::rng().random::<f64>();
-                    // let _ = rand::rng().random::<f64>();
-                    for _ in 0..10 {
+                    for _ in 0..bench_conf.args.delay {
                         let _ = rand::rng().random::<f64>();
                     }
                 }
