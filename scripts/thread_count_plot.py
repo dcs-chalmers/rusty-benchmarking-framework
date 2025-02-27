@@ -84,6 +84,7 @@ def plot_results(df):
         axes[i].set_title(title)
         axes[i].set_xlabel('Thread Count')
         axes[i].set_ylabel(metric)
+        axes[i].set_yscale('log')  # Add this line to set logarithmic y-axis
         axes[i].grid(True)
         axes[i].legend()
 
