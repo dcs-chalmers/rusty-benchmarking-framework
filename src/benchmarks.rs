@@ -205,7 +205,10 @@ where
                             empty_pops += 1;
                         }
                     }
-                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    for _ in 0..10 {
+                        let _some_num = rand::rng().random::<f64>();
+                    }
 
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
@@ -364,7 +367,10 @@ T: Default,
                         handle.push(T::default());
                         l_pushes += 1;
                     }
-                    std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    // std::thread::sleep(std::time::Duration::from_nanos(bench_conf.args.delay_nanoseconds));
+                    for _ in 0..10 {
+                        let _some_num = rand::rng().random::<f64>();
+                    }
                 }
 
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
