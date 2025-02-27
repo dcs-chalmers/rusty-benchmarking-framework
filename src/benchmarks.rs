@@ -373,8 +373,11 @@ T: Default,
                         handle.push(T::default());
                         l_pushes += 1;
                     }
-                    let _ = rand::rng().random::<f64>();
-                    let _ = rand::rng().random::<f64>();
+                    // let _ = rand::rng().random::<f64>();
+                    // let _ = rand::rng().random::<f64>();
+                    for _ in 0..5 {
+                        let _ = rand::rng().random::<f64>();
+                    }
                 }
 
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
