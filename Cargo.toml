@@ -27,7 +27,9 @@ haphazard = { version = "0.1.8", optional = true }
 jemallocator = "0.5.4"
 jemalloc-ctl = "0.5.4"
 
-
+[build-dependencies]
+bindgen = {version = "0.71.1", optional = true}
+cc = {version = "1.0", optional = true}
 
 
 [features]
@@ -49,6 +51,7 @@ scc_stack = ["dep:scc"]
 scc2_stack = ["dep:scc2"]
 lockfree_stack = ["dep:lockfree"]
 ms_queue = ["dep:haphazard"]
+boost = ["dep:bindgen", "dep:cc"]
 
 all_queues = [
     "lockfree_queue",
@@ -67,7 +70,8 @@ all_queues = [
     "scc_stack",
     "scc2_stack",
     "lockfree_stack",
-    "ms_queue"
+    "ms_queue",
+    "boost",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

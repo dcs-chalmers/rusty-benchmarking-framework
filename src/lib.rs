@@ -179,6 +179,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::ms_queue::MSQueue<i32>,
             "MSQueue",
             &bench_conf);
+        implement_benchmark!("boost",
+            crate::queues::boost::BoostCppQueue,
+            "boostcpp",
+            &bench_conf);
         
     }
     Ok(())
