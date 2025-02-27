@@ -1,7 +1,7 @@
 use core_affinity::CoreId;
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
+use std::{sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier}, time};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -314,6 +314,13 @@ C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
+    let now = time::Instant::now();
+    let mut _sum = 0.0;
+    for _ in 0..500 {
+        let r = rand::rng().random::<f64>();
+        _sum += r;
+    }
+    warn!("After: {:?}", now.elapsed());
     let thread_count = bench_conf
         .get_thread_count()
         .expect("Should not get here if Benchmark != PingPong");
