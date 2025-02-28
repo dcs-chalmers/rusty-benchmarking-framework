@@ -38,6 +38,8 @@ Implemented queues are:
 * `scc_queue` - An unbounded lock-free queue from the crate [`scc`](https://crates.io/crates/scc).
 * `scc_stack` - An unbounded lock-free stack from the crate [`scc`](https://crates.io/crates/scc).
 * `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) by William to be able to be compiled.
+* `boost` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
+* `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). Can be benchmarked using bindings. **Experimental**.
 ### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program
 during the execution. Requires `jemalloc`, so should work on most UNIX systems.
