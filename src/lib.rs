@@ -50,6 +50,8 @@ pub struct Args {
     /// If set to true, benchmark will output to stdout instead of to files.
     #[arg(long ="write-stdout", default_value_t = false)]
     write_to_stdout: bool,
+    #[arg(short, long, default_value_t = 0)]
+    prefill_amount: u64,
 }
 
 /// Possible benchmark types.
@@ -205,6 +207,7 @@ pub trait Handle<T> {
 impl Default for Args {
     fn default() -> Self {
         Args {
+            prefill_amount: 0,
             time_limit: 1,
             one_socket: true,
             iterations: 1,

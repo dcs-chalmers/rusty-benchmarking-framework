@@ -29,7 +29,12 @@ macro_rules! implement_benchmark {
         {
             info!("Running benchmark on: {}", $desc);
             let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
-
+            {
+                let mut tmp_handle = test_q.register();
+                for _ in 0..$bench_conf.args.prefill_amount {
+                    tmp_handle.push(Default::default());
+                } 
+            }
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
             #[cfg(feature = "memory_tracking")]
             let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
