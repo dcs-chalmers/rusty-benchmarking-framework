@@ -32,3 +32,5 @@ pub mod lockfree_stack;
 pub mod ms_queue;
 #[cfg(feature = "boost")]
 pub mod boost;
+#[cfg(feature = "moodycamel")]
+pub mod moodycamel;
