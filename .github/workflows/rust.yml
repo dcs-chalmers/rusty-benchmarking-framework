@@ -18,6 +18,8 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install Boost
       run: sudo apt-get install -y libboost-all-dev
+    - name: Pull concurrentqueue
+      run: git clone https://github.com/cameron314/concurrentqueue.git ./src/concurrentqueue
     - name: Build
       run: cargo build --verbose --features all_queues
     - name: Run tests
