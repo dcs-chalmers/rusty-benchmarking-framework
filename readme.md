@@ -19,6 +19,9 @@ cargo run --features basic_queue --release -- basic
 cargo run --features basic_queue,memory_tracking --release -- basic
 ```
 This will compile and run the benchmarking tool. It will run the `basic` benchmark on the `basic_queue` implementation and produce a file in the `./output` with information from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
+
+There are several useful scripts located inside the `scripts` folder, as well
+as a README which describes how to use them.
 ## Benchmark types
 You have to choose which type of benchmark you want to run on your queue. They have sub commands specific to themselves. Use the `--help` flag after specifying queue type to print a help text about the sub commands.
 * `basic` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
