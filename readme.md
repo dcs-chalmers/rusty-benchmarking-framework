@@ -53,7 +53,7 @@ To use specific values you can add different flags to the run command:
     * `-i`, `--iterations` to specify how many iterations to run the benchmark.
     * `-e`, `--empty-pops` if you want to include empty dequeue operations.
     * `-q`, `--queue-size` to specify the sizes of bounded queues.
-    * `-d`, `--delay` to specify amount of floating points generated between each operation. Default: 10 (~25-30μs)
+    * `-d`, `--delay` to specify amount of floating points generated between each operation. Default: 10
     * `--write-stdout` - If you want to output to stdout instead of a file.
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.

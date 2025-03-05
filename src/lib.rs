@@ -38,7 +38,6 @@ pub struct Args {
     #[arg(short, long, default_value_t = 10000)]
     queue_size: u32,
     /// Set the amount of floating point numbers generated between each operation. Default is 10
-    /// (~25-30μs).
     #[arg(short, long, default_value_t = 10)]
     delay: u64,
     /// Set the output path for the result files.
@@ -50,6 +49,7 @@ pub struct Args {
     /// If set to true, benchmark will output to stdout instead of to files.
     #[arg(long ="write-stdout", default_value_t = false)]
     write_to_stdout: bool,
+    /// Prefill the queue with values before running the benchmark.
     #[arg(short, long, default_value_t = 0)]
     prefill_amount: u64,
 }
