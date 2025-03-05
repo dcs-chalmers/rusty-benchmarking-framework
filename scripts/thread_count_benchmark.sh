@@ -14,6 +14,8 @@ END_THREADS=$3
 THREAD_STEP=$4
 OUTPUT=$5
 
+mkdir $OUTPUT
+
 # Validate numeric inputs
 if ! [[ "$START_THREADS" =~ ^[0-9]+$ ]] || ! [[ "$END_THREADS" =~ ^[0-9]+$ ]] || ! [[ "$THREAD_STEP" =~ ^[0-9]+$ ]]; then
     echo "Error: Thread counts and step must be numeric values"
@@ -30,6 +32,6 @@ for FEATURE in "${FEATURE_ARRAY[@]}"; do
     # Loop through thread counts and run cargo command
     for ((i = START_THREADS; i <= END_THREADS; i += THREAD_STEP)); do
         echo "Running with thread count: $i"
-        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 --path $5 ping-pong --thread-count $i
+        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 --path $OUTPUT/$FEATURE ping-pong --thread-count $i
     done
 done
