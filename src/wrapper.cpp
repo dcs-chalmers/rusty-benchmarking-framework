@@ -1,7 +1,7 @@
 // wrapper.cpp
 #include "wrapper.hpp"
 #include <boost/lockfree/queue.hpp>
-#include "concurrentqueue.h"
+#include "concurrentqueue/concurrentqueue.h"
 
 // The actual implementation
 struct BoostLockfreeQueueImpl {
