@@ -1,38 +1,48 @@
-import matplotlib.pyplot as plt
 import pandas as pd
-import sys
-import os
+import matplotlib.pyplot as plt
 import glob
+import os
+import sys
+import argparse
 
-def load_all_csv(folder_path):  
-    folder_path = os.path.abspath(folder_path) 
-    all_files = glob.glob(os.path.join(folder_path, "**", "*"), recursive=True)  
 
-    if not all_files:
-        print(f"No files found in the folder: {folder_path}")
-        sys.exit(1)
+def load_csv_files(folder_path):
+    """Load all CSV files from the given folder path."""
+    csv_files = glob.glob(os.path.join(folder_path, "**", "*"), recursive=True)
+    if not csv_files:
+        print(f"No files found in: {folder_path}")
+        return None
 
-    df_list = []
-    for file in all_files:
-        try:
-            df = pd.read_csv(file)  
-            df_list.append(df)
-            print(f"Loaded: {file}")  
-        except pd.errors.ParserError:
-            print(f"Skipping (not a CSV file): {file}")
-        except Exception as e:
-            print(f"Error loading {file}: {e}")
+    dfs = []
+    for file in csv_files:
+        if os.path.isfile(file):
+            try:
+                df = pd.read_csv(file)
+                dfs.append(df)
+            except Exception as e:
+                print(f"Error reading {file}: {e}")
 
-    if not df_list:
-        print("No valid CSV files found.")
-        sys.exit(1)
+    if not dfs:
+        return None
 
-    merged_df = pd.concat(df_list, ignore_index=True)
-    return merged_df
+    return pd.concat(dfs, ignore_index=True)
 
-# Now plots: throughput, fairness, enqueue and dequeue vs thread count
-def plot_graphs(all_dfs, labels):
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10)) 
+
+def process_data(df, group_by):
+    """Average results grouped by Test ID, group_by, and Queuetype."""
+    grouped = df.groupby(['Test ID', group_by, 'Queuetype']).agg({
+        'Throughput': 'mean',
+        'Fairness': 'mean',
+        'Enqueues': 'mean',
+        'Dequeues': 'mean'
+    }).reset_index()
+    return grouped
+
+
+def plot_thread_count_results(df):
+    """Create plots for each metric,with all Queuetypes layered on the same 4
+    graphs."""
+    print(df.head())
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
     titles = [
         "Throughput vs. Thread Count",
@@ -40,53 +50,184 @@ def plot_graphs(all_dfs, labels):
         "Number of Enqueues vs. Thread Count",
         "Number of Dequeues vs. Thread Count"
     ]
-    
-    for df, label in zip(all_dfs, labels):
-        df = df.sort_values(by="Thread Count")  
-        df["Thread Count"] = df["Thread Count"].astype(int)
 
-        for i, metric in enumerate(metrics):
-            row, col = divmod(i, 2)
-            if metric in df.columns:
-                axes[row, col].plot(df["Thread Count"], df[metric], marker='o', linestyle='-', label=label)
+    # Define a set of line styles and marker styles for better distinction
+    line_styles = ['-', '--', '-.', ':']
+    marker_styles = ['o', 's', 'D', '^', 'v', '<',
+                     '>', 'p', '*', 'h', 'H', 'x', '+']
 
-    for i, ax in enumerate(axes.flat):
-        ax.set_title(titles[i])
-        ax.set_xlabel("Thread Count")
-        ax.set_ylabel(metrics[i])
-        ax.legend()
-        ax.grid()
+    # Create a single figure with 4 subplots (one for each metric)
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig.suptitle('Performance Metrics by Queuetype', fontsize=16)
+
+    # Flatten the axes array for easier indexing
+    axes = axes.flatten()
+
+    # Plot all Queuetypes on the same 4 graphs
+    for i, (metric, title) in enumerate(zip(metrics, titles)):
+        for j, qtype in enumerate(df['Queuetype'].unique()):
+            queue_data = df[df['Queuetype'] == qtype]
+            queue_data = queue_data.sort_values('Thread Count')
+
+            # Cycle through line styles and marker styles
+            line_style = line_styles[j % len(line_styles)]
+            marker_style = marker_styles[j % len(marker_styles)]
+
+            axes[i].plot(
+                queue_data['Thread Count'],
+                queue_data[metric],
+                marker=marker_style,
+                linestyle=line_style,
+                label=qtype,
+                markevery=5,
+            )
+
+        axes[i].set_title(title)
+        axes[i].set_xlabel('Thread Count')
+        axes[i].set_ylabel(metric)
+        axes[i].set_yscale('log')  # Add this line to set logarithmic y-axis
+        axes[i].grid(True)
+        axes[i].legend()
 
     plt.tight_layout()
     plt.show()
 
-def calc_average(df):
-    df["Thread Count"] = pd.to_numeric(df["Thread Count"], errors='coerce')
 
-    queue_type = df["Queuetype"].iloc[0] if "Queuetype" in df.columns else "Unknown"
+def plot_mpsc_results(df):
+    """Create plots for each metric,with all Queuetypes layered on the same 4
+    graphs."""
+    print(df.head())
+    metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
+    titles = [
+        "Throughput vs. Producers",
+        "Fairness vs. Producers",
+        "Number of Enqueues vs. Producers",
+        "Number of Dequeues vs. Producers"
+    ]
 
-    numeric_cols = df.select_dtypes(include=['number']).copy()  
-    numeric_cols["Thread Count"] = df["Thread Count"]  
-    avg = numeric_cols.groupby("Thread Count", as_index=False).mean()
+    # Define a set of line styles and marker styles for better distinction
+    line_styles = ['-', '--', '-.', ':']
+    marker_styles = ['o', 's', 'D', '^', 'v', '<',
+                     '>', 'p', '*', 'h', 'H', 'x', '+']
 
-    return avg, queue_type 
+    # Create a single figure with 4 subplots (one for each metric)
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig.suptitle('Performance Metrics by Queuetype', fontsize=16)
+
+    # Flatten the axes array for easier indexing
+    axes = axes.flatten()
+
+    # Plot all Queuetypes on the same 4 graphs
+    for i, (metric, title) in enumerate(zip(metrics, titles)):
+        for j, qtype in enumerate(df['Queuetype'].unique()):
+            queue_data = df[df['Queuetype'] == qtype]
+            queue_data = queue_data.sort_values('Producers')
+
+            # Cycle through line styles and marker styles
+            line_style = line_styles[j % len(line_styles)]
+            marker_style = marker_styles[j % len(marker_styles)]
+
+            axes[i].plot(
+                queue_data['Producers'],
+                queue_data[metric],
+                marker=marker_style,
+                linestyle=line_style,
+                label=qtype,
+                markevery=5
+            )
+
+        axes[i].set_title(title)
+        axes[i].set_xlabel('Producers')
+        axes[i].set_ylabel(metric)
+        axes[i].set_yscale('log')
+        axes[i].grid(True)
+        axes[i].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_spmc_results(df):
+    """Create plots for each metric,with all Queuetypes layered on the same 4
+    graphs."""
+    print(df.head())
+    metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
+    titles = [
+        "Throughput vs. Consumers",
+        "Fairness vs. Consumers",
+        "Number of Enqueues vs. Consumers",
+        "Number of Dequeues vs. Consumers"
+    ]
+
+    # Define a set of line styles and marker styles for better distinction
+    line_styles = ['-', '--', '-.', ':']
+    marker_styles = ['o', 's', 'D', '^', 'v', '<',
+                     '>', 'p', '*', 'h', 'H', 'x', '+']
+
+    # Create a single figure with 4 subplots (one for each metric)
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    fig.suptitle('Performance Metrics by Queuetype', fontsize=16)
+
+    # Flatten the axes array for easier indexing
+    axes = axes.flatten()
+
+    # Plot all Queuetypes on the same 4 graphs
+    for i, (metric, title) in enumerate(zip(metrics, titles)):
+        for j, qtype in enumerate(df['Queuetype'].unique()):
+            queue_data = df[df['Queuetype'] == qtype]
+            queue_data = queue_data.sort_values('Consumers')
+
+            # Cycle through line styles and marker styles
+            line_style = line_styles[j % len(line_styles)]
+            marker_style = marker_styles[j % len(marker_styles)]
+
+            axes[i].plot(
+                queue_data['Consumers'],
+                queue_data[metric],
+                marker=marker_style,
+                linestyle=line_style,
+                label=qtype,
+                markevery=5
+            )
+
+        axes[i].set_title(title)
+        axes[i].set_xlabel('Consumers')
+        axes[i].set_ylabel(metric)
+        axes[i].set_yscale('log')  # Add this line to set logarithmic y-axis
+        axes[i].grid(True)
+        axes[i].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+            description='Process and plot benchmark data.')
+    parser.add_argument('folder',
+                        help='Folder containing the benchmark CSV files')
+    parser.add_argument('plot_type', help='What type of benchmark to plot')
+    args = parser.parse_args()
+
+    if not os.path.isdir(args.folder):
+        print(f"Error: {args.folder} is not a valid directory")
+        sys.exit(1)
+
+    df = load_csv_files(args.folder)
+    if df is None:
+        print("No valid data was loaded.")
+        sys.exit(1)
+
+    if args.plot_type == 'spmc':
+        processed_df = process_data(df, 'Consumers')
+        plot_spmc_results(processed_df)
+    elif args.plot_type == 'thread_count':
+        processed_df = process_data(df, 'Thread Count')
+        plot_thread_count_results(processed_df)
+    elif args.plot_type == 'mpsc':
+        processed_df = process_data(df, 'Producers')
+        plot_mpsc_results(processed_df)
+
 
 if __name__ == "__main__":
-    amount = int(input("How many tests do you want to plot?: "))  
-    all_dfs = []
-    labels = []
-
-    for i in range(amount):
-        folder_path = input(f"Enter folder path for test {i+1}: ").strip()
-    
-        if not os.path.isdir(folder_path):
-            print("Invalid folder path.")
-            sys.exit(1)
-
-        df = load_all_csv(folder_path)
-        avg_df, queue_type = calc_average(df)  
-        all_dfs.append(avg_df)
-        labels.append(queue_type) 
-        
-    print("CSV Files Merged Successfully! Generating Graphs...")
-    plot_graphs(all_dfs, labels)
+    main()
