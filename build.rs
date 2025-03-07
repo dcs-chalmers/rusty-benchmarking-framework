@@ -1,5 +1,5 @@
 fn main() {
-    #[cfg(any(feature = "boost", feature = "moodycamel"))]
+    #[cfg(any(feature = "boost", feature = "moodycamel", feature = "lcrq"))]
     {
         use std::env;
         use std::path::PathBuf;
@@ -22,6 +22,10 @@ fn main() {
         
         #[cfg(feature = "moodycamel")]
         build.define("USE_MOODYCAMEL_QUEUE", None);
+
+        #[cfg(feature = "lcrq")]
+        build.define("USE_LCRQUEUE", None);
+
         
         build.compile("queue_wrapper");
         
@@ -45,6 +49,14 @@ fn main() {
                 .allowlist_function("moody_camel_.*")
                 .allowlist_type("MoodyCamelConcurrentQueue.*")
                 .opaque_type("MoodyCamelConcurrentQueueImpl");
+        }
+
+        #[cfg(feature = "lcrq")]
+        {
+            bindgen = bindgen
+                .allowlist_function("lcrq_.*")
+                .allowlist_type("LCRQ.*")
+                .opaque_type("LCRQImpl");
         }
         
         let bindings = bindgen

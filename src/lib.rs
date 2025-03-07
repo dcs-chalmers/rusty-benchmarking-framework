@@ -189,6 +189,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::moodycamel::MoodyCamelCppQueue,
             "moodycamelcpp",
             &bench_conf);
+        implement_benchmark!("lcrq",
+            crate::queues::lcrq::LCRQueue,
+            "lcrqcpp",
+            &bench_conf);
     }
     Ok(())
 }
