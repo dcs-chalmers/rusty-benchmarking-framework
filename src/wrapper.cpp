@@ -71,6 +71,9 @@ int lcrq_push(LCRQ queue, void* item, const int tid) {
 }
 
 int lcrq_pop(LCRQ queue, void** item, const int tid) {
-    *item = queue->queue.dequeue(tid);
-    return 1;
+    void* tmp = queue->queue.dequeue(tid);
+    if (tmp != nullptr) {
+        *item = tmp;
+        return 1;
+    } else return 0;
 }

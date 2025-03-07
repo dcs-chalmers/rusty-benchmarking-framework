@@ -4,6 +4,8 @@
 
 use std::{cell::Cell, sync::atomic::{AtomicI32, Ordering}};
 
+use log::{debug, trace};
+
 use crate::{ConcurrentQueue, Handle};
 
 // Include the generated bindings
@@ -68,16 +70,22 @@ struct LCRQHandle<'a> {
 
 impl Handle<Box<i32>> for LCRQHandle<'_> {
     fn push(&mut self, item: Box<i32>) {
+        trace!("{}: Starting push through handle", get_thread_id());
         let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
+        trace!("{}: Pushing NOW", get_thread_id());
         assert!(self.q.push(ptr));
+        trace!("{}: Done pushing. Assert passed", get_thread_id());
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
+        trace!("{}: Starting pop through handle", get_thread_id());
         let res = match self.q.pop() {
             Some(v) => v,
             None => return None,
         };
+        trace!("{}: Will now run unsafe deref", get_thread_id());
         let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
+        trace!("{}: Unsafe deref done, val was {val}", get_thread_id());
         Some(val)
     }
 }
