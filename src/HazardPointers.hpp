@@ -32,7 +32,6 @@
 
 #include <atomic>
 #include <vector>
-#include <iostream>
 
 
 template<typename T>

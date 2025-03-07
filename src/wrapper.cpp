@@ -53,12 +53,12 @@ int moody_camel_pop(MoodyCamelConcurrentQueue queue, void **item) {
 
 struct LCRQImpl {
     LCRQueue<void> queue;
-    explicit LCRQImpl()
-        : queue() {}
+    explicit LCRQImpl(int max_threads)
+        : queue(max_threads) {}
 };
 
-LCRQ lcrq_create() {
-    return new LCRQImpl();
+LCRQ lcrq_create(int max_threads) {
+    return new LCRQImpl(max_threads);
 }
 
 void lcrq_destroy(LCRQ queue) {

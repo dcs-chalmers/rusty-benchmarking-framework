@@ -32,7 +32,7 @@ int moody_camel_pop(MoodyCamelConcurrentQueue queue, void** item);
 
 typedef struct LCRQImpl* LCRQ;
 
-LCRQ lcrq_create();
+LCRQ lcrq_create(int max_threads);
 
 void lcrq_destroy(LCRQ queue);
 
