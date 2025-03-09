@@ -123,7 +123,7 @@ private:
     alignas(128) std::atomic<Node*> head;
     alignas(128) std::atomic<Node*> tail;
 
-    static const int MAX_THREADS = 128;
+    static const int MAX_THREADS = 512;
     const int maxThreads;
 
     HazardPointers<Node> hp {1, maxThreads};

@@ -13,7 +13,7 @@ fn main() {
         
         build.cpp(true)
             .file("src/wrapper.cpp")
-            .flag("-std=c++14")
+            .flag("-std=c++17")
             .include("/usr/include");  // Path to headers
         
         // Add definitions for conditional compilation

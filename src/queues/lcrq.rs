@@ -15,7 +15,7 @@ thread_local! {
     static THREAD_ID: Cell<Option<i32>> = Cell::new(None);
 }
 
-static MAX_THREADS: i32 = 128;
+static MAX_THREADS: i32 = 512;
 
 
 // A safe Rust wrapper around the C bindings
