@@ -193,6 +193,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::lcrq::LCRQueue,
             "lcrqcpp",
             &bench_conf);
+        implement_benchmark!("lprq",
+            crate::queues::lprq::LPRQueue,
+            "lprqcpp",
+            &bench_conf);
     }
     Ok(())
 }

@@ -2,3 +2,13 @@
 /output
 Cargo.lock
 /venv
+/src/cpp-ring-queue-research/benchmarks.sh
+/src/cpp-ring-queue-research/postprocess/*
+/src/cpp-ring-queue-research/third-party/*
+/src/cpp-ring-queue-research/deduce_nproc.py
+/src/cpp-ring-queue-research/deduce_nproc.py
+/src/cpp-ring-queue-research/CCQueue.hpp
+/src/cpp-ring-queue-research/BenchmarkQ.hpp
+/src/cpp-ring-queue-research/FakeLCRQueue.hpp
+/src/cpp-ring-queue-research/LSCQueue.hpp
+/src/cpp-ring-queue-research/MichaelScottQueue.hpp

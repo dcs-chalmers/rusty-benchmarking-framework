@@ -1,5 +1,5 @@
 fn main() {
-    #[cfg(any(feature = "boost", feature = "moodycamel", feature = "lcrq"))]
+    #[cfg(any(feature = "boost", feature = "moodycamel", feature = "lcrq", feature = "lprq"))]
     {
         use std::env;
         use std::path::PathBuf;
@@ -13,7 +13,7 @@ fn main() {
         
         build.cpp(true)
             .file("src/wrapper.cpp")
-            .flag("-std=c++17")
+            .flag("-std=c++20")
             .include("/usr/include");  // Path to headers
         
         // Add definitions for conditional compilation
@@ -26,13 +26,17 @@ fn main() {
         #[cfg(feature = "lcrq")]
         build.define("USE_LCRQUEUE", None);
 
+        #[cfg(feature = "lprq")]
+        build.define("USE_LCRQUEUE", None);
+
         
         build.compile("queue_wrapper");
         
         // Generate bindings
         let mut bindgen = bindgen::Builder::default()
             .header("src/wrapper.hpp")
-            .clang_arg("-I/usr/include");
+            .clang_arg("-I/usr/include")
+            .clang_arg("-I/home/jam/lockfree-benchmark/src/cpp-ring-queues-research/include");
         
         // Include bindings for both queue implementations based on features
         #[cfg(feature = "boost")]
@@ -57,6 +61,14 @@ fn main() {
                 .allowlist_function("lcrq_.*")
                 .allowlist_type("LCRQ.*")
                 .opaque_type("LCRQImpl");
+        }
+
+        #[cfg(feature = "lprq")]
+        {
+            bindgen = bindgen
+                .allowlist_function("lprq_.*")
+                .allowlist_type("LPRQ.*")
+                .opaque_type("LPRQImpl");
         }
         
         let bindings = bindgen

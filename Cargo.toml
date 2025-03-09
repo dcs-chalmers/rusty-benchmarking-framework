@@ -54,6 +54,7 @@ ms_queue = ["dep:haphazard"]
 boost = ["dep:bindgen", "dep:cc"]
 moodycamel = ["dep:bindgen", "dep:cc"]
 lcrq = ["dep:bindgen", "dep:cc"]
+lprq = ["dep:bindgen", "dep:cc"]
 
 all_queues = [
     "lockfree_queue",
@@ -76,6 +77,7 @@ all_queues = [
     "boost",
     "moodycamel",
     "lcrq",
+    "lprq",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

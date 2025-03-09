@@ -36,3 +36,5 @@ pub mod boost;
 pub mod moodycamel;
 #[cfg(feature = "lcrq")]
 pub mod lcrq;
+#[cfg(feature = "lprq")]
+pub mod lprq;
