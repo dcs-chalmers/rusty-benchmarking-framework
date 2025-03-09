@@ -7,6 +7,11 @@ fn main() {
         // Tell cargo to rerun this if our wrapper changes
         println!("cargo:rerun-if-changed=src/wrapper.hpp");
         println!("cargo:rerun-if-changed=src/wrapper.cpp");
+        println!("cargo:rerun-if-changed=src/LCRQueue.hpp");
+        println!("cargo:rerun-if-changed=src/HazardPointers.hpp");
+        println!("cargo:rerun-if-changed=src/cpp-ring-queues-research/include/LPRQueue.hpp");
+        println!("cargo:rerun-if-changed=src/cpp-ring-queues-research/include/LinkedRingQueue.hpp");
+        println!("cargo:rerun-if-changed=src/cpp-ring-queues-research/include/HazardPointers.hpp");
         
         // Compile the C++ wrapper code
         let mut build = cc::Build::new();
