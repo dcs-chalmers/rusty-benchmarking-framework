@@ -91,7 +91,6 @@ LPRQ lprq_create(int max_threads) {
 }
 
 void lprq_destroy(LPRQ queue) {
-    std::cout << "asd" << std::endl;
     delete queue;
 }
 
