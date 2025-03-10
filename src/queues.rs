@@ -38,3 +38,5 @@ pub mod moodycamel;
 pub mod lcrq;
 #[cfg(feature = "lprq")]
 pub mod lprq;
+#[cfg(feature = "seg_queue")]
+pub mod seg_queue;

@@ -1,7 +1,7 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier, Mutex};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -98,7 +98,7 @@ macro_rules! implement_benchmark {
             crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -270,6 +270,87 @@ where
         println!("{}", formatted);
     }
 
+    Ok(())
+}
+
+pub fn benchmark_order<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+where 
+    C: ConcurrentQueue<Box<i32>>,
+    for<'a> &'a C: Send
+{
+    let thread_count = bench_conf
+        .get_thread_count()
+        .expect("Should not get here if Benchmark != Order");
+    let time_limit: u64 = bench_conf.args.time_limit;
+    let barrier = Barrier::new(thread_count + 1);
+    let done_pushing = AtomicBool::new(false);
+    let order = Mutex::new((1..=10_000_000).collect());
+    let mut order2: Vec<i32> = (1..=10_000_000).collect();
+    info!("Starting order benchmark with {} threads", thread_count);
+    
+    // get cores for fairness of threads
+    let available_cores: Vec<CoreId> =
+        core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
+        let mut core_iter = available_cores.into_iter().cycle();
+
+    let _ = std::thread::scope(|s| -> Result<(), std::io::Error>{
+        let queue = &cqueue;
+        let done_pushing = &done_pushing;
+        let barrier = &barrier;
+        let &thread_count = &thread_count; 
+        let is_one_socket = &bench_conf.args.one_socket;
+        let lock: &Mutex<Vec<i32>> = &order;
+        let order2 = &mut order2;
+        for _i in 0..thread_count{
+            let mut core : CoreId = core_iter.next().unwrap();
+            // if is_one_socket is true, make all thread ids even 
+            // (this was used for our testing enviroment to get one socket)
+            if *is_one_socket {
+                core = core_iter.next().unwrap();
+            }
+            // println!("{:?}", core);
+            s.spawn(move || {
+                core_affinity::set_for_current(core);
+                let mut handle = queue.register();
+                barrier.wait();
+                while !done_pushing.load(Ordering::Relaxed) {
+                    for _ in 0..bench_conf.args.delay {
+                       let _some_num = rand::rng().random::<f64>();
+                    }
+                    {
+                        let mut q = lock.lock().unwrap();
+                        let elem = match q.pop() {
+                            Some(e) => e,
+                            None => {
+                                done_pushing.store(true, Ordering::Relaxed);
+                                break;
+                            },
+                        };
+                        handle.push(Box::new(elem));
+                    }
+                }
+            }); 
+            
+        }
+        s.spawn(move || {
+            let mut handle = queue.register();
+            while !done_pushing.load(Ordering::Relaxed) {
+                if let Some(val) = handle.pop() {
+                    let value = order2.pop().unwrap();
+                    if value != *val {
+                        error!("Not ordered, failed at value: {}", value);
+                        break;
+                    } 
+                }
+            }
+        });
+        barrier.wait();
+        std::thread::sleep(std::time::Duration::from_secs(time_limit));
+        done_pushing.store(true, Ordering::Relaxed);
+
+        println!("Order test over.");
+        Ok(())
+    });
     Ok(())
 }
 
