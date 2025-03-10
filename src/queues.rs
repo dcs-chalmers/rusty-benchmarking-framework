@@ -34,3 +34,5 @@ pub mod ms_queue;
 pub mod boost;
 #[cfg(feature = "moodycamel")]
 pub mod moodycamel;
+#[cfg(feature = "lcrq")]
+pub mod lcrq;

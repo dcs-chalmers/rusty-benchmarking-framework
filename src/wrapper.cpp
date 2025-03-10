@@ -2,6 +2,7 @@
 #include "wrapper.hpp"
 #include <boost/lockfree/queue.hpp>
 #include "concurrentqueue/concurrentqueue.h"
+#include "LCRQueue.hpp"
 
 // The actual implementation
 struct BoostLockfreeQueueImpl {
@@ -48,4 +49,31 @@ int moody_camel_push(MoodyCamelConcurrentQueue queue, void *item) {
 
 int moody_camel_pop(MoodyCamelConcurrentQueue queue, void **item) {
     return queue->queue.try_dequeue(*item) ? 1 : 0;
+}
+
+struct LCRQImpl {
+    LCRQueue<void> queue;
+    explicit LCRQImpl(int max_threads)
+        : queue(max_threads) {}
+};
+
+LCRQ lcrq_create(int max_threads) {
+    return new LCRQImpl(max_threads);
+}
+
+void lcrq_destroy(LCRQ queue) {
+    delete queue;
+}
+
+int lcrq_push(LCRQ queue, void* item, const int tid) {
+    queue->queue.enqueue(item, tid);
+    return 1;
+}
+
+int lcrq_pop(LCRQ queue, void** item, const int tid) {
+    void* tmp = queue->queue.dequeue(tid);
+    if (tmp != nullptr) {
+        *item = tmp;
+        return 1;
+    } else return 0;
 }
