@@ -6,6 +6,7 @@ use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::mpsc;
+use sysinfo::System;
 
 /// Benchmark config struct
 /// Needs to be fully filled for benchmarks to be able to run.
@@ -94,6 +95,7 @@ macro_rules! implement_benchmark {
             }
 ////////////////////////////////////// MEMORY END //////////////////////////////
             // Select which benchmark to use
+            crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                 Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
@@ -112,6 +114,7 @@ macro_rules! implement_benchmark {
 ////////////////////////////////////// MEMORY END //////////////////////////////
         }
     };
+    
 }
 
 /// # Explanation:
@@ -131,7 +134,6 @@ where
     let consumers = bench_conf
         .get_consumers()
         .expect("Should not be able to get here if Benchmark != Basic");
-
 
     let time_limit: u64 = bench_conf.args.time_limit;
     let barrier = Barrier::new(consumers + producers + 1);
@@ -420,6 +422,40 @@ T: Default,
         writeln!(file, "{}", formatted)?;
     } else {
         println!("{}", formatted);
+    }
+    Ok(())
+}
+
+
+pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io::Error>{
+    // Create file if printing to stdout is disabled
+    let memfile = {
+        let output_filename = String::from(format!("{}/info{}.txt", bench_conf.args.path_output, bench_conf.benchmark_id));
+        let file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&output_filename)?;
+        Some(file)
+    };
+    let num: u64 = 1000;
+    let sys = System::new_all();
+    if let Some(mut file) = memfile {
+        writeln!(file, "Test done:              {}", bench_conf.args.benchmark)?;
+        writeln!(file, "With queue:             {}", queue)?;
+
+        writeln!(file, "Arguments used in test:")?;
+        writeln!(file, "\n{}", bench_conf.args)?;
+        writeln!(file, "")?;
+
+        writeln!(file, "Test ran on hardware specs:")?;
+        writeln!(file, "System name:            {}", System::name().unwrap())?;
+        writeln!(file, "System kernel version:  {}", System::kernel_version().unwrap())?;
+        writeln!(file, "System OS version:      {}", System::os_version().unwrap())?;
+        writeln!(file, "Total RAM (in GB):      {:?}", sys.total_memory()/(num.pow(3)))?;
+
+    }
+    else {
+        eprintln!("Error producing info file")
     }
     Ok(())
 }

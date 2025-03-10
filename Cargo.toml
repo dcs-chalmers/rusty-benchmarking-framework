@@ -21,7 +21,7 @@ wfqueue = { git = "https://github.com/WilleBerg/wfqueue", branch = "master", opt
 log = { version = "0.4.25" }
 env_logger = { version = "0.11.6", optional = true }
 haphazard = { version = "0.1.8", optional = true }
-
+sysinfo = "0.33"
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = "0.5.4"
