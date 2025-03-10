@@ -93,6 +93,21 @@ impl Display for Benchmarks {
     }
 }
 
+impl Display for Args {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Time limit:             {}", self.time_limit)?;
+        writeln!(f, "One socket?:            {}", self.one_socket)?;
+        writeln!(f, "Iterations:             {}", self.iterations)?;
+        writeln!(f, "Queue size:             {}", self.queue_size)?;
+        writeln!(f, "Delay:                  {}", self.delay)?;
+        writeln!(f, "Output path:            {}", self.path_output)?;
+        writeln!(f, "Benchmark:              {:?}", self.benchmark)?;
+        writeln!(f, "Write to stdout:        {}", self.write_to_stdout)?;
+        writeln!(f, "prefill amount:         {}", self.prefill_amount)?;     
+        Ok(())
+    }
+    
+}
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
