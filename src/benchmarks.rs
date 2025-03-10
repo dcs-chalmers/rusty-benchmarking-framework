@@ -429,6 +429,9 @@ T: Default,
 
 pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io::Error>{
     // Create file if printing to stdout is disabled
+    if bench_conf.args.write_to_stdout {
+        return Ok(());
+    }
     let memfile = {
         let output_filename = String::from(format!("{}/info{}.txt", bench_conf.args.path_output, bench_conf.benchmark_id));
         let file = OpenOptions::new()
