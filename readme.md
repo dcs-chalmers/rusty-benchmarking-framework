@@ -44,7 +44,7 @@ Implemented queues are:
 * `boost` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
 * `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). Can be benchmarked using bindings. **Experimental**.
 * `lcrq` - [An unbounded C++ queue](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/CPP/queues/LCRQueue.hpp). **Experimental**.
-* `lprq` - [An unbounded C++ queue](https://zenodo.org/records/7337237) **Experimental**.
+* `lprq` - [An unbounded C++ queue](https://zenodo.org/records/7337237). **Experimental**.
 
 ### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program

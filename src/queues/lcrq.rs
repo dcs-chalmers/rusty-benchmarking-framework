@@ -4,8 +4,6 @@
 
 use std::{cell::Cell, sync::atomic::{AtomicI32, Ordering}};
 
-use log::{debug, trace};
-
 use crate::{ConcurrentQueue, Handle};
 
 // Include the generated bindings
