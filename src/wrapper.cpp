@@ -1,7 +1,6 @@
 // wrapper.cpp
 #include "wrapper.hpp"
 #include <boost/lockfree/queue.hpp>
-#include <iostream>
 #include "concurrentqueue/concurrentqueue.h"
 #include "LCRQueue.hpp"
 #include "cpp-ring-queues-research/include/LPRQueue.hpp"
