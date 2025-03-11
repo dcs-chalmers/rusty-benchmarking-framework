@@ -98,7 +98,7 @@ macro_rules! implement_benchmark {
             crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
+                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
