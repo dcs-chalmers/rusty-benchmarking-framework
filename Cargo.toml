@@ -33,11 +33,12 @@ cc = {version = "1.0", optional = true}
 
 
 [features]
-default = ["log/release_max_level_info", "dep:env_logger"]
+default = ["log/release_max_level_info", "dep:env_logger", "philippas_queue"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 concurrent_queue = ["dep:concurrent-queue"]
 array_queue = ["dep:crossbeam"]
+seg_queue = ["dep:crossbeam"]
 memory_tracking = []
 bounded_ringbuffer = []
 delay_queue = ["dep:delay-queue"] 
@@ -55,6 +56,7 @@ boost = ["dep:bindgen", "dep:cc"]
 moodycamel = ["dep:bindgen", "dep:cc"]
 lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
+philippas_queue = []
 
 all_queues = [
     "lockfree_queue",
@@ -78,6 +80,7 @@ all_queues = [
     "moodycamel",
     "lcrq",
     "lprq",
+    "seg_queue",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

@@ -40,3 +40,5 @@ pub mod lcrq;
 pub mod lprq;
 #[cfg(feature = "seg_queue")]
 pub mod seg_queue;
+#[cfg(feature = "philippas_queue")]
+pub mod philippas_queue;
