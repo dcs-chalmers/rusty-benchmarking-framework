@@ -1,7 +1,7 @@
-use log::{error, trace};
+use log::{debug, error, trace};
 
 use crate::ConcurrentQueue;
-use std::{fmt::Display, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
+use std::{fmt::{Debug, Display}, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 
 #[derive(Copy, Clone, Debug)]
 enum TempVal<T> {
@@ -36,51 +36,59 @@ struct PQueue<T: Clone + Copy + Display> {
     nodes:  Vec<Node<T>>,
     tail:   AtomicUsize,
     vnull:  TempVal<T>,
+    MAXNUM: usize,
 }
 
-impl<T: Clone + Copy + Display> PQueue<T> {
+impl<T: Clone + Copy + Display + Debug> PQueue<T> {
     fn new(capacity: usize) -> Self {
+        let maxnum = capacity + 1;
         let mut v = vec![];
-        for _ in 0..capacity {
+        for _ in 0..maxnum + 1 {
             v.push(Node::new());
         }
+        v[0] = Node { val: AtomicPtr::new(Box::into_raw(Box::new(TempVal::Null(true))))};
         PQueue {
             head: AtomicUsize::new(0),
             tail: AtomicUsize::new(1),
             vnull: TempVal::Null(true),
             nodes: v,
+            MAXNUM: maxnum, 
         }
     }
 
     fn enqueue(&mut self, newnode: T) -> bool{
         loop {
+            trace!("starting enqueue");
             let te = self.tail.load(Ordering::Relaxed);
             let mut ate = te;
             let mut tt = &self.nodes[ate];
-            let mut temp: usize = ate + 1 % self.nodes.len();
+            let mut temp: usize = (ate + 1) % self.MAXNUM;
             // While we have a value and not a null
             while let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                 // check tails consistency 
                 if te != self.tail.load(Ordering::Relaxed) { break; }
-                if te != self.head.load(Ordering::Relaxed) { break; }
+                if temp == self.head.load(Ordering::Relaxed) { break; }
                 tt = &self.nodes[temp];
                 ate = temp;
-                temp = (ate + 1) % self.nodes.len();
+                temp = (ate + 1) % self.MAXNUM;
             }
             // check tails consistency 
             if te != self.tail.load(Ordering::Relaxed) { continue; }
             if temp == self.head.load(Ordering::Relaxed) {
-                ate = (temp + 1) % self.nodes.len();
+                ate = (temp + 1) % self.MAXNUM;
                 tt = &self.nodes[ate];
                 if let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
+                    debug!("Returning false on enqueue");
+                    trace!("{:?}", self);
                     return false;
                 }
-                if ate != 0 {
+                if ate == 0 {
                     self.vnull = unsafe { *tt.val.load(Ordering::Relaxed) };
                 }
                 let _ = self.head.compare_exchange(temp, ate, Ordering::Relaxed, Ordering::Relaxed);
                 continue;
             }
+            trace!("Values: {} {} {} {} {}", unsafe {*self.nodes[0].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[1].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[2].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[3].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[4].val.load(Ordering::Relaxed)});
             // check tails consistency 
             if te != self.tail.load(Ordering::Relaxed) { continue; }
             let new_node_ptr = Box::into_raw(Box::new(TempVal::Val(newnode)));
@@ -89,9 +97,10 @@ impl<T: Clone + Copy + Display> PQueue<T> {
                 new_node_ptr,
                 Ordering::Relaxed,
                 Ordering::Relaxed) {
-                    if temp % 2 == 0 {
+                    if (temp % 2) == 0 {
                         let _ = self.tail.compare_exchange(te, temp, Ordering::Relaxed, Ordering::Relaxed);
                     }
+                trace!("temp {}, te {}, ate {}", temp, te, ate);
                 return true;
             }
         }
@@ -101,27 +110,28 @@ impl<T: Clone + Copy + Display> PQueue<T> {
         println!("Start of dequeue");
         loop {
             let th = self.head.load(Ordering::Relaxed);
-            let mut temp: usize = th + 1 % self.nodes.len();
+            let mut temp: usize = (th + 1) % self.nodes.len();
             let mut tt = &self.nodes[temp];
             
             println!("Entering second loop");
-            while let TempVal::Null(_) = unsafe { *tt.val.load(Ordering::Relaxed) }{
+            trace!("Values: {} {} {} {} {}", unsafe {*self.nodes[0].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[1].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[2].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[3].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[4].val.load(Ordering::Relaxed)});
+            while let TempVal::Null(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                 if th != self.head.load(Ordering::Relaxed) { println!("breaking now"); break; }
                 println!("We are here now lol");
                 if temp == self.tail.load(Ordering::Relaxed) { return None;}
-                temp = temp + 1 % self.nodes.len();
+                temp = (temp + 1) % self.MAXNUM;
                 tt = &self.nodes[temp];
             }
             if th != self.head.load(Ordering::Relaxed) { continue; }
             if temp == self.tail.load(Ordering::Relaxed){
-                let _ = self.tail.compare_exchange(temp, temp + 1 % self.nodes.len(), Ordering::Relaxed, Ordering::Relaxed);
+                let _ = self.tail.compare_exchange(temp, (temp + 1) % self.nodes.len(), Ordering::Relaxed, Ordering::Relaxed);
                 continue;
             }
             let tnull: TempVal<T>;
             trace!("temp: {}, th: {}",temp, th);
             trace!("Values: {} {} {} {} {}", unsafe {*self.nodes[0].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[1].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[2].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[3].val.load(Ordering::Relaxed)}, unsafe {*self.nodes[4].val.load(Ordering::Relaxed)});
             if temp != 0 {
-                if temp > th {
+                if temp < th {
                     trace!("Setting tnull to node 0 val");
                     tnull = unsafe { *self.nodes[0].val.load(Ordering::Relaxed) };
                 } else {
@@ -136,6 +146,8 @@ impl<T: Clone + Copy + Display> PQueue<T> {
             }
             if th != self.head.load(Ordering::Relaxed){ continue; }
             let tnull_ptr = Box::into_raw(Box::new(tnull));
+            let real_tt = unsafe { *tt.val.load(Ordering::Relaxed) };
+            // trace!("th: {}")
             if let Ok(_) = self.nodes[temp].val.compare_exchange(
                 tt.val.load(Ordering::Relaxed), 
                 tnull_ptr, 
@@ -145,10 +157,10 @@ impl<T: Clone + Copy + Display> PQueue<T> {
                 if temp == 0 {
                     self.vnull = tnull;
                 }
-                if temp % 2 == 0 {
+                if (temp % 2) == 0 {
                     let _ = self.head.compare_exchange(th, temp, Ordering::Relaxed, Ordering::Relaxed);
                 }
-                match unsafe {*tt.val.load(Ordering::Relaxed)} {
+                match real_tt {
                     TempVal::Null(_) => {
                         error!("Return value was a null");
                         println!("Returning none");
@@ -184,7 +196,7 @@ mod tests {
     #[test]
     fn create_pqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let mut q: PQueue<i32> = PQueue::new(5);
+        let mut q: PQueue<i32> = PQueue::new(10);
         assert!(q.enqueue(10));
         assert!(q.enqueue(11));
         assert!(q.enqueue(12));
