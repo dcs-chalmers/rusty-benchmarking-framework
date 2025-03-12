@@ -8,7 +8,7 @@ pub struct AtomicQueueHandle<'a, T> {
     queue: &'a AtomicQueue<T>
 }
 
-impl<T> ConcurrentQueue<T> for AtomicQueue<T> {
+impl<T: Default> ConcurrentQueue<T> for AtomicQueue<T> {
     fn register(&self) -> impl Handle<T> {
         AtomicQueueHandle {
             queue: self,
@@ -24,9 +24,12 @@ impl<T> ConcurrentQueue<T> for AtomicQueue<T> {
     }
 }
 
-impl<T> Handle<T> for AtomicQueueHandle<'_, T> {
-    fn push(&mut self, item: T) {
-        let _ = self.queue.queue.push(item);
+impl<T: Default> Handle<T> for AtomicQueueHandle<'_, T> {
+    fn push(&mut self, item: T) -> Result<(), T>{
+        if let false = self.queue.queue.push(item) {
+            return Err(T::default());
+        }
+        Ok(())
     }
     
     fn pop(&mut self) -> Option<T> {
@@ -50,7 +53,7 @@ mod tests {
     fn register_atomic_queue() {
         let q: AtomicQueue<i32> = AtomicQueue::new(1000);
         let mut handle = q.register();
-        handle.push(1);
+        handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
     }

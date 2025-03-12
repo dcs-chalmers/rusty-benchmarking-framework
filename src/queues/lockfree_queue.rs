@@ -26,8 +26,9 @@ impl<T> ConcurrentQueue<T> for LockfreeQueue<T> {
 }
 
 impl<T> Handle<T> for LockfreeQueueHandle<'_, T> {
-    fn push(&mut self, item: T) {
+    fn push(&mut self, item: T) -> Result<(), T>{
         self.queue.lfq.push(item);
+        Ok(())
     }
     
     fn pop(&mut self) -> Option<T> {
@@ -54,7 +55,7 @@ mod tests {
             lfq: lockfree::queue::Queue::new()
         };
         let mut handle = q.register();
-        handle.push(1);
+        handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
     }

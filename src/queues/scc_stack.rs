@@ -25,8 +25,9 @@ impl<T: Clone + Copy> ConcurrentQueue<T> for SCCStack<T> {
 }
 
 impl<T: Clone + Copy> Handle<T> for SCCStackHandle<'_, T> {
-    fn push(&mut self, item: T) {
+    fn push(&mut self, item: T) -> Result<(), T> {
         let _ = self.queue.queue.push(item);
+        Ok(())
     }
     
     fn pop(&mut self) -> Option<T> {
@@ -48,7 +49,7 @@ mod tests {
     fn register_scc_stack() {
         let q: SCCStack<i32> = SCCStack::new(1000);
         let mut handle = q.register();
-        handle.push(1);
+        handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
     }

@@ -33,7 +33,7 @@ cc = {version = "1.0", optional = true}
 
 
 [features]
-default = ["log/release_max_level_info", "dep:env_logger", "philippas_queue"]
+default = ["log/release_max_level_info", "dep:env_logger"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 concurrent_queue = ["dep:concurrent-queue"]
@@ -81,6 +81,7 @@ all_queues = [
     "lcrq",
     "lprq",
     "seg_queue",
+    "philippas_queue"
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

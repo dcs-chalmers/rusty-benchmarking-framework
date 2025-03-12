@@ -1,3 +1,6 @@
+use concurrent_queue::PushError;
+use log::warn;
+
 use crate::{ConcurrentQueue, Handle};
 
 pub struct CQueueHandle<'a, T> {
@@ -25,8 +28,21 @@ impl<T> ConcurrentQueue<T> for CQueue<T> {
 }
 
 impl<T> Handle<T> for CQueueHandle<'_, T> {
-    fn push(&mut self, item: T) {
-        let _ = self.queue.cq.push(item);
+    fn push(&mut self, item: T) -> Result<(), T>{
+        if let Err(err) = self.queue.cq.push(item) {
+            let i = match err {
+                PushError::Full(v) => {
+                    warn!("Concurrentqueue was full.");
+                    v
+                },
+                PushError::Closed(v) => {
+                    warn!("Concurrentqueue was closed.");
+                    v
+                },
+            };
+            return Err(i);
+        }
+        Ok(())
     }
     
     fn pop(&mut self) -> Option<T> {
@@ -55,7 +71,7 @@ mod tests {
             cq: concurrent_queue::ConcurrentQueue::bounded(100)
         };
         let mut handle = q.register();
-        handle.push(1);
+        handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
     }
     #[test]

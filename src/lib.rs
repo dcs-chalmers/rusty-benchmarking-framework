@@ -153,7 +153,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             "concurrent_queue::ConcurrentQueue",
             &bench_conf);
         implement_benchmark!("array_queue",
-            crate::queues::array_queue::AQueue<i32>,
+            crate::queues::array_queue::AQueue<Box<i32>>,
             "crossbeam::queue::ArrayQueue",
             &bench_conf);
         implement_benchmark!("bounded_ringbuffer",
@@ -212,6 +212,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             crate::queues::lprq::LPRQueue,
             "lprqcpp",
             &bench_conf);
+        implement_benchmark!("philippas_queue",
+            crate::queues::philippas_queue::PQueue<i32>,
+            "philippas queue",
+            &bench_conf);
     }
     Ok(())
 }
@@ -223,7 +227,7 @@ pub trait ConcurrentQueue<T> {
 }
 
 pub trait Handle<T> {
-    fn push(&mut self, item: T);
+    fn push(&mut self, item: T) -> Result<(), T>;
     fn pop(&mut self) -> Option<T>;
 }
 

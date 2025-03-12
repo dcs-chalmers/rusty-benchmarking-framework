@@ -28,8 +28,9 @@ impl <T> ConcurrentQueue<T> for SQueue<T>{
 }
 
 impl <T> Handle<T> for SegQueueHandle<'_, T> {
-    fn push(&mut self, value: T){
-        let _ = self.queue.seg_queue.push(value);
+    fn push(&mut self, value: T) -> Result<(), T> {
+        self.queue.seg_queue.push(value);
+        Ok(())
     }
 
     fn pop(&mut self) -> Option<T> {

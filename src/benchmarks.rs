@@ -1,7 +1,7 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier, Mutex};
+use std::{sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier, Mutex}, time::Duration};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -33,7 +33,7 @@ macro_rules! implement_benchmark {
             {
                 let mut tmp_handle = test_q.register();
                 for _ in 0..$bench_conf.args.prefill_amount {
-                    tmp_handle.push(Default::default());
+                    tmp_handle.push(Default::default()).expect("Queue size too small");
                 } 
             }
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -98,7 +98,7 @@ macro_rules! implement_benchmark {
             crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -174,7 +174,8 @@ where
                 let mut l_pushes = 0; 
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
-                    handle.push(T::default());
+                    // NOTE: Maybe we should care about this result?
+                    let _ = handle.push(T::default());
                     l_pushes += 1;
                     // Add some delay to simulate real workload
                     for _ in 0..bench_conf.args.delay {
@@ -275,7 +276,7 @@ where
 
 pub fn benchmark_order<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentQueue<Box<i32>>,
+    C: ConcurrentQueue<i32>,
     for<'a> &'a C: Send
 {
     let thread_count = bench_conf
@@ -286,6 +287,8 @@ where
     let done_pushing = AtomicBool::new(false);
     let order = Mutex::new((1..=10_000_000).collect());
     let mut order2: Vec<i32> = (1..=10_000_000).collect();
+    let done_popping = AtomicBool::new(false);
+    let was_ordered = AtomicBool::new(true);
     info!("Starting order benchmark with {} threads", thread_count);
     
     // get cores for fairness of threads
@@ -301,6 +304,8 @@ where
         let is_one_socket = &bench_conf.args.one_socket;
         let lock: &Mutex<Vec<i32>> = &order;
         let order2 = &mut order2;
+        let done_popping = &done_popping;
+        let was_ordered = &was_ordered;
         for _i in 0..thread_count{
             let mut core : CoreId = core_iter.next().unwrap();
             // if is_one_socket is true, make all thread ids even 
@@ -326,29 +331,51 @@ where
                                 break;
                             },
                         };
-                        handle.push(Box::new(elem));
+                        let elem_c = elem.clone();
+                        // let mut elem_to_push = Box::new(elem);
+                        // while let Err(i) = handle.push(elem_to_push) { 
+                        //     // HACK: Wait until a pop.
+                        //     elem_to_push = i;
+                        //     // if done_popping.load(Ordering::Relaxed) {break;}
+                        // }
+                        if let Err(_) = handle.push(elem) {
+                            trace!("failed to push {elem_c}");
+                            q.push(elem_c);
+                            continue;
+                        }
+                        trace!("Pushed {elem}");
                     }
                 }
             }); 
             
         }
+        // TODO: Make it quit after it finds that it is unordered
         s.spawn(move || {
             let mut handle = queue.register();
+            barrier.wait();
             while !done_pushing.load(Ordering::Relaxed) {
                 if let Some(val) = handle.pop() {
                     let value = order2.pop().unwrap();
-                    if value != *val {
-                        error!("Not ordered, failed at value: {}", value);
+                    // trace!("{} = {}",value, val);
+                    std::thread::sleep(Duration::from_millis(1));
+                    if value != val {
+                        error!("Not ordered, failed at value {}, should have had value {val}", value);
+                        was_ordered.store(false, Ordering::Relaxed);
                         break;
                     } 
                 }
             }
         });
-        barrier.wait();
+        done_popping.store(true, Ordering::Relaxed);
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
         done_pushing.store(true, Ordering::Relaxed);
 
         println!("Order test over.");
+        if was_ordered.load(Ordering::Relaxed) {
+            println!("Queue seems ordered");
+        } else {
+            println!("Queue was unordered");
+        }
         Ok(())
     });
     Ok(())
@@ -452,7 +479,8 @@ T: Default,
                             }
                         }
                     } else {
-                        handle.push(T::default());
+                        // NOTE: Should we care about this Result?
+                        let _ = handle.push(T::default());
                         l_pushes += 1;
                     }
                     for _ in 0..bench_conf.args.delay {
