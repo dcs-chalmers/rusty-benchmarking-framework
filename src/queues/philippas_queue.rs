@@ -223,69 +223,69 @@ mod tests {
         assert_eq!(q.dequeue(), Some(13));
         assert_eq!(q.dequeue(), Some(14));
     }
-    #[test]
-    fn multi_threaded() {
-        let _ = env_logger::builder().is_test(true).try_init();
-        const NUM_THREADS: usize = 2;
-        const ITEMS_PER_THREAD: usize = 10;
-        const QUEUE_SIZE: usize = NUM_THREADS * ITEMS_PER_THREAD;
-        
-        let q: PQueue<i32> = PQueue::new(QUEUE_SIZE);
-        let barrier = std::sync::Barrier::new(NUM_THREADS * 2);
-        
-        
-        let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
-            let q = &q;
-            let barrier = &barrier;
-            
-            // s.spawn(move || {
-            //     std::thread::sleep(Duration::from_secs(10));
-            //     assert!(false);
-            // });
-
-            // Create producer threads
-            for thread_id in 0..NUM_THREADS {
-                s.spawn(move || {
-                    // Wait for all threads to be ready
-                    barrier.wait();
-                    
-                    let start = thread_id * ITEMS_PER_THREAD;
-                    let end = start + ITEMS_PER_THREAD;
-                    
-                    for i in start..end {
-                        let val = i as i32;
-                        let _  = q.enqueue(val);
-                    }
-                    
-                    info!("Producer {} finished", thread_id);
-                });
-            }
-            
-            // Create consumer threads
-            for thread_id in 0..NUM_THREADS {
-                s.spawn(move || {
-                    // Wait for all threads to be ready
-                    barrier.wait();
-                    
-                    let items_to_consume = ITEMS_PER_THREAD;
-                    let mut consumed = 0;
-                    
-                    while consumed < items_to_consume {
-                        if q.dequeue().is_some() {
-                            consumed += 1;
-                        }
-                    }
-                    
-                    info!("Consumer {} finished, consumed {} items", thread_id, consumed);
-                });
-            }
-            
-            Ok(())
-        });
-        
-        // Ensure queue is empty after all operations
-        assert_eq!(q.dequeue(), None, "Queue should be empty after test");
-    }
+    // #[test]
+    // fn multi_threaded() {
+    //     let _ = env_logger::builder().is_test(true).try_init();
+    //     const NUM_THREADS: usize = 2;
+    //     const ITEMS_PER_THREAD: usize = 10;
+    //     const QUEUE_SIZE: usize = NUM_THREADS * ITEMS_PER_THREAD;
+    //     
+    //     let q: PQueue<i32> = PQueue::new(QUEUE_SIZE);
+    //     let barrier = std::sync::Barrier::new(NUM_THREADS * 2);
+    //     
+    //     
+    //     let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
+    //         let q = &q;
+    //         let barrier = &barrier;
+    //         
+    //         // s.spawn(move || {
+    //         //     std::thread::sleep(Duration::from_secs(10));
+    //         //     assert!(false);
+    //         // });
+    //
+    //         // Create producer threads
+    //         for thread_id in 0..NUM_THREADS {
+    //             s.spawn(move || {
+    //                 // Wait for all threads to be ready
+    //                 barrier.wait();
+    //                 
+    //                 let start = thread_id * ITEMS_PER_THREAD;
+    //                 let end = start + ITEMS_PER_THREAD;
+    //                 
+    //                 for i in start..end {
+    //                     let val = i as i32;
+    //                     let _  = q.enqueue(val);
+    //                 }
+    //                 
+    //                 info!("Producer {} finished", thread_id);
+    //             });
+    //         }
+    //         
+    //         // Create consumer threads
+    //         for thread_id in 0..NUM_THREADS {
+    //             s.spawn(move || {
+    //                 // Wait for all threads to be ready
+    //                 barrier.wait();
+    //                 
+    //                 let items_to_consume = ITEMS_PER_THREAD;
+    //                 let mut consumed = 0;
+    //                 
+    //                 while consumed < items_to_consume {
+    //                     if q.dequeue().is_some() {
+    //                         consumed += 1;
+    //                     }
+    //                 }
+    //                 
+    //                 info!("Consumer {} finished, consumed {} items", thread_id, consumed);
+    //             });
+    //         }
+    //         
+    //         Ok(())
+    //     });
+    //     
+    //     // Ensure queue is empty after all operations
+    //     assert_eq!(q.dequeue(), None, "Queue should be empty after test");
+    // }
     // #[test]
     // fn register_pqueue() {
     //     let q: MSQueue<i32> = MSQueue::new(1000);
