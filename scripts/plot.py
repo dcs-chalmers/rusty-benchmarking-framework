@@ -23,8 +23,9 @@ def load_csv_files_by_subfolder(folder_path):
 
     for subfolder in subfolders:
         subfolder_name = os.path.basename(subfolder)
-        csv_files = glob.glob(os.path.join(subfolder, "**", "*"),
-                              recursive=True)
+        csv_files = [file for file in glob.glob(
+            os.path.join(subfolder, "**", "*"),
+            recursive=True) if not file.endswith('.txt')]
 
         if not csv_files:
             print(f"No CSV files found in subfolder: {subfolder_name}")
@@ -107,7 +108,7 @@ def plot_thread_count_results(df):
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
 
-                label = f"{subfolder} - {qtype}"
+                label = f"{qtype}"
                 axes[i].plot(
                     queue_data['Thread Count'],
                     queue_data[metric],
@@ -174,7 +175,7 @@ def plot_mpsc_results(df):
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
 
-                label = f"{subfolder} - {qtype}"
+                label = f"{qtype}"
                 axes[i].plot(
                     queue_data['Producers'],
                     queue_data[metric],
@@ -239,7 +240,7 @@ def plot_spmc_results(df):
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
 
-                label = f"{subfolder} - {qtype}"
+                label = f"{qtype}"
                 axes[i].plot(
                     queue_data['Consumers'],
                     queue_data[metric],

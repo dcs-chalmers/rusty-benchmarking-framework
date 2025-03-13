@@ -33,7 +33,7 @@ cc = {version = "1.0", optional = true}
 
 
 [features]
-default = ["log/release_max_level_info", "dep:env_logger"]
+default = ["log/release_max_level_info", "dep:env_logger", "basic_queue"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 concurrent_queue = ["dep:concurrent-queue"]
@@ -57,6 +57,7 @@ moodycamel = ["dep:bindgen", "dep:cc"]
 lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
 philippas_queue = []
+benchmark_order = []
 
 all_queues = [
     "lockfree_queue",
