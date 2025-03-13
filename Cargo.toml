@@ -33,7 +33,7 @@ cc = {version = "1.0", optional = true}
 
 
 [features]
-default = ["log/release_max_level_info", "dep:env_logger", "basic_queue"]
+default = ["log/release_max_level_info", "dep:env_logger"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 concurrent_queue = ["dep:concurrent-queue"]
