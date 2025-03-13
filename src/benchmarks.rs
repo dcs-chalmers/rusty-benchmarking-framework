@@ -28,92 +28,94 @@ macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
-            info!("Running benchmark on: {}", $desc);
-            let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
-            {
-                let mut tmp_handle = test_q.register();
-                for _ in 0..$bench_conf.args.prefill_amount {
-                    tmp_handle.push(Default::default()).expect("Queue size too small");
-                } 
-            }
-//////////////////////////////////// MEMORY TRACKING ///////////////////////////
-            #[cfg(feature = "memory_tracking")]
-            let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-            #[cfg(feature = "memory_tracking")]
-            let mem_thread_handle: std::thread::JoinHandle<_>;
-            #[cfg(feature = "memory_tracking")]
-            {
-                use std::sync::atomic::Ordering;
-                // TODO: Check if core stuff is possible here as well.
-                // let mut core : CoreId = core_iter.next().unwrap();
-                // if is_one_socket is true, make all thread ids even 
-                // (this was used for our testing enviroment to get one socket)
-                // if *is_one_socket {
-                //     core = core_iter.next().unwrap();
-                // }
-                let _done = std::sync::Arc::clone(&_done);
-                let benchmark_id = $bench_conf.benchmark_id.clone();
-                let queue_type = test_q.get_id();
-                let bench_type = format!("{}", $bench_conf.args.benchmark);
-                let to_stdout = $bench_conf.args.write_to_stdout;
-                
-                // Create file if printing to stdout is disabled
-                let mut memfile = if !to_stdout {
-                    let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
-                    let mut file = OpenOptions::new()
-                        .append(true)
-                        .create(true)
-                        .open(&output_filename)?;
-                    writeln!(file, "Memory Allocated,Queuetype,Benchmark,Test ID")?;
-                    Some(file)
-                } else {
-                    println!("Memory Allocated,Queuetype,Benchmark,Test ID");
-                    None
-                };
-                
-                // Spawn thread to check total memory allocated every 50ms
-                mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
-                    while !_done.load(Ordering::Relaxed) {
-                        // Update stats
-                        if let Err(e) = epoch::advance() {
-                            eprintln!("Error occured while advancing epoch: {}", e);
-                        }
-                        // Get allocated bytes
-                        let allocated = stats::allocated::read().unwrap();
-
-                        let output = format!("{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id);
-                        
-                        match &mut memfile {
-                            Some(file) => writeln!(file, "{}", output)?,
-                            None => println!("{}", output),
-                        }
-
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                    }
-                    Ok(())
-                });
-            }
-////////////////////////////////////// MEMORY END //////////////////////////////
-            // Select which benchmark to use
-            $crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
-            match $bench_conf.args.benchmark {
-                Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
-                #[cfg(feature = "benchmark_order")]
-                Benchmarks::Order(_)     => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
-            }
-
-//////////////////////////////////// MEMORY TRACKING ///////////////////////////
-            // Join the thread again
-            #[cfg(feature = "memory_tracking")]
-            {
-                use std::sync::atomic::Ordering;
-                _done.store(true, Ordering::Relaxed);
-                if let Err(e) = mem_thread_handle.join().unwrap() {
-                    log::error!("Couldnt join memory tracking thread: {}", e);
+            for _ in 0..$bench_conf.args.iterations {
+                info!("Running benchmark on: {}", $desc);
+                let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
+                {
+                    let mut tmp_handle = test_q.register();
+                    for _ in 0..$bench_conf.args.prefill_amount {
+                        tmp_handle.push(Default::default()).expect("Queue size too small");
+                    } 
                 }
-            }  
+    //////////////////////////////////// MEMORY TRACKING ///////////////////////////
+                #[cfg(feature = "memory_tracking")]
+                let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                #[cfg(feature = "memory_tracking")]
+                let mem_thread_handle: std::thread::JoinHandle<_>;
+                #[cfg(feature = "memory_tracking")]
+                {
+                    use std::sync::atomic::Ordering;
+                    // TODO: Check if core stuff is possible here as well.
+                    // let mut core : CoreId = core_iter.next().unwrap();
+                    // if is_one_socket is true, make all thread ids even 
+                    // (this was used for our testing enviroment to get one socket)
+                    // if *is_one_socket {
+                    //     core = core_iter.next().unwrap();
+                    // }
+                    let _done = std::sync::Arc::clone(&_done);
+                    let benchmark_id = $bench_conf.benchmark_id.clone();
+                    let queue_type = test_q.get_id();
+                    let bench_type = format!("{}", $bench_conf.args.benchmark);
+                    let to_stdout = $bench_conf.args.write_to_stdout;
+                    
+                    // Create file if printing to stdout is disabled
+                    let mut memfile = if !to_stdout {
+                        let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
+                        let mut file = OpenOptions::new()
+                            .append(true)
+                            .create(true)
+                            .open(&output_filename)?;
+                        writeln!(file, "Memory Allocated,Queuetype,Benchmark,Test ID")?;
+                        Some(file)
+                    } else {
+                        println!("Memory Allocated,Queuetype,Benchmark,Test ID");
+                        None
+                    };
+                    
+                    // Spawn thread to check total memory allocated every 50ms
+                    mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
+                        while !_done.load(Ordering::Relaxed) {
+                            // Update stats
+                            if let Err(e) = epoch::advance() {
+                                eprintln!("Error occured while advancing epoch: {}", e);
+                            }
+                            // Get allocated bytes
+                            let allocated = stats::allocated::read().unwrap();
+
+                            let output = format!("{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id);
+                            
+                            match &mut memfile {
+                                Some(file) => writeln!(file, "{}", output)?,
+                                None => println!("{}", output),
+                            }
+
+                            std::thread::sleep(std::time::Duration::from_millis(50));
+                        }
+                        Ok(())
+                    });
+                }
+    ////////////////////////////////////// MEMORY END //////////////////////////////
+                // Select which benchmark to use
+                match $bench_conf.args.benchmark {
+                    Benchmarks::Basic(_)     => $crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
+                    Benchmarks::PingPong(_)  => $crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                    #[cfg(feature = "benchmark_order")]
+                    Benchmarks::Order(_)     => $crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
+                }
+
+    //////////////////////////////////// MEMORY TRACKING ///////////////////////////
+                // Join the thread again
+                #[cfg(feature = "memory_tracking")]
+                {
+                    use std::sync::atomic::Ordering;
+                    _done.store(true, Ordering::Relaxed);
+                    if let Err(e) = mem_thread_handle.join().unwrap() {
+                        log::error!("Couldnt join memory tracking thread: {}", e);
+                    }
+                }  
 ////////////////////////////////////// MEMORY END //////////////////////////////
+            }
+            $crate::benchmarks::print_info($desc.to_string(), $bench_conf)?;
         }
     };
     
