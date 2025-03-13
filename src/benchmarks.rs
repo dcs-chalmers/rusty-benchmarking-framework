@@ -95,10 +95,10 @@ macro_rules! implement_benchmark {
             }
 ////////////////////////////////////// MEMORY END //////////////////////////////
             // Select which benchmark to use
-            crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
+            $crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
             match $bench_conf.args.benchmark {
-                Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
+                Benchmarks::Basic(_)     => $crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
+                Benchmarks::PingPong(_)  => $crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -542,7 +542,7 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
         return Ok(());
     }
     let memfile = {
-        let output_filename = String::from(format!("{}/info{}.txt", bench_conf.args.path_output, bench_conf.benchmark_id));
+        let output_filename = format!("{}/info{}.txt", bench_conf.args.path_output, bench_conf.benchmark_id);
         let file = OpenOptions::new()
             .append(true)
             .create(true)
