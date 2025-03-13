@@ -98,7 +98,8 @@ macro_rules! implement_benchmark {
             crate::benchmarks::print_info(test_q.get_id(), $bench_conf)?;
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
-                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
+                Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                Benchmarks::Order(_)     => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
             }
 
 //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -276,7 +277,7 @@ where
 
 pub fn benchmark_order<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentQueue<i32>,
+    C: ConcurrentQueue<Box<i32>>,
     for<'a> &'a C: Send
 {
     let thread_count = bench_conf
@@ -338,7 +339,7 @@ where
                         //     elem_to_push = i;
                         //     // if done_popping.load(Ordering::Relaxed) {break;}
                         // }
-                        if let Err(_) = handle.push(elem) {
+                        if let Err(_) = handle.push(Box::new(elem)) {
                             trace!("failed to push {elem_c}");
                             q.push(elem_c);
                             continue;
@@ -358,7 +359,7 @@ where
                     let value = order2.pop().unwrap();
                     // trace!("{} = {}",value, val);
                     std::thread::sleep(Duration::from_millis(1));
-                    if value != val {
+                    if value != *val {
                         error!("Not ordered, failed at value {}, should have had value {val}", value);
                         was_ordered.store(false, Ordering::Relaxed);
                         break;
@@ -574,10 +575,10 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
 
 impl BenchConfig {
     fn get_thread_count(&self) -> Option<usize> {
-        if let Benchmarks::PingPong(s) = &self.args.benchmark {
-            return Some(s.thread_count);
-        }
-        None
+        match &self.args.benchmark {
+            Benchmarks::PingPong(s) | Benchmarks::Order(s) => Some(s.thread_count),
+            _ => None,
+        }  
     }
     fn get_spread(&self) -> Option<f64> {
         if let Benchmarks::PingPong(s) = &self.args.benchmark {
