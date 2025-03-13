@@ -99,6 +99,7 @@ macro_rules! implement_benchmark {
             match $bench_conf.args.benchmark {
                 Benchmarks::Basic(_)     => crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                 Benchmarks::PingPong(_)  => crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                #[cfg(feature = "benchmark_order")]
                 Benchmarks::Order(_)     => crate::benchmarks::benchmark_order(test_q, $bench_conf)?,
             }
 
@@ -576,7 +577,9 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
 impl BenchConfig {
     fn get_thread_count(&self) -> Option<usize> {
         match &self.args.benchmark {
-            Benchmarks::PingPong(s) | Benchmarks::Order(s) => Some(s.thread_count),
+            Benchmarks::PingPong(s)=> Some(s.thread_count),
+            #[cfg(feature = "benchmark_order")]
+            Benchmarks::Order(s) => Some(s.thread_count),
             _ => None,
         }  
     }
