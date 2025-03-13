@@ -72,9 +72,10 @@ impl<T> Handle<T> for BRingBufferHandle<'_, T>{
         let mut buf = self.queue.brbuffer.bounded_ringbuffer.lock().unwrap();
         buf.pop()
     }
-    fn push(&mut self, item: T){
+    fn push(&mut self, item: T) -> Result<(), T>{
         let mut buf = self.queue.brbuffer.bounded_ringbuffer.lock().unwrap();
         buf.push(item);
+        Ok(())
     } 
 } 
 

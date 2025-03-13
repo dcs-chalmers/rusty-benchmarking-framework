@@ -28,8 +28,8 @@ impl<T: Queueable> ConcurrentQueue<T> for WFQueue<T> {
 }
 
 impl<T: Queueable> Handle<T> for WFQueueHandle<'_, T> {
-    fn push(&mut self, item: T) {
-        let _ = self.queue.q.push(item);
+    fn push(&mut self, item: T) -> Result<(), T> {
+        self.queue.q.push(item)
     }
     
     fn pop(&mut self) -> Option<T> {
@@ -53,7 +53,7 @@ mod tests {
     fn register_bq() {
         let q: WFQueue<Box<i32>> = WFQueue::new(1000);
         let mut handle = q.register();
-        handle.push(Box::new(1));
+        handle.push(Box::new(1)).unwrap();
         assert_eq!(*handle.pop().unwrap(), 1);
     }
 }

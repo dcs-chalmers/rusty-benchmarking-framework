@@ -44,9 +44,16 @@ struct BoostCppQueueHandle<'a> {
 }
 
 impl Handle<Box<i32>> for BoostCppQueueHandle<'_> {
-    fn push(&mut self, item: Box<i32>) {
+    fn push(&mut self, item: Box<i32>) -> Result<(), Box<i32>> {
         let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
-        assert!(self.q.push(ptr));
+        match self.q.push(ptr) {
+            true => Ok(()),
+            false => {
+                // Really unsure if this is possible
+                let reclaimed: Box<i32> = unsafe { Box::from_raw(ptr as *mut i32) };
+                Err(reclaimed)
+            },
+        }
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
@@ -104,10 +111,10 @@ mod tests {
     fn register_boost_queue() {
         let q: BoostCppQueue = BoostCppQueue::new(1000);
         let mut handle = q.register();
-        handle.push(Box::new(1));
-        handle.push(Box::new(2));
-        handle.push(Box::new(3));
-        handle.push(Box::new(4));
+        handle.push(Box::new(1)).unwrap();
+        handle.push(Box::new(2)).unwrap();
+        handle.push(Box::new(3)).unwrap();
+        handle.push(Box::new(4)).unwrap();
         assert_eq!(*handle.pop().unwrap(), 1);
         assert_eq!(*handle.pop().unwrap(), 2);
         assert_eq!(*handle.pop().unwrap(), 3);

@@ -182,9 +182,9 @@ impl<T: Sync + Send> ConcurrentQueue<T> for MSQueue<T> {
 }
 
 impl<T: Sync + Send> Handle<T> for MSQueueHandle<'_, T> {
-    fn push(&mut self, item: T) {
-
+    fn push(&mut self, item: T) -> Result<(), T>{
         self.queue.enqueue(&mut self.hp1, item);
+        Ok(())
     }
 
     fn pop(&mut self) -> Option<T> {
@@ -210,7 +210,7 @@ mod tests {
     fn register_ms_queue() {
         let q: MSQueue<i32> = MSQueue::new(1000);
         let mut handle = q.register();
-        handle.push(1);
+        handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
     }

@@ -25,8 +25,9 @@ impl<T> ConcurrentQueue<T> for LockfreeStack<T> {
 }
 
 impl<T> Handle<T> for LockFreeStacKHandle<'_, T>{
-    fn push(&mut self, item: T){
+    fn push(&mut self, item: T) -> Result<(), T>{
         self.stack.lfs.push(item);
+        return Ok(());
     }
     fn pop(&mut self) -> Option<T> {
         self.stack.lfs.pop()
@@ -51,7 +52,7 @@ mod tests {
             lfs: lockfree::stack::Stack::new()
         };
         let mut handle = stack.register();
-        handle.push(1);
+        handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
     }

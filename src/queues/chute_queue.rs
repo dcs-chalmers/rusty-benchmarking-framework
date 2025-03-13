@@ -33,8 +33,8 @@ impl<T> ConcurrentQueue<T> for ChuteQueue<T> {
 }
 
 impl<T> Handle<T> for ChuteQueueHandle<'_, T> {
-    fn push(&mut self, item: T) {
-        self.queue.writer.push(item);
+    fn push(&mut self, item: T) -> Result<(), T>{
+        self.queue.writer.push(item)
     }
     
     fn pop(&mut self) -> Option<T> {

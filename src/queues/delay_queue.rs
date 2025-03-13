@@ -30,7 +30,7 @@ impl<T> Handle<T> for DQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         Some(self.queue.queue.pop().value)
     }
-    fn push(&mut self, item: T) {
+    fn push(&mut self, item: T){
        self.queue.queue.push(Delay::until_instant(item, Instant::now())); 
     }
 }

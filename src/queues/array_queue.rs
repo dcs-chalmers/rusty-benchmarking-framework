@@ -27,8 +27,8 @@ impl <T> ConcurrentQueue<T> for AQueue<T> {
 }
 
 impl<T> Handle<T> for AQueueHandle<'_, T>{
-    fn push(&mut self, value: T){
-        let _ = self.queue.array_queue.push(value);
+    fn push(&mut self, value: T) -> Result<(), T>{
+        self.queue.array_queue.push(value)
     }
 
     fn pop(&mut self) -> Option<T> {
