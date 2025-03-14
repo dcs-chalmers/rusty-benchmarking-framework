@@ -40,11 +40,11 @@ pub struct PQueue<T> {
     max_num: usize,
 }
 
-impl<T:Sync + Send + Copy> PQueue<T> {
+impl<T:Sync + Send + Copy + Display> PQueue<T> {
     fn new(capacity: usize) -> Self {
-        let maxnum = capacity + 1;
+        let max_num = capacity + 1;
         let mut v = vec![];
-        for _ in 0..maxnum + 1 {
+        for _ in 0..max_num + 1 {
             v.push(Node::new());
         }
         v[0] = Node { val: AtomicPtr::new(Box::into_raw(Box::new(TempVal::Null(true))))};
@@ -53,38 +53,42 @@ impl<T:Sync + Send + Copy> PQueue<T> {
             tail: AtomicUsize::new(1),
             vnull: AtomicPtr::new(Box::into_raw(Box::new(TempVal::Null(true)))),
             nodes: v,
-            max_num: maxnum, 
+            max_num, 
         }
     }
 
     pub fn enqueue(&self, newnode: T) -> Result<(), T>{
         loop {
             trace!("starting enqueue");
+            self.print_queue();
             // Read the tail
             let te = self.tail.load(Ordering::Relaxed);
             let mut ate = te;
             // Get reference to node
             let mut tt = &self.nodes[ate];
             // Next after tail
-            let mut temp: usize = (ate + 1) % self.max_num;
+            let mut temp: usize = (ate + 1) % (self.max_num + 1);
             // While we have a value and not a null.
             // Try to find the actual tail.
+            trace!("{te} {ate} {temp}");
             while let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                 // check tails consistency 
+                trace!("trying to find actual tail");
                 if te != self.tail.load(Ordering::Relaxed) { break; }
                 if temp == self.head.load(Ordering::Relaxed) { break; }
                 tt = &self.nodes[temp];
                 ate = temp;
-                temp = (ate + 1) % self.max_num;
+                temp = (ate + 1) % (self.max_num + 1);
             }
             // check tails consistency 
             if te != self.tail.load(Ordering::Relaxed) { continue; }
             // Check wether queue is full
             if temp == self.head.load(Ordering::Relaxed) {
-                ate = (temp + 1) % self.max_num;
+                ate = (temp + 1) % (self.max_num + 1);
                 tt = &self.nodes[ate];
                 // If the node after the head is occupied, then queue is full
                 if let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
+                    trace!("Queue was full: ate {} temp {} maxnum {}", ate , temp, self.max_num);
                     return Err(newnode);
                 }
                 if ate == 0 {
@@ -111,23 +115,29 @@ impl<T:Sync + Send + Copy> PQueue<T> {
             }
         }
     }
-
+    fn print_queue(&self) {
+        for node in &self.nodes {
+            trace!("{}", unsafe { *node.val.load(Ordering::Relaxed) } );
+        }
+    }
     pub fn dequeue(&self) -> Option<T>{
         loop {
+            trace!("starting dequeue");
+            self.print_queue();
             let th = self.head.load(Ordering::Relaxed);
             // temp is the index we want to dequeue
-            let mut temp: usize = (th + 1) % self.max_num;
+            let mut temp: usize = (th + 1) % (self.max_num + 1);
             let mut tt = &self.nodes[temp];
             // Find the actual head 
             while let TempVal::Null(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                 if th != self.head.load(Ordering::Relaxed) { break; }
                 if temp == self.tail.load(Ordering::Relaxed) { return None;}
-                temp = (temp + 1) % self.max_num;
+                temp = (temp + 1) % (self.max_num + 1);
                 tt = &self.nodes[temp];
             }
             if th != self.head.load(Ordering::Relaxed) { continue; }
             if temp == self.tail.load(Ordering::Relaxed){
-                let _ = self.tail.compare_exchange_weak(temp, (temp + 1) % self.max_num, Ordering::Relaxed, Ordering::Relaxed);
+                let _ = self.tail.compare_exchange_weak(temp, (temp + 1) % (self.max_num + 1), Ordering::Relaxed, Ordering::Relaxed);
                 continue;
             }
             let tnull: TempVal<T>;
@@ -172,7 +182,7 @@ impl<T:Sync + Send + Copy> PQueue<T> {
     }
 }
 
-impl<T: Copy + Send + Sync> ConcurrentQueue<T> for PQueue<T> {
+impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for PQueue<T> {
     fn new(c: usize) -> Self {
         PQueue::new(c)
     }
@@ -190,7 +200,7 @@ struct PQueueHandle<'a, T: Copy> {
     q: &'a PQueue<T>,
 }
 
-impl<T: Copy + Send + Sync> Handle<T> for PQueueHandle<'_, T> {
+impl<T: Copy + Send + Sync + Display> Handle<T> for PQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.q.dequeue()
     }
@@ -199,6 +209,20 @@ impl<T: Copy + Send + Sync> Handle<T> for PQueueHandle<'_, T> {
     }
 }
 
+impl<T> Drop for PQueue<T> {
+    fn drop(&mut self) {
+        trace!("Starting drop function for PQueue");
+        let reclaim_vnull = unsafe { Box::from_raw(self.vnull.load(Ordering::Relaxed)) };
+        trace!("Dropping vnull now");
+        drop(reclaim_vnull);
+        trace!("Starting dropping of nodes");
+        for node in &self.nodes {
+            let reclaimed_node_val = unsafe { Box::from_raw(node.val.load(Ordering::Relaxed)) };
+            drop(reclaimed_node_val);
+        }
+        trace!("Done with drop function");
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -209,88 +233,100 @@ mod tests {
     #[test]
     fn create_pqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: PQueue<i32> = PQueue::new(10);
+        let q: PQueue<i32> = PQueue::new(5);
         assert_eq!(q.enqueue(10), Ok(()));
         assert_eq!(q.enqueue(11), Ok(()));
         assert_eq!(q.enqueue(12), Ok(()));
         assert_eq!(q.enqueue(13), Ok(()));
         assert_eq!(q.enqueue(14), Ok(()));
+        assert_eq!(q.enqueue(15), Err(15));
         println!("{:?}", q);
         assert_eq!(q.dequeue(), Some(10));
         assert_eq!(q.dequeue(), Some(11));
         assert_eq!(q.dequeue(), Some(12));
         assert_eq!(q.dequeue(), Some(13));
         assert_eq!(q.dequeue(), Some(14));
-    }
-    // #[test]
-    // fn multi_threaded() {
-    //     let _ = env_logger::builder().is_test(true).try_init();
-    //     const NUM_THREADS: usize = 2;
-    //     const ITEMS_PER_THREAD: usize = 10;
-    //     const QUEUE_SIZE: usize = NUM_THREADS * ITEMS_PER_THREAD;
-    //     
-    //     let q: PQueue<i32> = PQueue::new(QUEUE_SIZE);
-    //     let barrier = std::sync::Barrier::new(NUM_THREADS * 2);
-    //     
-    //     
-    //     let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
-    //         let q = &q;
-    //         let barrier = &barrier;
-    //         
-    //         // s.spawn(move || {
-    //         //     std::thread::sleep(Duration::from_secs(10));
-    //         //     assert!(false);
-    //         // });
-    //
-    //         // Create producer threads
-    //         for thread_id in 0..NUM_THREADS {
-    //             s.spawn(move || {
-    //                 // Wait for all threads to be ready
-    //                 barrier.wait();
-    //                 
-    //                 let start = thread_id * ITEMS_PER_THREAD;
-    //                 let end = start + ITEMS_PER_THREAD;
-    //                 
-    //                 for i in start..end {
-    //                     let val = i as i32;
-    //                     let _  = q.enqueue(val);
-    //                 }
-    //                 
-    //                 info!("Producer {} finished", thread_id);
-    //             });
-    //         }
-    //         
-    //         // Create consumer threads
-    //         for thread_id in 0..NUM_THREADS {
-    //             s.spawn(move || {
-    //                 // Wait for all threads to be ready
-    //                 barrier.wait();
-    //                 
-    //                 let items_to_consume = ITEMS_PER_THREAD;
-    //                 let mut consumed = 0;
-    //                 
-    //                 while consumed < items_to_consume {
-    //                     if q.dequeue().is_some() {
-    //                         consumed += 1;
-    //                     }
-    //                 }
-    //                 
-    //                 info!("Consumer {} finished, consumed {} items", thread_id, consumed);
-    //             });
-    //         }
-    //         
-    //         Ok(())
-    //     });
-    //     
-    //     // Ensure queue is empty after all operations
-    //     assert_eq!(q.dequeue(), None, "Queue should be empty after test");
-    // }
-    // #[test]
-    // fn register_pqueue() {
-    //     let q: MSQueue<i32> = MSQueue::new(1000);
-    //     let mut handle = q.register();
-    //     handle.push(1);
-    //     assert_eq!(handle.pop().unwrap(), 1);
+        assert_eq!(q.dequeue(), None);
+        assert_eq!(q.enqueue(16), Ok(()));
+        assert_eq!(q.enqueue(17), Ok(()));
+        assert_eq!(q.dequeue(), Some(16));
+        assert_eq!(q.enqueue(18), Ok(()));
+        assert_eq!(q.dequeue(), Some(17));
 
-    // }
+    }
+    #[test]
+    fn multi_threaded() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        const NUM_THREADS: usize = 2;
+        const ITEMS_PER_THREAD: usize = 10;
+        const QUEUE_SIZE: usize = NUM_THREADS * ITEMS_PER_THREAD;
+        
+        let q: PQueue<i32> = PQueue::new(QUEUE_SIZE);
+        let barrier = std::sync::Barrier::new(NUM_THREADS * 2);
+        
+        
+        let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
+            let q = &q;
+            let barrier = &barrier;
+            
+            // Create producer threads
+            for thread_id in 0..NUM_THREADS {
+                s.spawn(move || {
+                    // Wait for all threads to be ready
+                    barrier.wait();
+                    
+                    let start = thread_id * ITEMS_PER_THREAD;
+                    let end = start + ITEMS_PER_THREAD;
+                    
+                    for i in start..end {
+                        let val = i as i32;
+                        let _  = q.enqueue(val);
+                    }
+                    
+                    info!("Producer {} finished", thread_id);
+                });
+            }
+            
+            // Create consumer threads
+            for thread_id in 0..NUM_THREADS {
+                s.spawn(move || {
+                    // Wait for all threads to be ready
+                    barrier.wait();
+                    
+                    let items_to_consume = ITEMS_PER_THREAD;
+                    let mut consumed = 0;
+                    
+                    while consumed < items_to_consume {
+                        if q.dequeue().is_some() {
+                            consumed += 1;
+                        }
+                    }
+                    
+                    info!("Consumer {} finished, consumed {} items", thread_id, consumed);
+                });
+            }
+            
+            Ok(())
+        });
+        
+        // Ensure queue is empty after all operations
+        assert_eq!(q.dequeue(), None, "Queue should be empty after test");
+    }
+    #[test]
+    fn register_pqueue() {
+        let q: PQueue<i32> = PQueue::new(1);
+        let mut handle = q.register();
+        assert_eq!(handle.push(1), Ok(()));
+        assert_eq!(handle.pop().unwrap(), 1);
+    }
+    #[test]
+    fn basic_drop_test() {
+        let q: PQueue<i32> = PQueue::new(5);
+        assert_eq!(q.enqueue(1), Ok(()));
+        assert_eq!(q.enqueue(2), Ok(()));
+        assert_eq!(q.enqueue(3), Ok(()));
+        assert_eq!(q.enqueue(4), Ok(()));
+        assert_eq!(q.enqueue(5), Ok(()));
+        drop(q);
+    }
 }
