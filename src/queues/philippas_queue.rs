@@ -79,6 +79,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
                 trace!("trying to find actual tail");
                 if te != self.tail.load(Ordering::Relaxed) { break; }
                 if temp == self.head.load(Ordering::Relaxed) { break; }
+                hp1.reset_protection();
                 tt = self.nodes[temp].val.safe_load(hp1).unwrap();
                 ate = temp;
                 temp = (ate + 1) % (self.max_num + 1);
@@ -88,6 +89,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
             // Check wether queue is full
             if temp == self.head.load(Ordering::Relaxed) {
                 ate = (temp + 1) % (self.max_num + 1);
+                hp1.reset_protection();
                 tt = self.nodes[ate].val.safe_load(hp1).unwrap();
                 // If the node after the head is occupied, then queue is full
                 if let TempVal::Val(_) = *tt {
@@ -112,7 +114,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
                     if (temp % 2) == 0 {
                         let _ = self.tail.compare_exchange_weak(te, temp, Ordering::Relaxed, Ordering::Relaxed);
                     }
-                unsafe { old_val.expect("CAS passed").retire() };
+                unsafe { old_val.expect("CAS passed").retire(); } //BUG WAS HERE
                 return Ok(());
             }
         }
@@ -135,6 +137,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
                 if th != self.head.load(Ordering::Relaxed) { break; }
                 if temp == self.tail.load(Ordering::Relaxed) { return None;}
                 temp = (temp + 1) % (self.max_num + 1);
+                hp1.reset_protection();
                 tt = self.nodes[temp].val.safe_load(hp1).unwrap();
             }
             if th != self.head.load(Ordering::Relaxed) { continue; }
@@ -164,7 +167,8 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
             {
                 if temp == 0 {
                     let old_val = self.vnull.swap(Box::new(tnull)).expect("vnull is never null");
-                    unsafe { old_val.retire() };
+                    trace!("dropping {}", unsafe { *old_val.as_ptr()});
+                    unsafe { old_val.retire(); }
                 }
                 if (temp % 2) == 0 {
                     let _ = self.head.compare_exchange_weak(th, temp, Ordering::Relaxed, Ordering::Relaxed);
@@ -173,7 +177,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
                 let r_val = unsafe { *old_val.unwrap().as_ptr() };
                 // Safety: CAS succeeded so no new references to old_val.
                 // This is the only thread that will retire.
-                unsafe { old_val.unwrap().retire() };
+                unsafe { old_val.unwrap().retire(); }
                 match r_val {
                     TempVal::Null(_) => {
                         trace!("Return value was a null from dequeue");
@@ -197,7 +201,6 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for PQueue<T> {
         PQueueHandle {
             q:      self,
             hp1:    HazardPointer::new(),
-            hp2:    HazardPointer::new() 
         }
     }
 }
@@ -205,12 +208,11 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for PQueue<T> {
 struct PQueueHandle<'a, T: Copy> {
     q: &'a PQueue<T>,
     hp1: HazardPointer<'static>,
-    hp2: HazardPointer<'static>, 
 }
 
 impl<T: Copy + Send + Sync + Display> Handle<T> for PQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
-        self.q.dequeue(&mut self.hp1, &mut self.hp2)
+        self.q.dequeue(&mut self.hp1)
     }
     fn push(&mut self, item: T) -> Result<(), T>{
         self.q.enqueue(item, &mut self.hp1)
@@ -226,7 +228,8 @@ impl<T> Drop for PQueue<T> {
         trace!("Starting dropping of nodes");
         for node in &self.nodes {
             let reclaimed_node_val = unsafe { Box::from_raw(node.val.load_ptr()) };
-            drop(reclaimed_node_val);
+            trace!("dropping node");
+            drop(reclaimed_node_val); //time to eat, ah you mean lunch xd, trodde du drog en rolig kommentar om drop xd XD
         }
         trace!("Done with drop function");
     }
@@ -241,8 +244,7 @@ mod tests {
     #[test]
     fn create_pqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let mut hp1 = haphazard::HazardPointer::new();
-        let mut hp2 = haphazard::HazardPointer::new();
+        let mut hp1 = haphazard::HazardPointer::new();  
         let q: PQueue<i32> = PQueue::new(5);
         assert_eq!(q.enqueue(10, &mut hp1), Ok(()));
         assert_eq!(q.enqueue(11, &mut hp1), Ok(()));
@@ -321,9 +323,8 @@ mod tests {
         });
         
         let mut hp1 = HazardPointer::new();
-        let mut hp2 = HazardPointer::new();
         // Ensure queue is empty after all operations
-        assert_eq!(q.dequeue(&mut hp1, &mut hp2), None, "Queue should be empty after test");
+        assert_eq!(q.dequeue(&mut hp1), None, "Queue should be empty after test");
     }
     #[test]
     fn register_pqueue() {
