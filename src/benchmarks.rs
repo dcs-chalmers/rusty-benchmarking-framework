@@ -108,7 +108,6 @@ macro_rules! implement_benchmark {
                 debug!("Queue should have been dropped now, joining memory thread.");
                 #[cfg(feature = "memory_tracking")]
                 {
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
                     use std::sync::atomic::Ordering;
                     _done.store(true, Ordering::Relaxed);
                     if let Err(e) = mem_thread_handle.join().unwrap() {

@@ -56,7 +56,7 @@ boost = ["dep:bindgen", "dep:cc"]
 moodycamel = ["dep:bindgen", "dep:cc"]
 lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
-philippas_queue = ["dep:haphazard"]
+tz_queue_hp = ["dep:haphazard"]
 benchmark_order = []
 
 all_queues = [
@@ -82,7 +82,7 @@ all_queues = [
     "lcrq",
     "lprq",
     "seg_queue",
-    "philippas_queue"
+    "tz_queue_hp"
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

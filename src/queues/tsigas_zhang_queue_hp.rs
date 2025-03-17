@@ -33,7 +33,7 @@ impl<T> Node<T> {
     }
 }
 #[derive(Debug)]
-pub struct PQueue<T> {
+pub struct TZQueue<T> {
     head:   AtomicUsize,
     nodes:  Vec<Node<T>>,
     tail:   AtomicUsize,
@@ -41,7 +41,7 @@ pub struct PQueue<T> {
     max_num: usize,
 }
 
-impl<T:Sync + Send + Copy + Display> PQueue<T> {
+impl<T:Sync + Send + Copy + Display> TZQueue<T> {
     fn new(capacity: usize) -> Self {
         let max_num = capacity + 1;
         let mut v = Vec::with_capacity(max_num + 1); 
@@ -51,7 +51,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
         for _ in 0..max_num + 1 {
             v.push(Node::new());
         }
-        PQueue {
+        TZQueue {
             head: AtomicUsize::new(0),
             tail: AtomicUsize::new(1),
             vnull: haphazard::AtomicPtr::from(Box::new(TempVal::Null(true))),
@@ -119,6 +119,7 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
             }
         }
     }
+    #[allow(dead_code)]
     fn print_queue(&self) {
         for node in &self.nodes {
             trace!("{}", unsafe { *node.val.load_ptr() } );
@@ -190,27 +191,27 @@ impl<T:Sync + Send + Copy + Display> PQueue<T> {
     }
 }
 
-impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for PQueue<T> {
+impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
     fn new(c: usize) -> Self {
-        PQueue::new(c)
+        TZQueue::new(c)
     }
     fn get_id(&self) -> String {
         String::from("philippas_queue")
     }
     fn register(&self) -> impl crate::Handle<T> {
-        PQueueHandle {
+        TZQueueHandle {
             q:      self,
             hp1:    HazardPointer::new(),
         }
     }
 }
 
-struct PQueueHandle<'a, T: Copy> {
-    q: &'a PQueue<T>,
+struct TZQueueHandle<'a, T: Copy> {
+    q: &'a TZQueue<T>,
     hp1: HazardPointer<'static>,
 }
 
-impl<T: Copy + Send + Sync + Display> Handle<T> for PQueueHandle<'_, T> {
+impl<T: Copy + Send + Sync + Display> Handle<T> for TZQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.q.dequeue(&mut self.hp1)
     }
@@ -219,9 +220,9 @@ impl<T: Copy + Send + Sync + Display> Handle<T> for PQueueHandle<'_, T> {
     }
 }
 
-impl<T> Drop for PQueue<T> {
+impl<T> Drop for TZQueue<T> {
     fn drop(&mut self) {
-        trace!("Starting drop function for PQueue");
+        trace!("Starting drop function for TZQueue");
         let reclaim_vnull = unsafe { Box::from_raw(self.vnull.load_ptr()) };
         trace!("Dropping vnull now");
         drop(reclaim_vnull);
@@ -242,10 +243,10 @@ mod tests {
     use log::info;
 
     #[test]
-    fn create_pqueue() {
+    fn create_tzqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
         let mut hp1 = haphazard::HazardPointer::new();  
-        let q: PQueue<i32> = PQueue::new(5);
+        let q: TZQueue<i32> = TZQueue::new(5);
         assert_eq!(q.enqueue(10, &mut hp1), Ok(()));
         assert_eq!(q.enqueue(11, &mut hp1), Ok(()));
         assert_eq!(q.enqueue(12, &mut hp1), Ok(()));
@@ -273,7 +274,7 @@ mod tests {
         const ITEMS_PER_THREAD: usize = 10;
         const QUEUE_SIZE: usize = NUM_THREADS * ITEMS_PER_THREAD;
         
-        let q: PQueue<i32> = PQueue::new(QUEUE_SIZE);
+        let q: TZQueue<i32> = TZQueue::new(QUEUE_SIZE);
         let barrier = std::sync::Barrier::new(NUM_THREADS * 2);
 
         
@@ -327,15 +328,15 @@ mod tests {
         assert_eq!(q.dequeue(&mut hp1), None, "Queue should be empty after test");
     }
     #[test]
-    fn register_pqueue() {
-        let q: PQueue<i32> = PQueue::new(1);
+    fn register_tzqueue() {
+        let q: TZQueue<i32> = TZQueue::new(1);
         let mut handle = q.register();
         assert_eq!(handle.push(1), Ok(()));
         assert_eq!(handle.pop().unwrap(), 1);
     }
     #[test]
     fn basic_drop_test() {
-        let q: PQueue<i32> = PQueue::new(5);
+        let q: TZQueue<i32> = TZQueue::new(5);
         let mut hp1 = haphazard::HazardPointer::new();
         assert_eq!(q.enqueue(1, &mut hp1), Ok(()));
         assert_eq!(q.enqueue(2, &mut hp1), Ok(()));
