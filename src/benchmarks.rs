@@ -105,6 +105,7 @@ macro_rules! implement_benchmark {
 
     //////////////////////////////////// MEMORY TRACKING ///////////////////////////
                 // Join the thread again
+                debug!("Queue should have been dropped now, joining memory thread.");
                 #[cfg(feature = "memory_tracking")]
                 {
                     use std::sync::atomic::Ordering;
@@ -280,7 +281,7 @@ where
 
 pub fn benchmark_order<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentQueue<Box<i32>>,
+    C: ConcurrentQueue<i32>,
     for<'a> &'a C: Send
 {
     let thread_count = bench_conf
@@ -342,7 +343,7 @@ where
                         //     elem_to_push = i;
                         //     // if done_popping.load(Ordering::Relaxed) {break;}
                         // }
-                        if let Err(_) = handle.push(Box::new(elem)) {
+                        if let Err(_) = handle.push(elem) {
                             trace!("failed to push {elem_c}");
                             q.push(elem_c);
                             continue;
@@ -362,7 +363,7 @@ where
                     let value = order2.pop().unwrap();
                     // trace!("{} = {}",value, val);
                     std::thread::sleep(Duration::from_millis(1));
-                    if value != *val {
+                    if value != val {
                         error!("Not ordered, failed at value {}, should have had value {val}", value);
                         was_ordered.store(false, Ordering::Relaxed);
                         break;
