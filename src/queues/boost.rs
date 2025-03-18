@@ -15,10 +15,13 @@ pub struct BoostCppQueue {
 unsafe impl Send for BoostCppQueue {}
 unsafe impl Sync for BoostCppQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl BoostCppQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
-        unsafe { boost_queue_push(self.raw, item) == 1 }
+        unsafe { 
+            boost_queue_push(self.raw, item) == 1 
+        }
     }
     
     pub fn pop(&self) -> Option<*mut std::ffi::c_void> {
@@ -116,5 +119,13 @@ mod tests {
         assert_eq!(*handle.pop().unwrap(), 2);
         assert_eq!(*handle.pop().unwrap(), 3);
         assert_eq!(*handle.pop().unwrap(), 4);
+    }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: BoostCppQueue = BoostCppQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }

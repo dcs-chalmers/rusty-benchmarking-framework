@@ -15,6 +15,7 @@ pub struct MoodyCamelCppQueue {
 unsafe impl Send for MoodyCamelCppQueue {}
 unsafe impl Sync for MoodyCamelCppQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl MoodyCamelCppQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
@@ -118,5 +119,14 @@ mod tests {
         assert_eq!(*handle.pop().unwrap(), 2);
         assert_eq!(*handle.pop().unwrap(), 3);
         assert_eq!(*handle.pop().unwrap(), 4);
+    }
+    #[test]
+    #[ignore]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: MoodyCamelCppQueue = MoodyCamelCppQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }

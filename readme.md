@@ -29,6 +29,7 @@ You have to choose which type of benchmark you want to run on your queue. They h
 ## Queue implementations and features
 Implemented queues are:
 * `array_queue` - A queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
+* `atomic_queue` - A queue from the crate [`atomic-queue`](https://crates.io/crates/atomic-queue).
 * `basic_queue` - A `VecDeque` with a mutex lock.  [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/basic_queue.rs) 
 * `bounded_ringbuffer` -A simple ringbuffer. [Implementation](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/bounded_ringbuffer.rs)
 * `concurrent_queue` - A queue from the crate [`concurrent-queue`](https://crates.io/crates/concurrent-queue).
@@ -40,6 +41,7 @@ Implemented queues are:
 * `scc2_stack` - An unbounded lock-free stack from the crate [`scc2`](https://crates.io/crates/scc2).
 * `scc_queue` - An unbounded lock-free queue from the crate [`scc`](https://crates.io/crates/scc).
 * `scc_stack` - An unbounded lock-free stack from the crate [`scc`](https://crates.io/crates/scc).
+* `seg_queue` - An unbounded queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
 * `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) by William to be able to be compiled.
 * `boost` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
 * `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). Can be benchmarked using bindings. **Experimental**.
@@ -89,4 +91,34 @@ RUST_LOG=verbose cargo run --release --features verbose-release,basic_queue --no
 # Or in two steps
 cargo build --release --features verbose-release,basic_queue --no-default-features
 RUST_LOG=trace ./target/release/lockfree-benchmark basic
+```
+## Add your own queues
+TODO
+### Order test
+In the file `order.rs` there are two functions that test that the queue dequeues
+items in the same order that they were enqueued. This function returning `Ok(())`
+does not mean that the queue always dequeues in order, however it returning
+`Err(())` does mean that the queue sometimes dequeues out of order. The way we
+have used these functions is by creating one test per queue that run one of the
+two (depending on if the queue uses `Box` or not). Example:
+```rust
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new() 
+        };
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
+    
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LCRQueue = LCRQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
 ```

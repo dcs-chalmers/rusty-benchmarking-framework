@@ -25,6 +25,7 @@ pub struct LPRQueue {
 unsafe impl Send for LPRQueue {}
 unsafe impl Sync for LPRQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl LPRQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
@@ -146,6 +147,14 @@ mod tests {
         assert_eq!(*handle.pop().unwrap(), 2);
         assert_eq!(*handle.pop().unwrap(), 3);
         assert_eq!(*handle.pop().unwrap(), 4);
+    }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LPRQueue = LPRQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }
 
