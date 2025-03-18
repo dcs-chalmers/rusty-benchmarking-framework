@@ -42,3 +42,5 @@ pub mod lprq;
 pub mod seg_queue;
 #[cfg(feature = "tz_queue_hp")]
 pub mod tsigas_zhang_queue_hp;
+#[cfg(feature = "bbq")]
+pub mod bbq;

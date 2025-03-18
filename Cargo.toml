@@ -22,6 +22,7 @@ log = { version = "0.4.25" }
 env_logger = { version = "0.11.6", optional = true }
 haphazard = { version = "0.1.8", optional = true }
 sysinfo = "0.33"
+bbq-rs = { version = "0.1.1", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = "0.5.4"
@@ -58,6 +59,7 @@ lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
 tz_queue_hp = ["dep:haphazard"]
 benchmark_order = []
+bbq = ["dep:bbq-rs"]
 
 all_queues = [
     "lockfree_queue",
@@ -82,8 +84,10 @@ all_queues = [
     "lcrq",
     "lprq",
     "seg_queue",
-    "tz_queue_hp"
+    "tz_queue_hp",
+    "bbq"
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
 silent-release = ["log/release_max_level_off"]
+bbq-rs = ["dep:bbq-rs"]
