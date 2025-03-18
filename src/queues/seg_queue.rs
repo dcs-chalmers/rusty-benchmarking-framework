@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn create_bq() {
         let q: SQueue<i32> = SQueue::new(100);
-        let _ = q.seg_queue.push(1);
+        q.seg_queue.push(1);
         assert_eq!(q.seg_queue.pop().unwrap(), 1);
     }
     #[test]
