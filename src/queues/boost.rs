@@ -15,10 +15,13 @@ pub struct BoostCppQueue {
 unsafe impl Send for BoostCppQueue {}
 unsafe impl Sync for BoostCppQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl BoostCppQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
-        unsafe { boost_queue_push(self.raw, item) == 1 }
+        unsafe { 
+            boost_queue_push(self.raw, item) == 1 
+        }
     }
     
     pub fn pop(&self) -> Option<*mut std::ffi::c_void> {

@@ -15,6 +15,7 @@ pub struct MoodyCamelCppQueue {
 unsafe impl Send for MoodyCamelCppQueue {}
 unsafe impl Sync for MoodyCamelCppQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl MoodyCamelCppQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {

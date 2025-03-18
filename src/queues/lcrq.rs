@@ -25,6 +25,7 @@ pub struct LCRQueue {
 unsafe impl Send for LCRQueue {}
 unsafe impl Sync for LCRQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl LCRQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {

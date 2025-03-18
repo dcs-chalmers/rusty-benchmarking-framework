@@ -1,5 +1,3 @@
-use log::debug;
-
 use crate::{ConcurrentQueue, Handle};
 
 pub struct SCCQueue<T: 'static> {
