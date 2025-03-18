@@ -119,4 +119,13 @@ mod tests {
         assert_eq!(*handle.pop().unwrap(), 3);
         assert_eq!(*handle.pop().unwrap(), 4);
     }
+    #[test]
+    #[ignore]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: MoodyCamelCppQueue = MoodyCamelCppQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
 }

@@ -35,3 +35,36 @@ impl<T> Handle<T> for AQueueHandle<'_, T>{
         self.queue.array_queue.pop()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Remove create tests?
+    #[test]
+    fn create_bq() {
+        let q: AQueue<i32> = AQueue {
+            array_queue: ArrayQueue::new(100)
+        };
+        let _ = q.array_queue.push(1);
+        assert_eq!(q.array_queue.pop().unwrap(), 1);
+    }
+    #[test]
+    fn register_bq() {
+        let q: AQueue<i32> = AQueue {
+            array_queue: ArrayQueue::new(100)
+        };
+        let mut handle = q.register();
+        handle.push(1).unwrap();
+        assert_eq!(handle.pop().unwrap(), 1);
+    }
+    #[test]
+    fn test_order() {
+        let q: AQueue<i32> = AQueue {
+            array_queue: ArrayQueue::new(10)
+        };
+        if crate::order::benchmark_order_i32(q, 10, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
+}

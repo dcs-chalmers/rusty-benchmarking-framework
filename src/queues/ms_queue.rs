@@ -214,4 +214,12 @@ mod tests {
         assert_eq!(handle.pop().unwrap(), 1);
 
     }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: MSQueue<i32> = MSQueue::new(10);
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
 }

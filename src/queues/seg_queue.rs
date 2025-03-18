@@ -37,3 +37,29 @@ impl <T> Handle<T> for SegQueueHandle<'_, T> {
         self.queue.seg_queue.pop()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_bq() {
+        let q: SQueue<i32> = SQueue::new(100);
+        let _ = q.seg_queue.push(1);
+        assert_eq!(q.seg_queue.pop().unwrap(), 1);
+    }
+    #[test]
+    fn register_bq() {
+        let q: SQueue<i32> = SQueue::new(100);
+        let mut handle = q.register();
+        handle.push(1).unwrap();
+        assert_eq!(handle.pop().unwrap(), 1);
+    }
+    #[test]
+    fn test_order() {
+        let q: SQueue<i32> = SQueue::new(100);
+        if crate::order::benchmark_order_i32(q, 10, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
+}

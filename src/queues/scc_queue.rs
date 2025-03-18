@@ -1,3 +1,5 @@
+use log::debug;
+
 use crate::{ConcurrentQueue, Handle};
 
 pub struct SCCQueue<T: 'static> {
@@ -52,5 +54,14 @@ mod tests {
         handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
+    }
+    #[test]
+    #[ignore]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: SCCQueue<i32> = SCCQueue::new(10);
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }

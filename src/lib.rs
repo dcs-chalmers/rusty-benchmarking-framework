@@ -18,6 +18,7 @@ use std::io::Write;
 use log::{self, debug, info, error};
 pub mod queues;
 pub mod benchmarks;
+pub mod order;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
