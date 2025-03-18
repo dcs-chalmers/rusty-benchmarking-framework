@@ -10,7 +10,7 @@ use crate::{ConcurrentQueue, Handle};
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 thread_local! {
-    static THREAD_ID: Cell<Option<i32>> = Cell::new(None);
+    static THREAD_ID: Cell<Option<i32>> = const { Cell::new(None) };
 }
 
 static MAX_THREADS: i32 = 512;
@@ -80,10 +80,7 @@ impl Handle<Box<i32>> for LCRQHandle<'_> {
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
-        let res = match self.q.pop() {
-            Some(v) => v,
-            None => return None,
-        };
+        let res = self.q.pop()?;
         let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
         Some(val)
     }

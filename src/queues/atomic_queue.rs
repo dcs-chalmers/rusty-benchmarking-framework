@@ -15,7 +15,7 @@ impl<T: Default> ConcurrentQueue<T> for AtomicQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("ConcurrentQueue")
+        String::from("ConcurrentQueue")
     }
     fn new(size: usize) -> Self {
         AtomicQueue {
@@ -26,7 +26,7 @@ impl<T: Default> ConcurrentQueue<T> for AtomicQueue<T> {
 
 impl<T: Default> Handle<T> for AtomicQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
-        if let false = self.queue.queue.push(item) {
+        if !self.queue.queue.push(item) {
             return Err(T::default());
         }
         Ok(())

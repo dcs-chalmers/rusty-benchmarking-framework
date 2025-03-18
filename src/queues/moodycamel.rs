@@ -46,7 +46,7 @@ struct MoodyCamelCppQueueHandle<'a> {
 impl Handle<Box<i32>> for MoodyCamelCppQueueHandle<'_> {
     fn push(&mut self, item: Box<i32>) -> Result<(), Box<i32>>{
         let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
-        let rval = match self.q.push(ptr) {
+        match self.q.push(ptr) {
             true => {
                 Ok(())
             },
@@ -55,15 +55,11 @@ impl Handle<Box<i32>> for MoodyCamelCppQueueHandle<'_> {
                 let reclaimed_mem: Box<i32> = unsafe { Box::from_raw(ptr as *mut i32) };
                 Err(reclaimed_mem)
             },
-        };
-        rval
+        }
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
-        let res = match self.q.pop() {
-            Some(v) => v,
-            None => return None,
-        };
+        let res = self.q.pop()?;
         let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
         Some(val)
     }

@@ -18,7 +18,7 @@ impl<T: Queueable> ConcurrentQueue<T> for WFQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("WFQueue")
+        String::from("WFQueue")
     }
     fn new(_size: usize) -> Self {
         WFQueue {

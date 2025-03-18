@@ -1,12 +1,13 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::{sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier, Mutex}, time::Duration};
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::mpsc;
 use sysinfo::System;
+
 
 /// Benchmark config struct
 /// Needs to be fully filled for benchmarks to be able to run.
@@ -279,11 +280,15 @@ where
     Ok(())
 }
 
+#[cfg(feature = "benchmark_order")]
 pub fn benchmark_order<C>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentQueue<i32>,
+    C: ConcurrentQueue<Box<i32>>,
     for<'a> &'a C: Send
 {
+    use std::time::Duration;
+    use std::sync::Mutex;
+
     let thread_count = bench_conf
         .get_thread_count()
         .expect("Should not get here if Benchmark != Order");
@@ -343,7 +348,7 @@ where
                         //     elem_to_push = i;
                         //     // if done_popping.load(Ordering::Relaxed) {break;}
                         // }
-                        if let Err(_) = handle.push(elem) {
+                        if let Err(_) = handle.push(Box::new(elem)) {
                             trace!("failed to push {elem_c}");
                             q.push(elem_c);
                             continue;
@@ -363,7 +368,7 @@ where
                     let value = order2.pop().unwrap();
                     // trace!("{} = {}",value, val);
                     std::thread::sleep(Duration::from_millis(1));
-                    if value != val {
+                    if value != *val {
                         error!("Not ordered, failed at value {}, should have had value {val}", value);
                         was_ordered.store(false, Ordering::Relaxed);
                         break;
@@ -561,8 +566,7 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
         writeln!(file, "With queue:             {}", queue)?;
 
         writeln!(file, "Arguments used in test:")?;
-        writeln!(file, "\n{}", bench_conf.args)?;
-        writeln!(file, "")?;
+        writeln!(file, "\n{}\n", bench_conf.args)?;
 
         writeln!(file, "Test ran on hardware specs:")?;
         writeln!(file, "System name:            {}", System::name().unwrap())?;
@@ -624,14 +628,16 @@ mod tests {
         let basic_queue: BasicQueue<i32> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if let Err(_) = benchmark_throughput(basic_queue, &bench_conf) {
+        if benchmark_throughput(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
     #[test]
     fn run_pingpong() {
-        let mut args = Args::default();
-        args.benchmark = Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 });
+        let args = Args {
+            benchmark: Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 }),
+            ..Default::default()
+        };
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -641,7 +647,7 @@ mod tests {
         let basic_queue: BasicQueue<i32> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if let Err(_) = benchmark_ping_pong(basic_queue, &bench_conf) {
+        if benchmark_ping_pong(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
@@ -676,14 +682,16 @@ mod tests {
         let basic_queue: BasicQueue<String> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if let Err(_) = benchmark_throughput(basic_queue, &bench_conf) {
+        if benchmark_throughput(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
     #[test]
     fn run_pingpong_with_string() {
-        let mut args = Args::default();
-        args.benchmark = Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 });
+        let args = Args {
+            benchmark: Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 }),
+            ..Default::default()
+        };
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -693,7 +701,7 @@ mod tests {
         let basic_queue: BasicQueue<String> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if let Err(_) = benchmark_ping_pong(basic_queue, &bench_conf) {
+        if benchmark_ping_pong(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
@@ -709,14 +717,16 @@ mod tests {
         let basic_queue: BasicQueue<Args> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if let Err(_) = benchmark_throughput(basic_queue, &bench_conf) {
+        if benchmark_throughput(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
     #[test]
     fn run_pingpong_with_struct() {
-        let mut args = Args::default();
-        args.benchmark = Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 });
+        let args = Args {
+            benchmark: Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 }),
+            ..Default::default()
+        };
         let bench_conf = BenchConfig {
             args,
             date_time: "".to_string(),
@@ -726,7 +736,7 @@ mod tests {
         let basic_queue: BasicQueue<Args> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if let Err(_) = benchmark_ping_pong(basic_queue, &bench_conf) {
+        if benchmark_ping_pong(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }

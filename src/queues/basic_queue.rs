@@ -21,6 +21,12 @@ impl<T> BQueue<T> {
     }
 }
 
+impl<T> Default for BQueue<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct BasicQueue<T> {
     pub bqueue: BQueue<T>
 }
@@ -36,7 +42,7 @@ impl<T> ConcurrentQueue<T> for BasicQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("BasicQueue")
+        String::from("BasicQueue")
     }
     fn new(_size: usize) -> Self {
         BasicQueue {

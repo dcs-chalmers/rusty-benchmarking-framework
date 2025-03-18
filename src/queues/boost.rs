@@ -57,10 +57,7 @@ impl Handle<Box<i32>> for BoostCppQueueHandle<'_> {
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
-        let res = match self.q.pop() {
-            Some(v) => v,
-            None => return None,
-        };
+        let res = self.q.pop()?;
         let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
         Some(val)
     }

@@ -15,7 +15,7 @@ impl<T> ConcurrentQueue<T> for LFQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("LFQueue")
+        String::from("LFQueue")
     }
     fn new(_size: usize) -> Self {
         LFQueue {

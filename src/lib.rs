@@ -131,7 +131,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         std::fs::create_dir(&args.path_output)?;
     }
 
-    let output_filename = String::from(format!("{}/{}", args.path_output, date_time));
+    let output_filename = format!("{}/{}", args.path_output, date_time);
     let bench_conf = benchmarks::BenchConfig {
         args,
         date_time,
@@ -219,6 +219,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
         "Tsigas-Zhang HP queue",
         &bench_conf);
+     
     Ok(())
 }
 

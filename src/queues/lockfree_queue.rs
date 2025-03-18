@@ -16,7 +16,7 @@ impl<T> ConcurrentQueue<T> for LockfreeQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("Lockfree")
+        String::from("Lockfree")
     }
     fn new(_size: usize) -> Self {
         LockfreeQueue {

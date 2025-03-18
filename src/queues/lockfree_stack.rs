@@ -15,7 +15,7 @@ impl<T> ConcurrentQueue<T> for LockfreeStack<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("LockfreeStack")
+        String::from("LockfreeStack")
     }
     fn new(_size: usize) -> Self {
         LockfreeStack{
@@ -27,7 +27,7 @@ impl<T> ConcurrentQueue<T> for LockfreeStack<T> {
 impl<T> Handle<T> for LockFreeStacKHandle<'_, T>{
     fn push(&mut self, item: T) -> Result<(), T>{
         self.stack.lfs.push(item);
-        return Ok(());
+        Ok(())
     }
     fn pop(&mut self) -> Option<T> {
         self.stack.lfs.pop()

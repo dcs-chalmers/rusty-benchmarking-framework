@@ -164,7 +164,7 @@ pub struct MSQueueHandle<'a, T> {
 impl<T: Sync + Send> ConcurrentQueue<T> for MSQueue<T> {
     fn register(&self) -> impl Handle<T> {
         MSQueueHandle {
-            queue: &self,
+            queue: self,
             hp1: HazardPointer::new(), 
             hp2: HazardPointer::new(),
         }
