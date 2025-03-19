@@ -27,11 +27,11 @@ IFS=',' read -r -a FEATURE_ARRAY <<< "$FEATURES"
 # Loop through each feature
 for FEATURE in "${FEATURE_ARRAY[@]}"; do
     echo "Running tests for feature: $FEATURE"
-    
+    cargo build --release --features "$FEATURE"
     # Loop through thread counts and run cargo command
     for ((i = CONSUMERS_START; i <= CONSUMERS_END; i += STEP)); do
         echo "Running with producer count: $i on feature $FEATURE"
-        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 --path $OUTPUT/$FEATURE basic -p 1 -c $i
+        time ./target/release/lockfree-benchmark -t 1 -i 10 --path $OUTPUT/$FEATURE basic -p 1 -c $i
     done
 done
 
