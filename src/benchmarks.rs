@@ -121,7 +121,9 @@ macro_rules! implement_benchmark {
                 }  
 ////////////////////////////////////// MEMORY END //////////////////////////////
             }
-            $crate::benchmarks::print_info($desc.to_string(), $bench_conf)?;
+            if $bench_conf.args.print_info {
+                $crate::benchmarks::print_info($desc.to_string(), $bench_conf)?;
+            }
         }
     };
     
@@ -456,7 +458,7 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
     let num: u64 = 1000;
     let sys = System::new_all();
     if let Some(mut file) = memfile {
-        writeln!(file, "Test done:              {}", bench_conf.args.benchmark)?;
+        writeln!(file, "Benchmark done:              {}", bench_conf.args.benchmark)?;
         writeln!(file, "With queue:             {}", queue)?;
 
         writeln!(file, "Arguments used in test:")?;

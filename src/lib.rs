@@ -53,6 +53,8 @@ pub struct Args {
     /// Prefill the queue with values before running the benchmark.
     #[arg(short, long, default_value_t = 0)]
     prefill_amount: u64,
+    #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
+    print_info: bool,
 }
 
 /// Possible benchmark types.
@@ -248,6 +250,7 @@ impl Default for Args {
             path_output: "".to_string(),
             benchmark: Benchmarks::Basic(BasicArgs { producers: 5, consumers: 5 }),
             write_to_stdout: true,
+            print_info: false,
         }
     } 
 }
