@@ -150,9 +150,9 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::basic_queue::BasicQueue<i32>,
         "Basic Queue",
         &bench_conf);
-    implement_benchmark!("concurrent_queue",
-        crate::queues::concurrent_queue::CQueue<i32>,
-        "concurrent_queue::ConcurrentQueue",
+    implement_benchmark!("bounded_concurrent_queue",
+        crate::queues::bounded_concurrent_queue::BoundedCQueue<i32>,
+        "concurrent_queue::bounded",
         &bench_conf);
     implement_benchmark!("array_queue",
         crate::queues::array_queue::AQueue<Box<i32>>,

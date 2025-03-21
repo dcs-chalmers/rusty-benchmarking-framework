@@ -3,31 +3,31 @@ use log::warn;
 
 use crate::{ConcurrentQueue, Handle};
 
-pub struct CQueueHandle<'a, T> {
-    queue: &'a CQueue<T>
+pub struct BoundedCQueueHandle<'a, T> {
+    queue: &'a BoundedCQueue<T>
 }
 
-pub struct CQueue<T> {
+pub struct BoundedCQueue<T> {
     pub cq: concurrent_queue::ConcurrentQueue<T>
 }
 
-impl<T> ConcurrentQueue<T> for CQueue<T> {
+impl<T> ConcurrentQueue<T> for BoundedCQueue<T> {
     fn register(&self) -> impl Handle<T> {
-        CQueueHandle {
+        BoundedCQueueHandle {
             queue: self,
         }
     }
     fn get_id(&self) -> String {
-        String::from("ConcurrentQueue")
+        String::from("concurrent-queue::bounded")
     }
     fn new(size: usize) -> Self {
-        CQueue {
+        BoundedCQueue {
             cq: concurrent_queue::ConcurrentQueue::bounded(size),
         }
     }
 }
 
-impl<T> Handle<T> for CQueueHandle<'_, T> {
+impl<T> Handle<T> for BoundedCQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         if let Err(err) = self.queue.cq.push(item) {
             let i = match err {
@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn create_cqueue() {
-        let q: CQueue<i32> = CQueue {
+        let q: BoundedCQueue<i32> = BoundedCQueue {
             cq: concurrent_queue::ConcurrentQueue::bounded(100)
         };
         let _ = q.cq.push(1);
@@ -67,7 +67,7 @@ mod tests {
     }
     #[test]
     fn test_handle() {
-        let q: CQueue<i32> = CQueue {
+        let q: BoundedCQueue<i32> = BoundedCQueue {
             cq: concurrent_queue::ConcurrentQueue::bounded(100)
         };
         let mut handle = q.register();
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_too_small() {
-        let q: CQueue<i32> = CQueue {
+        let q: BoundedCQueue<i32> = BoundedCQueue {
             cq: concurrent_queue::ConcurrentQueue::bounded(1)
         };
         let _ = q.cq.push(1);
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: CQueue<i32> = CQueue {
+        let q: BoundedCQueue<i32> = BoundedCQueue {
             cq: concurrent_queue::ConcurrentQueue::bounded(1)
         };
         if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
