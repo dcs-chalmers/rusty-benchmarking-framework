@@ -28,7 +28,7 @@ macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
-            for _ in 0..$bench_conf.args.iterations {
+            for current_iteration in 0..$bench_conf.args.iterations {
                 info!("Running benchmark on: {}", $desc);
                 let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
                 {
@@ -59,16 +59,21 @@ macro_rules! implement_benchmark {
                     let to_stdout = $bench_conf.args.write_to_stdout;
                     
                     // Create file if printing to stdout is disabled
+                    let top_line = "Memory Allocated,Queuetype,Benchmark,Test ID,Iteration";
                     let mut memfile = if !to_stdout {
-                        let output_filename = String::from(format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time));
+                        let output_filename = format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time);
                         let mut file = OpenOptions::new()
                             .append(true)
                             .create(true)
                             .open(&output_filename)?;
-                        writeln!(file, "Memory Allocated,Queuetype,Benchmark,Test ID")?;
+                        if current_iteration == 0 {
+                            writeln!(file, "{}", top_line)?;
+                        }
                         Some(file)
                     } else {
-                        println!("Memory Allocated,Queuetype,Benchmark,Test ID");
+                        if current_iteration == 0 {
+                            println!("{}", top_line);
+                        }
                         None
                     };
                     
@@ -82,7 +87,7 @@ macro_rules! implement_benchmark {
                             // Get allocated bytes
                             let allocated = stats::allocated::read().unwrap();
 
-                            let output = format!("{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id);
+                            let output = format!("{},{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id, current_iteration);
                             
                             match &mut memfile {
                                 Some(file) => writeln!(file, "{}", output)?,
@@ -107,6 +112,8 @@ macro_rules! implement_benchmark {
                 #[cfg(feature = "memory_tracking")]
                 {
                     use std::sync::atomic::Ordering;
+                    
+                    std::thread::sleep(std::time::Duration::from_millis(1000));
                     _done.store(true, Ordering::Relaxed);
                     if let Err(e) = mem_thread_handle.join().unwrap() {
                         log::error!("Couldnt join memory tracking thread: {}", e);
