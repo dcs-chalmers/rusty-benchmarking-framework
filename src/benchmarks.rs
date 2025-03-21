@@ -28,7 +28,7 @@ macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
-            for current_iteration in 0..$bench_conf.args.iterations {
+            for _current_iteration in 0..$bench_conf.args.iterations {
                 info!("Running benchmark on: {}", $desc);
                 let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
                 {
@@ -66,12 +66,12 @@ macro_rules! implement_benchmark {
                             .append(true)
                             .create(true)
                             .open(&output_filename)?;
-                        if current_iteration == 0 {
+                        if _current_iteration == 0 {
                             writeln!(file, "{}", top_line)?;
                         }
                         Some(file)
                     } else {
-                        if current_iteration == 0 {
+                        if _current_iteration == 0 {
                             println!("{}", top_line);
                         }
                         None
@@ -87,7 +87,7 @@ macro_rules! implement_benchmark {
                             // Get allocated bytes
                             let allocated = stats::allocated::read().unwrap();
 
-                            let output = format!("{},{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id, current_iteration);
+                            let output = format!("{},{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id, _current_iteration);
                             
                             match &mut memfile {
                                 Some(file) => writeln!(file, "{}", output)?,
@@ -113,7 +113,6 @@ macro_rules! implement_benchmark {
                 {
                     use std::sync::atomic::Ordering;
                     
-                    std::thread::sleep(std::time::Duration::from_millis(1000));
                     _done.store(true, Ordering::Relaxed);
                     if let Err(e) = mem_thread_handle.join().unwrap() {
                         log::error!("Couldnt join memory tracking thread: {}", e);
