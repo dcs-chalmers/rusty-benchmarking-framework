@@ -42,7 +42,7 @@ array_queue = ["dep:crossbeam"]
 seg_queue = ["dep:crossbeam"]
 memory_tracking = []
 bounded_ringbuffer = []
-delay_queue = ["dep:delay-queue"] 
+delay_queue = ["dep:delay-queue"]
 chute_queue = ["dep:chute"]
 atomic_queue = ["dep:atomic-queue"]
 scc_queue = ["dep:scc"]
@@ -59,6 +59,7 @@ lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
 tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
+faa_array_queue = ["dep:haphazard"]
 benchmark_order = []
 bbq = ["dep:bbq-rs"]
 tests_benchmark = ["basic_queue"]
@@ -87,6 +88,7 @@ all_queues = [
     "lprq",
     "seg_queue",
     "tz_queue_hp",
+    "faa_array_queue"
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

@@ -1,48 +1,50 @@
-#[cfg(feature = "lockfree_queue")]
-pub mod lockfree_queue;
-#[cfg(feature = "basic_queue")]
-pub mod basic_queue;
-#[cfg(feature = "bounded_concurrent_queue")]
-pub mod bounded_concurrent_queue;
 #[cfg(feature = "array_queue")]
 pub mod array_queue;
-#[cfg(feature = "bounded_ringbuffer")]
-pub mod bounded_ringbuffer;
-// #[cfg(feature = "delay_queue")]
-// pub mod delay_queue;
-// #[cfg(feature = "chute_queue")]
-// pub mod chute_queue;
 #[cfg(feature = "atomic_queue")]
 pub mod atomic_queue;
-#[cfg(feature = "scc_queue")]
-pub mod scc_queue;
-#[cfg(feature = "scc2_queue")]
-pub mod scc2_queue;
-#[cfg(feature = "lf_queue")]
-pub mod lf_queue;
-#[cfg(feature = "wfqueue")]
-pub mod wfqueue;
-#[cfg(feature = "scc_stack")]
-pub mod scc_stack;
-#[cfg(feature = "scc2_stack")]
-pub mod scc2_stack;
-#[cfg(feature = "lockfree_stack")]
-pub mod lockfree_stack;
-#[cfg(feature = "ms_queue")]
-pub mod ms_queue;
+#[cfg(feature = "basic_queue")]
+pub mod basic_queue;
+#[cfg(feature = "bbq")]
+pub mod bbq;
 #[cfg(feature = "boost")]
 pub mod boost;
-#[cfg(feature = "moodycamel")]
-pub mod moodycamel;
+#[cfg(feature = "bounded_concurrent_queue")]
+pub mod bounded_concurrent_queue;
+#[cfg(feature = "bounded_ringbuffer")]
+pub mod bounded_ringbuffer;
+#[cfg(feature = "faa_array_queue")]
+pub mod faa_array_queue;
 #[cfg(feature = "lcrq")]
 pub mod lcrq;
+#[cfg(feature = "lf_queue")]
+pub mod lf_queue;
+#[cfg(feature = "lockfree_queue")]
+pub mod lockfree_queue;
+#[cfg(feature = "lockfree_stack")]
+pub mod lockfree_stack;
 #[cfg(feature = "lprq")]
 pub mod lprq;
+#[cfg(feature = "moodycamel")]
+pub mod moodycamel;
+#[cfg(feature = "ms_queue")]
+pub mod ms_queue;
+#[cfg(feature = "scc2_queue")]
+pub mod scc2_queue;
+#[cfg(feature = "scc2_stack")]
+pub mod scc2_stack;
+#[cfg(feature = "scc_queue")]
+pub mod scc_queue;
+#[cfg(feature = "scc_stack")]
+pub mod scc_stack;
 #[cfg(feature = "seg_queue")]
 pub mod seg_queue;
 #[cfg(feature = "tz_queue")]
 pub mod tsigas_zhang_queue;
 #[cfg(feature = "tz_queue_hp")]
 pub mod tsigas_zhang_queue_hp;
-#[cfg(feature = "bbq")]
-pub mod bbq;
+#[cfg(feature = "wfqueue")]
+pub mod wfqueue;
+// #[cfg(feature = "delay_queue")]
+// pub mod delay_queue;
+// #[cfg(feature = "chute_queue")]
+// pub mod chute_queue;

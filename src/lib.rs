@@ -1,24 +1,24 @@
+#[cfg(feature = "memory_tracking")]
+use jemalloc_ctl::{epoch, stats};
 #[cfg(not(target_os = "windows"))]
 use jemallocator::Jemalloc;
-#[cfg(feature = "memory_tracking")]
-use jemalloc_ctl::{stats, epoch};
 
 #[cfg(not(target_os = "windows"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
 use chrono::Local;
-use clap::{ArgAction, Parser, Subcommand, Args as ClapArgs};
+use clap::{ArgAction, Args as ClapArgs, Parser, Subcommand};
+#[allow(unused_imports)]
+use log::{self, debug, error, info};
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
-use std::hash::{Hash, Hasher};
 use std::fs::OpenOptions;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
-#[allow(unused_imports)]
-use log::{self, debug, info, error};
-pub mod queues;
 pub mod benchmarks;
 pub mod order;
+pub mod queues;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -48,7 +48,7 @@ pub struct Args {
     #[command(subcommand)]
     benchmark: Benchmarks,
     /// If set to true, benchmark will output to stdout instead of to files.
-    #[arg(long ="write-stdout", default_value_t = false)]
+    #[arg(long = "write-stdout", default_value_t = false)]
     write_to_stdout: bool,
     /// Prefill the queue with values before running the benchmark.
     #[arg(short, long, default_value_t = 0)]
@@ -67,7 +67,7 @@ pub enum Benchmarks {
     PingPong(PingPongArgs),
 }
 
-#[derive(ClapArgs,Debug)]
+#[derive(ClapArgs, Debug)]
 pub struct BasicArgs {
     /// Amount of producers to be used for basic throughput test.
     #[arg(short, long, default_value_t = 20)]
@@ -76,7 +76,7 @@ pub struct BasicArgs {
     #[arg(short, long, default_value_t = 20)]
     consumers: usize,
 }
-#[derive(ClapArgs,Debug)]
+#[derive(ClapArgs, Debug)]
 pub struct PingPongArgs {
     /// Set the thread count for the pingpong benchmark.
     #[arg(long = "thread-count", default_value_t = 20)]
@@ -106,10 +106,9 @@ impl Display for Args {
         writeln!(f, "Output path:            {}", self.path_output)?;
         writeln!(f, "Benchmark:              {:?}", self.benchmark)?;
         writeln!(f, "Write to stdout:        {}", self.write_to_stdout)?;
-        writeln!(f, "prefill amount:         {}", self.prefill_amount)?;     
+        writeln!(f, "prefill amount:         {}", self.prefill_amount)?;
         Ok(())
     }
-    
 }
 
 pub fn start_benchmark() -> Result<(), std::io::Error> {
@@ -122,9 +121,9 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         format!("{:x}", hasher.finish())
     };
 
-    debug!("Benchmark ID: {}", benchmark_id) ;
+    debug!("Benchmark ID: {}", benchmark_id);
     debug!("Arguments: {:?}", args);
-    
+
     // Create dir if it doesnt already exist.
     if !std::path::Path::new(&args.path_output).exists() {
         std::fs::create_dir(&args.path_output)?;
@@ -142,11 +141,14 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         .create(true)
         .open(&bench_conf.output_filename)?;
     writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness")?;
-    implement_benchmark!("lockfree_queue",
+    implement_benchmark!(
+        "lockfree_queue",
         crate::queues::lockfree_queue::LockfreeQueue<i32>,
         "lockfree::queue:Queue",
-        &bench_conf);
-    implement_benchmark!("basic_queue",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "basic_queue",
         crate::queues::basic_queue::BasicQueue<i32>,
         "Basic Queue",
         &bench_conf);
@@ -157,60 +159,88 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     implement_benchmark!("array_queue",
         crate::queues::array_queue::AQueue<Box<i32>>,
         "crossbeam::queue::ArrayQueue",
-        &bench_conf);
-    implement_benchmark!("bounded_ringbuffer",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "bounded_ringbuffer",
         crate::queues::bounded_ringbuffer::BoundedRingBuffer<i32>,
         "Bounded ringbuffer",
-        &bench_conf);
-    implement_benchmark!("atomic_queue",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "atomic_queue",
         crate::queues::atomic_queue::AtomicQueue<i32>,
         "atomic_queue::bounded",
-        &bench_conf);
-    implement_benchmark!("scc_queue",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "scc_queue",
         crate::queues::scc_queue::SCCQueue<i32>,
         "scc::Queue",
-        &bench_conf);
-    implement_benchmark!("scc2_queue",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "scc2_queue",
         crate::queues::scc2_queue::SCC2Queue<i32>,
         "scc2::Queue",
-        &bench_conf);
-    implement_benchmark!("lf_queue", 
+        &bench_conf
+    );
+    implement_benchmark!(
+        "lf_queue",
         crate::queues::lf_queue::LFQueue<i32>,
         "lf_queue::Queue",
-        &bench_conf);
-    implement_benchmark!("wfqueue",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "wfqueue",
         crate::queues::wfqueue::WFQueue<Box<i32>>,
         "wfqueue::Wfqueue",
-        &bench_conf);
-    implement_benchmark!("lockfree_stack",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "lockfree_stack",
         crate::queues::lockfree_stack::LockfreeStack<i32>,
         "lockfree::stack",
-        &bench_conf);
-    implement_benchmark!("scc_stack",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "scc_stack",
         crate::queues::scc_stack::SCCStack<i32>,
         "scc::Stack",
-        &bench_conf);
-    implement_benchmark!("scc2_stack",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "scc2_stack",
         crate::queues::scc2_stack::SCC2Stack<i32>,
         "scc2::Stack",
-        &bench_conf);
-    implement_benchmark!("ms_queue",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "ms_queue",
         crate::queues::ms_queue::MSQueue<i32>,
         "MSQueue",
-        &bench_conf);
-    implement_benchmark!("boost",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "boost",
         crate::queues::boost::BoostCppQueue,
         "boostcpp",
-        &bench_conf);
-    implement_benchmark!("moodycamel",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "moodycamel",
         crate::queues::moodycamel::MoodyCamelCppQueue,
         "moodycamelcpp",
-        &bench_conf);
-    implement_benchmark!("lcrq",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "lcrq",
         crate::queues::lcrq::LCRQueue,
         "lcrqcpp",
-        &bench_conf);
-    implement_benchmark!("lprq",
+        &bench_conf
+    );
+    implement_benchmark!(
+        "lprq",
         crate::queues::lprq::LPRQueue,
         "lprqcpp",
         &bench_conf);
@@ -229,8 +259,15 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     implement_benchmark!("seg_queue",
         crate::queues::seg_queue::SQueue<i32>,
         "Segqueue",
-        &bench_conf);
-     
+        &bench_conf
+    );
+    implement_benchmark!(
+        "faa_array_queue",
+        crate::queues::faa_array_queue::FAAArrayQueue<i32>,
+        "FAAArrayQueue",
+        &bench_conf
+    );
+
     Ok(())
 }
 
@@ -256,9 +293,12 @@ impl Default for Args {
             queue_size: 10000,
             delay: 10,
             path_output: "".to_string(),
-            benchmark: Benchmarks::Basic(BasicArgs { producers: 5, consumers: 5 }),
+            benchmark: Benchmarks::Basic(BasicArgs {
+                producers: 5,
+                consumers: 5,
+            }),
             write_to_stdout: true,
             print_info: false,
         }
-    } 
+    }
 }
