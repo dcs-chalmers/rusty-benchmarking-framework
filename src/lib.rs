@@ -214,6 +214,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::lprq::LPRQueue,
         "lprqcpp",
         &bench_conf);
+    implement_benchmark!("tz_queue",
+        crate::queues::tsigas_zhang_queue::TZQueue<i32>,
+        "tz_queue",
+        &bench_conf);
     implement_benchmark!("tz_queue_hp",
         crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
         "Tsigas-Zhang HP queue",

@@ -40,5 +40,7 @@ pub mod lcrq;
 pub mod lprq;
 #[cfg(feature = "seg_queue")]
 pub mod seg_queue;
+#[cfg(feature = "tz_queue")]
+pub mod tsigas_zhang_queue;
 #[cfg(feature = "tz_queue_hp")]
 pub mod tsigas_zhang_queue_hp;

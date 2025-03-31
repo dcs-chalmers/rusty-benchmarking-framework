@@ -56,6 +56,7 @@ boost = ["dep:bindgen", "dep:cc"]
 moodycamel = ["dep:bindgen", "dep:cc"]
 lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
+tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
 benchmark_order = []
 
@@ -82,6 +83,7 @@ all_queues = [
     "lcrq",
     "lprq",
     "seg_queue",
+    "tz_queue",
     "tz_queue_hp"
 ]
 
