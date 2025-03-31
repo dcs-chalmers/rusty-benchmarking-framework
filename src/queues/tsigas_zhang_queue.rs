@@ -65,18 +65,18 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             let te = self.tail.load(Ordering::Relaxed);
             let mut ate = te;
             // Get reference to node
-            let mut tt = &self.nodes[ate];
+            let mut tt = self.nodes[ate].val.load(Ordering::Relaxed);
             // Next after tail
             let mut temp: usize = (ate + 1) % (self.max_num + 1);
             // While we have a value and not a null.
             // Try to find the actual tail.
             trace!("{te} {ate} {temp}");
-            while let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
+            while let TempVal::Val(_) = unsafe { *tt } {
                 // check tails consistency 
                 trace!("trying to find actual tail");
                 if te != self.tail.load(Ordering::Relaxed) { break; }
                 if temp == self.head.load(Ordering::Relaxed) { break; }
-                tt = &self.nodes[temp];
+                tt = self.nodes[temp].val.load(Ordering::Relaxed);
                 ate = temp;
                 temp = (ate + 1) % (self.max_num + 1);
             }
@@ -85,9 +85,9 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             // Check wether queue is full
             if temp == self.head.load(Ordering::Relaxed) {
                 ate = (temp + 1) % (self.max_num + 1);
-                tt = &self.nodes[ate];
+                tt = self.nodes[ate].val.load(Ordering::Relaxed);
                 // If the node after the head is occupied, then queue is full
-                if let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
+                if let TempVal::Val(_) = unsafe { *tt } {
                     trace!("Queue was full: ate {} temp {} maxnum {}", ate , temp, self.max_num);
                     return Err(newnode);
                 }
@@ -95,7 +95,7 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
                     // drop old value first?
                     // let old_val = unsafe { Box::from_raw(self.vnull.load(Ordering::Relaxed)) };
                     // drop(old_val); 
-                    self.vnull.store(Box::into_raw(Box::new(unsafe { *tt.val.load(Ordering::Relaxed) })), Ordering::Relaxed);
+                    self.vnull.store(Box::into_raw(Box::new(unsafe { *tt })), Ordering::Relaxed);
                 }
                 let _ = self.head.compare_exchange_weak(temp, ate, Ordering::Relaxed, Ordering::Relaxed);
                 continue;
@@ -104,7 +104,7 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             if te != self.tail.load(Ordering::Relaxed) { continue; }
             let new_node_ptr = Box::into_raw(Box::new(TempVal::Val(newnode)));
             if self.nodes[ate].val.compare_exchange_weak(
-                tt.val.load(Ordering::Relaxed),
+                tt,
                 new_node_ptr,
                 Ordering::Relaxed,
                 Ordering::Relaxed).is_ok() {
@@ -127,13 +127,13 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             let th = self.head.load(Ordering::Relaxed);
             // temp is the index we want to dequeue
             let mut temp: usize = (th + 1) % (self.max_num + 1);
-            let mut tt = &self.nodes[temp];
+            let mut tt = self.nodes[temp].val.load(Ordering::Relaxed);
             // Find the actual head 
-            while let TempVal::Null(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
+            while let TempVal::Null(_) = unsafe { *tt } {
                 if th != self.head.load(Ordering::Relaxed) { break; }
                 if temp == self.tail.load(Ordering::Relaxed) { return None;}
                 temp = (temp + 1) % (self.max_num + 1);
-                tt = &self.nodes[temp];
+                tt = self.nodes[temp].val.load(Ordering::Relaxed);
             }
             if th != self.head.load(Ordering::Relaxed) { continue; }
             if temp == self.tail.load(Ordering::Relaxed){
@@ -157,9 +157,9 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             }
             if th != self.head.load(Ordering::Relaxed){ continue; }
             let tnull_ptr = Box::into_raw(Box::new(tnull));
-            let real_tt = unsafe { *tt.val.load(Ordering::Relaxed) };
+            let real_tt = unsafe { *tt };
             if self.nodes[temp].val.compare_exchange_weak(
-                tt.val.load(Ordering::Relaxed), 
+                tt,
                 tnull_ptr, 
                 Ordering::Relaxed, 
                 Ordering::Relaxed).is_ok() 

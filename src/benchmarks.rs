@@ -503,6 +503,7 @@ impl BenchConfig {
     }
 }
 
+#[cfg(feature = "tests_benchmark")]
 #[cfg(test)]
 mod tests {
     use crate::queues::basic_queue::{BQueue, BasicQueue};

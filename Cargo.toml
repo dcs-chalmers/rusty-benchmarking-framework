@@ -61,6 +61,7 @@ tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
 benchmark_order = []
 bbq = ["dep:bbq-rs"]
+tests_benchmark = ["basic_queue"]
 
 all_queues = [
     "lockfree_queue",
