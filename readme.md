@@ -126,7 +126,10 @@ two (depending on if the queue uses `Box` or not). Example:
     }
 ```
 ## Output files
-If the `--write-stdout` flag is not set, the benchmark will produce a folder called `/output` and in it will include a .csv file with the headers and results of the entire benchmark test. For example:
+If the `--write-stdout` flag is not set, the benchmark will produce a folder called `/output` and in it will include a .csv file with the headers and results of the entire benchmark test. For example, with the command:
+```bash
+cargo run --release --features basic_queue -- -t 1 -i 10 basic
+```
 | Throughput | Enqueues | Dequeues | Consumers | Producers | Thread Count | Queuetype  | Benchmark | Test ID           | Fairness |
 |------------|----------|----------|-----------|-----------|---------------|------------|-----------|-------------------|----------|
 | 3836116    | 2022116  | 1814000  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7928   |
