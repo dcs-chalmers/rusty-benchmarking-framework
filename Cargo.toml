@@ -85,13 +85,8 @@ all_queues = [
     "lcrq",
     "lprq",
     "seg_queue",
-<<<<<<< HEAD
     "tz_queue_hp",
     "bbq"
-=======
-    "tz_queue",
-    "tz_queue_hp"
->>>>>>> origin/main
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
