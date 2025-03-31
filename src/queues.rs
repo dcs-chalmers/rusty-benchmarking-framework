@@ -44,8 +44,5 @@ pub mod seg_queue;
 pub mod tsigas_zhang_queue;
 #[cfg(feature = "tz_queue_hp")]
 pub mod tsigas_zhang_queue_hp;
-<<<<<<< HEAD
 #[cfg(feature = "bbq")]
 pub mod bbq;
-=======
->>>>>>> origin/main
