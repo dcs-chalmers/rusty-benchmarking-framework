@@ -222,6 +222,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
         "Tsigas-Zhang HP queue",
         &bench_conf);
+    implement_benchmark!("bbq",
+        crate::queues::bbq::BBQueue<i32>,
+        "bbq",
+        &bench_conf);
     implement_benchmark!("seg_queue",
         crate::queues::seg_queue::SQueue<i32>,
         "Segqueue",
