@@ -21,6 +21,12 @@ impl<T> BQueue<T> {
     }
 }
 
+impl<T> Default for BQueue<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct BasicQueue<T> {
     pub bqueue: BQueue<T>
 }
@@ -36,7 +42,7 @@ impl<T> ConcurrentQueue<T> for BasicQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("BasicQueue")
+        String::from("BasicQueue")
     }
     fn new(_size: usize) -> Self {
         BasicQueue {
@@ -79,5 +85,15 @@ mod tests {
         handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
 
+    }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: BasicQueue<i32> = BasicQueue {
+            bqueue: BQueue::new() 
+        };
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }

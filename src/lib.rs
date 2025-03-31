@@ -18,6 +18,7 @@ use std::io::Write;
 use log::{self, debug, info, error};
 pub mod queues;
 pub mod benchmarks;
+pub mod order;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -52,6 +53,8 @@ pub struct Args {
     /// Prefill the queue with values before running the benchmark.
     #[arg(short, long, default_value_t = 0)]
     prefill_amount: u64,
+    #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
+    print_info: bool,
 }
 
 /// Possible benchmark types.
@@ -62,8 +65,6 @@ pub enum Benchmarks {
     /// A test where each thread performs both consume and produce based on a random floating point
     /// value. Spread is decided using the `--spread` flag.
     PingPong(PingPongArgs),
-    #[cfg(feature = "benchmark_order")]
-    Order(PingPongArgs),
 }
 
 #[derive(ClapArgs,Debug)]
@@ -91,8 +92,6 @@ impl Display for Benchmarks {
         match self {
             Benchmarks::Basic(_) => write!(f, "Basic"),
             Benchmarks::PingPong(_) => write!(f, "PingPong"),
-            #[cfg(feature = "benchmark_order")]
-            Benchmarks::Order(_) => write!(f, "Order"),
         }
     }
 }
@@ -131,7 +130,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         std::fs::create_dir(&args.path_output)?;
     }
 
-    let output_filename = String::from(format!("{}/{}", args.path_output, date_time));
+    let output_filename = format!("{}/{}", args.path_output, date_time);
     let bench_conf = benchmarks::BenchConfig {
         args,
         date_time,
@@ -151,9 +150,9 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::basic_queue::BasicQueue<i32>,
         "Basic Queue",
         &bench_conf);
-    implement_benchmark!("concurrent_queue",
-        crate::queues::concurrent_queue::CQueue<i32>,
-        "concurrent_queue::ConcurrentQueue",
+    implement_benchmark!("bounded_concurrent_queue",
+        crate::queues::bounded_concurrent_queue::BoundedCQueue<i32>,
+        "concurrent_queue::bounded",
         &bench_conf);
     implement_benchmark!("array_queue",
         crate::queues::array_queue::AQueue<Box<i32>>,
@@ -219,6 +218,15 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::tsigas_zhang_queue::TZQueue<i32>,
         "tz_queue",
         &bench_conf);
+    implement_benchmark!("tz_queue_hp",
+        crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
+        "Tsigas-Zhang HP queue",
+        &bench_conf);
+    implement_benchmark!("seg_queue",
+        crate::queues::seg_queue::SQueue<i32>,
+        "Segqueue",
+        &bench_conf);
+     
     Ok(())
 }
 
@@ -246,6 +254,7 @@ impl Default for Args {
             path_output: "".to_string(),
             benchmark: Benchmarks::Basic(BasicArgs { producers: 5, consumers: 5 }),
             write_to_stdout: true,
+            print_info: false,
         }
     } 
 }

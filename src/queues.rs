@@ -2,8 +2,8 @@
 pub mod lockfree_queue;
 #[cfg(feature = "basic_queue")]
 pub mod basic_queue;
-#[cfg(feature = "concurrent_queue")]
-pub mod concurrent_queue;
+#[cfg(feature = "bounded_concurrent_queue")]
+pub mod bounded_concurrent_queue;
 #[cfg(feature = "array_queue")]
 pub mod array_queue;
 #[cfg(feature = "bounded_ringbuffer")]
@@ -42,3 +42,5 @@ pub mod lprq;
 pub mod seg_queue;
 #[cfg(feature = "tz_queue")]
 pub mod tsigas_zhang_queue;
+#[cfg(feature = "tz_queue_hp")]
+pub mod tsigas_zhang_queue_hp;

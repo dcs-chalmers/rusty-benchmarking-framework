@@ -5,9 +5,7 @@ import os
 import sys
 import argparse
 
-
 should_pad_data = False
-
 
 def load_csv_files_by_subfolder(folder_path):
     """Load CSV files from the given folder path, organized by subfolder."""
@@ -51,7 +49,6 @@ def load_csv_files_by_subfolder(folder_path):
     # Combine all dataframes with subfolder identification
     return pd.concat(dfs_by_subfolder.values(), ignore_index=True)
 
-
 def process_data(df, group_by):
     """Average results grouped by Test ID,
     group_by, Queuetype, and Subfolder."""
@@ -63,8 +60,7 @@ def process_data(df, group_by):
     }).reset_index()
     return grouped
 
-
-def plot_thread_count_results(df):
+def plot_thread_count_results(df, queues):
     """Create plots for each metric with all Queuetypes and Subfolders as
     separate lines."""
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
@@ -97,6 +93,8 @@ def plot_thread_count_results(df):
             subfolder_data = df[df['Subfolder'] == subfolder]
 
             for qtype in queue_types:
+                if queues and qtype not in queues:
+                    continue
                 queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                 if queue_data.empty:
                     continue
@@ -131,8 +129,7 @@ def plot_thread_count_results(df):
     plt.savefig('thread_count_benchmark.png', dpi=300)
     plt.show()
 
-
-def plot_mpsc_results(df):
+def plot_mpsc_results(df, queues):
     """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
     titles = [
@@ -164,6 +161,8 @@ def plot_mpsc_results(df):
             subfolder_data = df[df['Subfolder'] == subfolder]
 
             for qtype in queue_types:
+                if queues and qtype not in queues:
+                    continue
                 queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                 if queue_data.empty:
                     continue
@@ -197,8 +196,7 @@ def plot_mpsc_results(df):
     plt.savefig('mpsc_benchmark.png', dpi=300)
     plt.show()
 
-
-def plot_spmc_results(df):
+def plot_spmc_results(df, queues):
     """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
     titles = [
@@ -230,6 +228,8 @@ def plot_spmc_results(df):
             subfolder_data = df[df['Subfolder'] == subfolder]
 
             for qtype in queue_types:
+                if queues and qtype not in queues:
+                    continue
                 queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                 if queue_data.empty:
                     continue
@@ -263,13 +263,13 @@ def plot_spmc_results(df):
     plt.savefig('spmc_benchmark.png', dpi=300)
     plt.show()
 
-
 def main():
     parser = argparse.ArgumentParser(description='Process and plot benchmark data by subfolder.')
     parser.add_argument('folder', help='Main folder containing subfolders with benchmark CSV files')
     parser.add_argument('plot_type', choices=['spmc', 'thread_count', 'mpsc'],
                         help='What type of benchmark to plot')
     parser.add_argument('--output', help='Output file path for saving the plot (optional)')
+    parser.add_argument('--queues', nargs='+', help='Specific queues to plot (optional)')
     args = parser.parse_args()
 
     if not os.path.isdir(args.folder):
@@ -286,14 +286,13 @@ def main():
 
     if args.plot_type == 'spmc':
         processed_df = process_data(df, 'Consumers')
-        plot_spmc_results(processed_df)
+        plot_spmc_results(processed_df, args.queues)
     elif args.plot_type == 'thread_count':
         processed_df = process_data(df, 'Thread Count')
-        plot_thread_count_results(processed_df)
+        plot_thread_count_results(processed_df, args.queues)
     elif args.plot_type == 'mpsc':
         processed_df = process_data(df, 'Producers')
-        plot_mpsc_results(processed_df)
-
+        plot_mpsc_results(processed_df, args.queues)
 
 if __name__ == "__main__":
     main()

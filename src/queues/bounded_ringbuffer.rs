@@ -86,7 +86,7 @@ impl <T: Clone + Default>ConcurrentQueue<T> for BoundedRingBuffer<T>{
         }
     }
     fn get_id(&self) -> String {
-        return String::from("BoundedRingbuffer")
+        String::from("BoundedRingbuffer")
     }
     fn new(size: usize) -> Self {
         BoundedRingBuffer {
@@ -169,5 +169,14 @@ mod tests{
         assert_eq!(buffer.pop(), None);
     }
 
+    #[test]
+    #[ignore]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: BoundedRingBuffer<i32> = BoundedRingBuffer::new(10);
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
 
 }

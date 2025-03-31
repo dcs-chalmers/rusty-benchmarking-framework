@@ -15,6 +15,7 @@ pub struct MoodyCamelCppQueue {
 unsafe impl Send for MoodyCamelCppQueue {}
 unsafe impl Sync for MoodyCamelCppQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl MoodyCamelCppQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
@@ -46,7 +47,7 @@ struct MoodyCamelCppQueueHandle<'a> {
 impl Handle<Box<i32>> for MoodyCamelCppQueueHandle<'_> {
     fn push(&mut self, item: Box<i32>) -> Result<(), Box<i32>>{
         let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
-        let rval = match self.q.push(ptr) {
+        match self.q.push(ptr) {
             true => {
                 Ok(())
             },
@@ -55,15 +56,11 @@ impl Handle<Box<i32>> for MoodyCamelCppQueueHandle<'_> {
                 let reclaimed_mem: Box<i32> = unsafe { Box::from_raw(ptr as *mut i32) };
                 Err(reclaimed_mem)
             },
-        };
-        rval
+        }
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
-        let res = match self.q.pop() {
-            Some(v) => v,
-            None => return None,
-        };
+        let res = self.q.pop()?;
         let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
         Some(val)
     }
@@ -122,5 +119,14 @@ mod tests {
         assert_eq!(*handle.pop().unwrap(), 2);
         assert_eq!(*handle.pop().unwrap(), 3);
         assert_eq!(*handle.pop().unwrap(), 4);
+    }
+    #[test]
+    #[ignore]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: MoodyCamelCppQueue = MoodyCamelCppQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }
