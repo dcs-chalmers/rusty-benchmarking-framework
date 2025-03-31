@@ -59,6 +59,7 @@ lprq = ["dep:bindgen", "dep:cc"]
 tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
 benchmark_order = []
+tests_benchmark = ["basic_queue"]
 
 all_queues = [
     "lockfree_queue",
