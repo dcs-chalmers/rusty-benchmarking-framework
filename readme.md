@@ -143,3 +143,26 @@ cargo run --release --features basic_queue -- -t 1 -i 10 basic
 | 3611314    | 1807886  | 1803428  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.8447   |
 | 3539239    | 1952269  | 1586970  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.8757   |
 
+Furthermore, if the `--print-info` flag is set, you will get more specific information about your current test, including some hardware specifications. For example:
+```txt
+Benchmark done:              Basic
+With queue:             Basic Queue
+Arguments used in test:
+
+Time limit:             1
+One socket?:            true
+Iterations:             10
+Queue size:             10000
+Delay:                  10
+Output path:            ./output
+Benchmark:              Basic(BasicArgs { producers: 20, consumers: 20 })
+Write to stdout:        false
+prefill amount:         0
+
+
+Test ran on hardware specs:
+System name:            x
+System kernel version:  x
+System OS version:      x
+Total RAM (in GB):      x
+```
