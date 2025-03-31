@@ -69,13 +69,13 @@ To use specific values you can add different flags to the run command:
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
     * `--path` to change where the output of the benchmark is put.
+    * `--print-info` - To create a file with hardware info and benchmark info
 * `basic` benchmark type sub commands:
     * `-p`, `--producers` for specified amount of producers.
     * `-c`, `--consumers` for specified amount of consumers.
 - `ping-pong` benchmark type sub commands:
     * `--spread` - To specify the spread for the `ping-pong` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
-    * `--print-info` - To create a file with hardware info and benchmark info
 ## Logging
 The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
 1. `error`
