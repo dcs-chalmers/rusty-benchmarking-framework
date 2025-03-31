@@ -263,7 +263,7 @@ mod tests {
         
         let q: TZQueue<i32> = TZQueue::new(QUEUE_SIZE);
         let barrier = std::sync::Barrier::new(NUM_THREADS * 2);
-        
+
         
         let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
             let q = &q;
@@ -274,7 +274,6 @@ mod tests {
                 s.spawn(move || {
                     // Wait for all threads to be ready
                     barrier.wait();
-                    
                     let start = thread_id * ITEMS_PER_THREAD;
                     let end = start + ITEMS_PER_THREAD;
                     
@@ -328,5 +327,13 @@ mod tests {
         assert_eq!(q.enqueue(4), Ok(()));
         assert_eq!(q.enqueue(5), Ok(()));
         drop(q);
+    }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: TZQueue<i32> = TZQueue::new(10);
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }
