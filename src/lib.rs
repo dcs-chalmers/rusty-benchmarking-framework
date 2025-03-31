@@ -222,20 +222,16 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
         "Tsigas-Zhang HP queue",
         &bench_conf);
-<<<<<<< HEAD
     implement_benchmark!("bbq",
         crate::queues::bbq::BBQueue<i32>,
         "bbq",
         &bench_conf);
-    Ok(())    
-=======
     implement_benchmark!("seg_queue",
         crate::queues::seg_queue::SQueue<i32>,
         "Segqueue",
         &bench_conf);
      
     Ok(())
->>>>>>> origin/main
 }
 
 pub trait ConcurrentQueue<T> {
