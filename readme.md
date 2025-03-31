@@ -125,3 +125,18 @@ two (depending on if the queue uses `Box` or not). Example:
         }
     }
 ```
+## Output files
+If the `--write-stdout` flag is not set, the benchmark will produce a folder called `/output` and in it will include a .csv file with the headers and results of the entire benchmark test. For example:
+| Throughput | Enqueues | Dequeues | Consumers | Producers | Thread Count | Queuetype  | Benchmark | Test ID           | Fairness |
+|------------|----------|----------|-----------|-----------|---------------|------------|-----------|-------------------|----------|
+| 3836116    | 2022116  | 1814000  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7928   |
+| 3680283    | 1906235  | 1774048  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7334   |
+| 3797156    | 2156525  | 1640631  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.6659   |
+| 3630639    | 1893518  | 1737121  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.6256   |
+| 4054568    | 2193896  | 1860672  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.5884   |
+| 3725101    | 1903091  | 1822010  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7417   |
+| 3439946    | 1719978  | 1719968  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.6608   |
+| 3397534    | 1904483  | 1493051  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7792   |
+| 3611314    | 1807886  | 1803428  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.8447   |
+| 3539239    | 1952269  | 1586970  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.8757   |
+
