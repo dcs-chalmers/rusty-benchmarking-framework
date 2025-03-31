@@ -2,8 +2,7 @@
 use log::{debug, trace};
 
 use crate::{ConcurrentQueue, Handle};
-use std::{fmt::{Debug, Display}, sync::atomic::{AtomicUsize, Ordering}};
-use haphazard::HazardPointer;
+use std::{fmt::{Debug, Display}, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 
 #[derive(Copy, Clone, Debug)]
 enum TempVal<T> {
@@ -21,14 +20,14 @@ impl<T: Display> Display for TempVal<T> {
 
 #[derive(Debug)]
 struct Node<T> {
-    val: haphazard::AtomicPtr<TempVal<T>>
+    val: AtomicPtr<TempVal<T>>
 }
 
 impl<T> Node<T> {
     fn new() -> Self {
-        let v = Box::new(TempVal::Null(false));
+        let v: *mut TempVal<T> = Box::<TempVal<_>>::into_raw(Box::new(TempVal::Null(false)));
         Node {
-            val: haphazard::AtomicPtr::from(v)
+            val: AtomicPtr::new(v)
         }
     }
 }
@@ -37,50 +36,47 @@ pub struct TZQueue<T> {
     head:   AtomicUsize,
     nodes:  Vec<Node<T>>,
     tail:   AtomicUsize,
-    vnull:  haphazard::AtomicPtr<TempVal<T>>,
+    vnull:  AtomicPtr<TempVal<T>>,
     max_num: usize,
 }
 
 impl<T:Sync + Send + Copy + Display> TZQueue<T> {
     fn new(capacity: usize) -> Self {
         let max_num = capacity + 1;
-        let mut v = Vec::with_capacity(max_num + 1); 
-        v.push(Node { 
-            val: haphazard::AtomicPtr::from(Box::new(TempVal::Null(true)))
-        });
+        let mut v = vec![];
         for _ in 0..max_num + 1 {
             v.push(Node::new());
         }
+        v[0] = Node { val: AtomicPtr::new(Box::into_raw(Box::new(TempVal::Null(true))))};
         TZQueue {
             head: AtomicUsize::new(0),
             tail: AtomicUsize::new(1),
-            vnull: haphazard::AtomicPtr::from(Box::new(TempVal::Null(true))),
+            vnull: AtomicPtr::new(Box::into_raw(Box::new(TempVal::Null(true)))),
             nodes: v,
             max_num, 
         }
     }
 
-    pub fn enqueue(&self, newnode: T, hp1: &mut HazardPointer) -> Result<(), T>{
+    pub fn enqueue(&self, newnode: T) -> Result<(), T>{
         loop {
             trace!("starting enqueue");
-            // self.print_queue();
+            self.print_queue();
             // Read the tail
             let te = self.tail.load(Ordering::Relaxed);
             let mut ate = te;
             // Get reference to node
-            let mut tt = self.nodes[ate].val.safe_load(hp1).unwrap();
+            let mut tt = &self.nodes[ate];
             // Next after tail
             let mut temp: usize = (ate + 1) % (self.max_num + 1);
             // While we have a value and not a null.
             // Try to find the actual tail.
             trace!("{te} {ate} {temp}");
-            while let TempVal::Val(_) = *tt {
+            while let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                 // check tails consistency 
                 trace!("trying to find actual tail");
                 if te != self.tail.load(Ordering::Relaxed) { break; }
                 if temp == self.head.load(Ordering::Relaxed) { break; }
-                hp1.reset_protection();
-                tt = self.nodes[temp].val.safe_load(hp1).unwrap();
+                tt = &self.nodes[temp];
                 ate = temp;
                 temp = (ate + 1) % (self.max_num + 1);
             }
@@ -89,18 +85,17 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             // Check wether queue is full
             if temp == self.head.load(Ordering::Relaxed) {
                 ate = (temp + 1) % (self.max_num + 1);
-                hp1.reset_protection();
-                tt = self.nodes[ate].val.safe_load(hp1).unwrap();
+                tt = &self.nodes[ate];
                 // If the node after the head is occupied, then queue is full
-                if let TempVal::Val(_) = *tt {
+                if let TempVal::Val(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                     trace!("Queue was full: ate {} temp {} maxnum {}", ate , temp, self.max_num);
                     return Err(newnode);
                 }
                 if ate == 0 {
-                    let old_val = self.vnull.swap(Box::new(*tt))
-                        .expect("vnull is never null");
-                    // Safety: Safe since we have swapped the value atomically.
-                    unsafe { old_val.retire(); }
+                    // drop old value first?
+                    // let old_val = unsafe { Box::from_raw(self.vnull.load(Ordering::Relaxed)) };
+                    // drop(old_val); 
+                    self.vnull.store(Box::into_raw(Box::new(unsafe { *tt.val.load(Ordering::Relaxed) })), Ordering::Relaxed);
                 }
                 let _ = self.head.compare_exchange_weak(temp, ate, Ordering::Relaxed, Ordering::Relaxed);
                 continue;
@@ -108,38 +103,37 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             // check tails consistency 
             if te != self.tail.load(Ordering::Relaxed) { continue; }
             let new_node_ptr = Box::into_raw(Box::new(TempVal::Val(newnode)));
-            if let Ok(old_val) = unsafe { 
-                self.nodes[ate].val.compare_exchange_ptr(tt as *const TempVal<T> as *mut TempVal<T>, new_node_ptr) 
-            }{
+            if self.nodes[ate].val.compare_exchange_weak(
+                tt.val.load(Ordering::Relaxed),
+                new_node_ptr,
+                Ordering::Relaxed,
+                Ordering::Relaxed).is_ok() {
                     if (temp % 2) == 0 {
                         let _ = self.tail.compare_exchange_weak(te, temp, Ordering::Relaxed, Ordering::Relaxed);
                     }
-                unsafe { old_val.expect("CAS passed").retire(); } //BUG WAS HERE
                 return Ok(());
             }
         }
     }
-    #[allow(dead_code)]
     fn print_queue(&self) {
         for node in &self.nodes {
-            trace!("{}", unsafe { *node.val.load_ptr() } );
+            trace!("{}", unsafe { *node.val.load(Ordering::Relaxed) } );
         }
     }
-    pub fn dequeue(&self, hp1: &mut HazardPointer) -> Option<T>{
+    pub fn dequeue(&self) -> Option<T>{
         loop {
             trace!("starting dequeue");
-            // self.print_queue();
+            self.print_queue();
             let th = self.head.load(Ordering::Relaxed);
             // temp is the index we want to dequeue
             let mut temp: usize = (th + 1) % (self.max_num + 1);
-            let mut tt = self.nodes[temp].val.safe_load(hp1).unwrap();
+            let mut tt = &self.nodes[temp];
             // Find the actual head 
-            while let TempVal::Null(_) = *tt {
+            while let TempVal::Null(_) = unsafe { *tt.val.load(Ordering::Relaxed) } {
                 if th != self.head.load(Ordering::Relaxed) { break; }
                 if temp == self.tail.load(Ordering::Relaxed) { return None;}
                 temp = (temp + 1) % (self.max_num + 1);
-                hp1.reset_protection();
-                tt = self.nodes[temp].val.safe_load(hp1).unwrap();
+                tt = &self.nodes[temp];
             }
             if th != self.head.load(Ordering::Relaxed) { continue; }
             if temp == self.tail.load(Ordering::Relaxed){
@@ -150,36 +144,33 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             if temp != 0 {
                 if temp < th {
                     trace!("Setting tnull to node 0 val");
-                    tnull = unsafe { *self.nodes[0].val.load_ptr() };
+                    tnull = unsafe { *self.nodes[0].val.load(Ordering::Relaxed) };
                 } else {
                     trace!("Setting tnull to value of vnull");
-                    // tnull = *self.vnull.safe_load(hp2).unwrap(); 
-                    tnull = unsafe { *self.vnull.load_ptr() };
+                    tnull = unsafe { *self.vnull.load(Ordering::Relaxed) }; // Check 142 for bugs, was tnull = self.vnull
                 }
             } else {
-                tnull = match unsafe { *self.vnull.load_ptr() }  { 
+                tnull = match unsafe { *self.vnull.load(Ordering::Relaxed) } { // check for bugs 145, was match self.vnull
                     TempVal::Null(b) => TempVal::Null(!b),
                     TempVal::Val(v) => TempVal::Val(v),
                 }
             }
             if th != self.head.load(Ordering::Relaxed){ continue; }
             let tnull_ptr = Box::into_raw(Box::new(tnull));
-            if let Ok(old_val) = unsafe {self.nodes[temp].val.compare_exchange_ptr(tt as *const TempVal<T> as *mut TempVal<T>, tnull_ptr) }
+            let real_tt = unsafe { *tt.val.load(Ordering::Relaxed) };
+            if self.nodes[temp].val.compare_exchange_weak(
+                tt.val.load(Ordering::Relaxed), 
+                tnull_ptr, 
+                Ordering::Relaxed, 
+                Ordering::Relaxed).is_ok() 
             {
                 if temp == 0 {
-                    let old_val = self.vnull.swap(Box::new(tnull)).expect("vnull is never null");
-                    trace!("dropping {}", unsafe { *old_val.as_ptr()});
-                    unsafe { old_val.retire(); }
+                    self.vnull.store(Box::into_raw(Box::new(tnull)), Ordering::Relaxed); //check here for bugs as well... want to do self.vnull = tnull 
                 }
                 if (temp % 2) == 0 {
                     let _ = self.head.compare_exchange_weak(th, temp, Ordering::Relaxed, Ordering::Relaxed);
                 }
-                // Safety: old_val is never null.
-                let r_val = unsafe { *old_val.unwrap().as_ptr() };
-                // Safety: CAS succeeded so no new references to old_val.
-                // This is the only thread that will retire.
-                unsafe { old_val.unwrap().retire(); }
-                match r_val {
+                match real_tt {
                     TempVal::Null(_) => {
                         trace!("Return value was a null from dequeue");
                         return None;
@@ -196,41 +187,38 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
         TZQueue::new(c)
     }
     fn get_id(&self) -> String {
-        String::from("TsigasZhangHPQueue")
+        String::from("tz_queue")
     }
     fn register(&self) -> impl crate::Handle<T> {
         TZQueueHandle {
-            q:      self,
-            hp1:    HazardPointer::new(),
+            q: self
         }
     }
 }
 
 struct TZQueueHandle<'a, T: Copy> {
     q: &'a TZQueue<T>,
-    hp1: HazardPointer<'static>,
 }
 
 impl<T: Copy + Send + Sync + Display> Handle<T> for TZQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
-        self.q.dequeue(&mut self.hp1)
+        self.q.dequeue()
     }
     fn push(&mut self, item: T) -> Result<(), T>{
-        self.q.enqueue(item, &mut self.hp1)
+        self.q.enqueue(item)
     }
 }
 
 impl<T> Drop for TZQueue<T> {
     fn drop(&mut self) {
         trace!("Starting drop function for TZQueue");
-        let reclaim_vnull = unsafe { Box::from_raw(self.vnull.load_ptr()) };
+        let reclaim_vnull = unsafe { Box::from_raw(self.vnull.load(Ordering::Relaxed)) };
         trace!("Dropping vnull now");
         drop(reclaim_vnull);
         trace!("Starting dropping of nodes");
         for node in &self.nodes {
-            let reclaimed_node_val = unsafe { Box::from_raw(node.val.load_ptr()) };
-            trace!("dropping node");
-            drop(reclaimed_node_val); //time to eat, ah you mean lunch xd, trodde du drog en rolig kommentar om drop xd XD
+            let reclaimed_node_val = unsafe { Box::from_raw(node.val.load(Ordering::Relaxed)) };
+            drop(reclaimed_node_val);
         }
         trace!("Done with drop function");
     }
@@ -243,28 +231,27 @@ mod tests {
     use log::info;
 
     #[test]
-    fn create_tzqueue() {
+    fn create_pqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let mut hp1 = haphazard::HazardPointer::new();  
         let q: TZQueue<i32> = TZQueue::new(5);
-        assert_eq!(q.enqueue(10, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(11, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(12, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(13, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(14, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(15, &mut hp1), Err(15));
+        assert_eq!(q.enqueue(10), Ok(()));
+        assert_eq!(q.enqueue(11), Ok(()));
+        assert_eq!(q.enqueue(12), Ok(()));
+        assert_eq!(q.enqueue(13), Ok(()));
+        assert_eq!(q.enqueue(14), Ok(()));
+        assert_eq!(q.enqueue(15), Err(15));
         println!("{:?}", q);
-        assert_eq!(q.dequeue(&mut hp1), Some(10));
-        assert_eq!(q.dequeue(&mut hp1), Some(11));
-        assert_eq!(q.dequeue(&mut hp1), Some(12));
-        assert_eq!(q.dequeue(&mut hp1), Some(13));
-        assert_eq!(q.dequeue(&mut hp1), Some(14));
-        assert_eq!(q.dequeue(&mut hp1), None);
-        assert_eq!(q.enqueue(16, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(17, &mut hp1), Ok(()));
-        assert_eq!(q.dequeue(&mut hp1), Some(16));
-        assert_eq!(q.enqueue(18, &mut hp1), Ok(()));
-        assert_eq!(q.dequeue(&mut hp1), Some(17));
+        assert_eq!(q.dequeue(), Some(10));
+        assert_eq!(q.dequeue(), Some(11));
+        assert_eq!(q.dequeue(), Some(12));
+        assert_eq!(q.dequeue(), Some(13));
+        assert_eq!(q.dequeue(), Some(14));
+        assert_eq!(q.dequeue(), None);
+        assert_eq!(q.enqueue(16), Ok(()));
+        assert_eq!(q.enqueue(17), Ok(()));
+        assert_eq!(q.dequeue(), Some(16));
+        assert_eq!(q.enqueue(18), Ok(()));
+        assert_eq!(q.dequeue(), Some(17));
 
     }
     #[test]
@@ -287,13 +274,12 @@ mod tests {
                 s.spawn(move || {
                     // Wait for all threads to be ready
                     barrier.wait();
-                    let mut hp = HazardPointer::new();
                     let start = thread_id * ITEMS_PER_THREAD;
                     let end = start + ITEMS_PER_THREAD;
                     
                     for i in start..end {
                         let val = i as i32;
-                        let _  = q.enqueue(val, &mut hp);
+                        let _  = q.enqueue(val);
                     }
                     
                     info!("Producer {} finished", thread_id);
@@ -305,13 +291,12 @@ mod tests {
                 s.spawn(move || {
                     // Wait for all threads to be ready
                     barrier.wait();
-                    let mut hp1 = HazardPointer::new();
                     
                     let items_to_consume = ITEMS_PER_THREAD;
                     let mut consumed = 0;
                     
                     while consumed < items_to_consume {
-                        if q.dequeue(&mut hp1).is_some() {
+                        if q.dequeue().is_some() {
                             consumed += 1;
                         }
                     }
@@ -323,12 +308,11 @@ mod tests {
             Ok(())
         });
         
-        let mut hp1 = HazardPointer::new();
         // Ensure queue is empty after all operations
-        assert_eq!(q.dequeue(&mut hp1), None, "Queue should be empty after test");
+        assert_eq!(q.dequeue(), None, "Queue should be empty after test");
     }
     #[test]
-    fn register_tzqueue() {
+    fn register_pqueue() {
         let q: TZQueue<i32> = TZQueue::new(1);
         let mut handle = q.register();
         assert_eq!(handle.push(1), Ok(()));
@@ -337,12 +321,11 @@ mod tests {
     #[test]
     fn basic_drop_test() {
         let q: TZQueue<i32> = TZQueue::new(5);
-        let mut hp1 = haphazard::HazardPointer::new();
-        assert_eq!(q.enqueue(1, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(2, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(3, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(4, &mut hp1), Ok(()));
-        assert_eq!(q.enqueue(5, &mut hp1), Ok(()));
+        assert_eq!(q.enqueue(1), Ok(()));
+        assert_eq!(q.enqueue(2), Ok(()));
+        assert_eq!(q.enqueue(3), Ok(()));
+        assert_eq!(q.enqueue(4), Ok(()));
+        assert_eq!(q.enqueue(5), Ok(()));
         drop(q);
     }
     #[test]

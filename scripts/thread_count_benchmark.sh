@@ -28,10 +28,10 @@ IFS=',' read -r -a FEATURE_ARRAY <<< "$FEATURES"
 # Loop through each feature
 for FEATURE in "${FEATURE_ARRAY[@]}"; do
     echo "Running tests for feature: $FEATURE"
-    
+    cargo build --release --features "$FEATURE"    
     # Loop through thread counts and run cargo command
     for ((i = START_THREADS; i <= END_THREADS; i += THREAD_STEP)); do
         echo "Running with thread count: $i"
-        time cargo run --release --features "$FEATURE" -- -t 1 -i 10 --path $OUTPUT/$FEATURE ping-pong --thread-count $i
+        time ./target/release/lockfree-benchmark -t 1 -i 10 --path $OUTPUT/$FEATURE ping-pong --thread-count $i
     done
 done

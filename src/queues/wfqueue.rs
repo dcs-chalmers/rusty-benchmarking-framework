@@ -18,7 +18,7 @@ impl<T: Queueable> ConcurrentQueue<T> for WFQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        return String::from("WFQueue")
+        String::from("WFQueue")
     }
     fn new(_size: usize) -> Self {
         WFQueue {
@@ -55,5 +55,14 @@ mod tests {
         let mut handle = q.register();
         handle.push(Box::new(1)).unwrap();
         assert_eq!(*handle.pop().unwrap(), 1);
+    }
+    #[test]
+    #[ignore]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: WFQueue<Box<i32>> = WFQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }

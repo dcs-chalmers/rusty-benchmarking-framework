@@ -10,7 +10,7 @@ use crate::{ConcurrentQueue, Handle};
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 thread_local! {
-    static THREAD_ID: Cell<Option<i32>> = Cell::new(None);
+    static THREAD_ID: Cell<Option<i32>> = const { Cell::new(None) };
 }
 
 static MAX_THREADS: i32 = 512;
@@ -25,6 +25,7 @@ pub struct LCRQueue {
 unsafe impl Send for LCRQueue {}
 unsafe impl Sync for LCRQueue {}
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 impl LCRQueue {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
@@ -80,10 +81,7 @@ impl Handle<Box<i32>> for LCRQHandle<'_> {
     }
 
     fn pop(&mut self) -> Option<Box<i32>> {
-        let res = match self.q.pop() {
-            Some(v) => v,
-            None => return None,
-        };
+        let res = self.q.pop()?;
         let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
         Some(val)
     }
@@ -149,5 +147,13 @@ mod tests {
         assert_eq!(*handle.pop().unwrap(), 2);
         assert_eq!(*handle.pop().unwrap(), 3);
         assert_eq!(*handle.pop().unwrap(), 4);
+    }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LCRQueue = LCRQueue::new(10);
+        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
     }
 }

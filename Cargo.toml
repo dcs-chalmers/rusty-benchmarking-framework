@@ -37,7 +37,7 @@ cc = {version = "1.0", optional = true}
 default = ["log/release_max_level_info", "dep:env_logger"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
-concurrent_queue = ["dep:concurrent-queue"]
+bounded_concurrent_queue = ["dep:concurrent-queue"]
 array_queue = ["dep:crossbeam"]
 seg_queue = ["dep:crossbeam"]
 memory_tracking = []
@@ -57,6 +57,7 @@ boost = ["dep:bindgen", "dep:cc"]
 moodycamel = ["dep:bindgen", "dep:cc"]
 lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
+tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
 benchmark_order = []
 bbq = ["dep:bbq-rs"]
@@ -64,7 +65,7 @@ bbq = ["dep:bbq-rs"]
 all_queues = [
     "lockfree_queue",
     "basic_queue",
-    "concurrent_queue",
+    "bounded_concurrent_queue",
     "array_queue",
     "memory_tracking",
     "bounded_ringbuffer",
@@ -84,8 +85,13 @@ all_queues = [
     "lcrq",
     "lprq",
     "seg_queue",
+<<<<<<< HEAD
     "tz_queue_hp",
     "bbq"
+=======
+    "tz_queue",
+    "tz_queue_hp"
+>>>>>>> origin/main
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
