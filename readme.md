@@ -77,13 +77,6 @@ To use specific values you can add different flags to the run command:
     * `--spread` - To specify the spread for the `ping-pong` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
 
-```bash
-#  Example verbose
-RUST_LOG=verbose cargo run --release --features verbose-release,basic_queue --no-default-features -- basic
-# Or in two steps
-cargo build --release --features verbose-release,basic_queue --no-default-features
-RUST_LOG=trace ./target/release/lockfree-benchmark basic
-```
 ## Add your own queues
 To add your own queues to the benchmark, you first create a new file in `src/queues` for the source code. You then have to add the queue to the `src/queues.rs` file as a feature in the following way:
 ```rust
@@ -228,3 +221,10 @@ The benchmark tool contains a logger which you can change the level of by changi
 RUST_LOG=info cargo run --feature basic_queue -- basic
 ```
 When compiling for debug, it will be able to log all these levels. When compiling for release it will by default only have the `warn` and `error` levels. If you want a release version with more logging you can compile with the `verbose-release` feature. If you want a release completely void of logging you can compile it with the feature `silent-release`. However, you will need to pass the `--no-default-features` flag to cargo as well.
+```bash
+#  Example verbose
+RUST_LOG=verbose cargo run --release --features verbose-release,basic_queue --no-default-features -- basic
+# Or in two steps
+cargo build --release --features verbose-release,basic_queue --no-default-features
+RUST_LOG=trace ./target/release/lockfree-benchmark basic
+```
