@@ -76,18 +76,7 @@ To use specific values you can add different flags to the run command:
 - `ping-pong` benchmark type sub commands:
     * `--spread` - To specify the spread for the `ping-pong` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
-## Logging
-The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
-1. `error`
-2. `warn`
-3. `info`
-4. `debug`
-5. `trace`
-```bash
-# Example
-RUST_LOG=info cargo run --feature basic_queue -- basic
-```
-When compiling for debug, it will be able to log all these levels. When compiling for release it will by default only have the `warn` and `error` levels. If you want a release version with more logging you can compile with the `verbose-release` feature. If you want a release completely void of logging you can compile it with the feature `silent-release`. However, you will need to pass the `--no-default-features` flag to cargo as well.
+
 ```bash
 #  Example verbose
 RUST_LOG=verbose cargo run --release --features verbose-release,basic_queue --no-default-features -- basic
@@ -96,7 +85,67 @@ cargo build --release --features verbose-release,basic_queue --no-default-featur
 RUST_LOG=trace ./target/release/lockfree-benchmark basic
 ```
 ## Add your own queues
-TODO
+To add your own queues to the benchmark, you first create a new file in `src/queues` for the source code. You then have to add the queue to the `src/queues.rs` file as a feature in the following way:
+```rust
+// Module name has to be the same as the file name of the file you created.
+// The name inside quotation marks will be your feature name and has to
+// match 1:1 with what you put inside the Cargo.toml file.
+// src/queues.rs
+// [...]
+#[cfg(feature = "new_queue_name")]
+pub mod new_queue;
+```
+Then, add the feature to the `Cargo.toml` file, under `[features]` as well as in `all_queues`. In this case, the feature name is `new_queue_name`.
+```toml
+# Cargo.toml
+# [...]
+# In the brackets, add the dependencies of your queue.
+new_queue_name = []
+
+all_queues = [
+   [...]
+   "new_queue_name"
+]
+```
+To be able to use the queue in the benchmarking suite you will have to add it to the `src/lib.rs` file as well. All you need to do there is add a call to the macro `implement_benchmark!()`.
+```rust
+// lib.rs
+[...]
+pub fn start_benchmark() -> Result<(), std::io::Error> {
+   [...]
+   implement_benchmark!("new_queue_name",          // Feature name
+        crate::queues::new_queue::NewQueue<i32>,   // Your queue with desired type
+        "New queue",                               // A &str just for printing
+        &bench_conf);                              // Benchmark config struct, just pass as reference
+
+   Ok(())
+}
+[...]
+```
+You should then be able to run benchmarks on your queue by running for example:
+```bash
+cargo run -F new_queue_name -r -- -t 1 basic
+```
+### IDE Help
+For your preferred IDE to work (give suggestions, etc.), you will need to make sure to activate the feature in rust-analyzer as well. How to do this is IDE specific, but here it is for Neovim (rustaceanvim):
+```lua
+vim.g.rustaceanvim = {
+  server = {
+    on_attach = function(client, bufnr)
+    end,
+    default_settings = {
+      ['rust-analyzer'] = {
+          cargo = {
+            features = {
+               -- This will enable all features inside "all_queues" in Cargo.toml
+                "all_queues",
+            }
+          }
+      },
+    },
+  },
+}
+```
 ### Order test
 In the file `order.rs` there are two functions that test that the queue dequeues
 items in the same order that they were enqueued. This function returning `Ok(())`
@@ -166,3 +215,16 @@ System kernel version:  x
 System OS version:      x
 Total RAM (in GB):      x
 ```
+
+## Logging
+The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
+1. `error`
+2. `warn`
+3. `info`
+4. `debug`
+5. `trace`
+```bash
+# Example
+RUST_LOG=info cargo run --feature basic_queue -- basic
+```
+When compiling for debug, it will be able to log all these levels. When compiling for release it will by default only have the `warn` and `error` levels. If you want a release version with more logging you can compile with the `verbose-release` feature. If you want a release completely void of logging you can compile it with the feature `silent-release`. However, you will need to pass the `--no-default-features` flag to cargo as well.
