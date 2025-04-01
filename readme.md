@@ -69,13 +69,13 @@ To use specific values you can add different flags to the run command:
     * `-h`, `--help` to print help.
     * `-V` `--version` to print the version of the benchmark.
     * `--path` to change where the output of the benchmark is put.
+    * `--print-info` - To create a file with hardware info and benchmark info
 * `basic` benchmark type sub commands:
     * `-p`, `--producers` for specified amount of producers.
     * `-c`, `--consumers` for specified amount of consumers.
 - `ping-pong` benchmark type sub commands:
     * `--spread` - To specify the spread for the `ping-pong` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
-    * `--print-info` - To create a file with hardware info and benchmark info
 ## Logging
 The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
 1. `error`
@@ -124,4 +124,45 @@ two (depending on if the queue uses `Box` or not). Example:
             panic!();
         }
     }
+```
+## Output files
+If the `--write-stdout` flag is not set, the benchmark will produce a folder called `/output` and in it will include a .csv file with the headers and results of the entire benchmark test. For example, with the command:
+```bash
+cargo run --release --features basic_queue -- -t 1 -i 10 basic
+```
+| Throughput | Enqueues | Dequeues | Consumers | Producers | Thread Count | Queuetype  | Benchmark | Test ID           | Fairness |
+|------------|----------|----------|-----------|-----------|---------------|------------|-----------|-------------------|----------|
+| 3836116    | 2022116  | 1814000  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7928   |
+| 3680283    | 1906235  | 1774048  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7334   |
+| 3797156    | 2156525  | 1640631  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.6659   |
+| 3630639    | 1893518  | 1737121  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.6256   |
+| 4054568    | 2193896  | 1860672  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.5884   |
+| 3725101    | 1903091  | 1822010  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7417   |
+| 3439946    | 1719978  | 1719968  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.6608   |
+| 3397534    | 1904483  | 1493051  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.7792   |
+| 3611314    | 1807886  | 1803428  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.8447   |
+| 3539239    | 1952269  | 1586970  | 20        | 20        | -1            | BasicQueue | Basic     | b820a6a3f925aa03  | 0.8757   |
+
+Furthermore, if the `--print-info` flag is set, you will get more specific information about your current test, including some hardware specifications. For example:
+```txt
+Benchmark done:              Basic
+With queue:             Basic Queue
+Arguments used in test:
+
+Time limit:             1
+One socket?:            true
+Iterations:             10
+Queue size:             10000
+Delay:                  10
+Output path:            ./output
+Benchmark:              Basic(BasicArgs { producers: 20, consumers: 20 })
+Write to stdout:        false
+prefill amount:         0
+
+
+Test ran on hardware specs:
+System name:            x
+System kernel version:  x
+System OS version:      x
+Total RAM (in GB):      x
 ```
