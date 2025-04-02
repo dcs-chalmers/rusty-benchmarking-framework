@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicPtr as RawAtomicPtr, AtomicUsize, Ordering};
 
 use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
-use log::{error, trace};
+use log::trace;
 
 use crate::{ConcurrentQueue, Handle};
 
@@ -26,7 +26,7 @@ impl<T> Node<T> {
             enqueue_index: 1.into(),
             dequeue_index: 0.into(),
             next: unsafe { HpAtomicPtr::new(core::ptr::null_mut()) },
-            array: [const { RawAtomicPtr::new(core::ptr::null_mut()) }; SEGMENT_SIZE], // What does the const add here? Why does it fix the copy issue?
+            array: [const { RawAtomicPtr::new(core::ptr::null_mut()) }; SEGMENT_SIZE],
         };
         node.array[0] = RawAtomicPtr::new(data_ptr);
         node
@@ -37,7 +37,7 @@ impl<T> Node<T> {
             enqueue_index: 0.into(),
             dequeue_index: 0.into(),
             next: unsafe { HpAtomicPtr::new(core::ptr::null_mut()) },
-            array: [const { RawAtomicPtr::new(core::ptr::null_mut()) }; SEGMENT_SIZE], // What does the const add here? Why does it fix the copy issue?
+            array: [const { RawAtomicPtr::new(core::ptr::null_mut()) }; SEGMENT_SIZE],
         }
     }
 }
@@ -45,49 +45,56 @@ impl<T> Node<T> {
 impl<T: Sync + Send> FAAArrayQueue<T> {
     pub fn enqueue(&self, hp: &mut HazardPointer, data: T) {
         trace!("Starting enqueue operation of FAAArrayQueue.");
-        // Don't want to enqueue a box, but sort of have to to get a generic queue
+        // Enqueue into boxes to make it completely generic, even if sub-optimal for raw 64-bit T
         let data_ptr = Box::<T>::into_raw(Box::new(data));
         loop {
             // load the tail of the current node via the hazard pointer (atomically)
             let tail: &Node<T> = self.tail.safe_load(hp).unwrap();
             // Increment the enqueue index in the tail
-            let enq_ind = tail.enqueue_index.fetch_add(1, Ordering::SeqCst); // TODO: memory ordering
+            let enq_ind = tail.enqueue_index.fetch_add(1, Ordering::SeqCst); // TODO: Is AckRel enough?
 
-            // Try to insert item if within bounds, otherwise try to enqueue new node
+            // Is the index within the node?
             if enq_ind < SEGMENT_SIZE {
                 // Within bounds, so try enqueue
-                let enq_cell: &RawAtomicPtr<T> = &tail.array[enq_ind];
-                if enq_cell
+                if tail.array[enq_ind]
                     .compare_exchange(
                         core::ptr::null_mut(),
                         data_ptr,
-                        Ordering::SeqCst,
-                        Ordering::SeqCst,
+                        Ordering::Release,
+                        Ordering::Acquire,
                     )
                     .is_ok()
                 {
-                    // TODO: Ordering
+                    // Return as the item was enqueued
                     return;
                 }
             } else {
-                // Outside bounds, so need new node
+                // Index is outside bounds of current node, so we need a new one
                 let next = tail.next.load_ptr();
                 if !next.is_null() {
-                    // try to set it as the queue tail (should check before)
-                    unsafe {
-                        let _ = self
-                            .tail
-                            .compare_exchange_ptr(tail as *const Node<T> as *mut Node<T>, next);
-                    };
-                } else {
-                    // Allocate a new node and swap it in
-                    let new_node_ptr = Box::<Node<T>>::into_raw(Box::new(Node::new(data_ptr)));
-                    // First update the next pointer
-                    if unsafe {
-                        tail.next
-                            .compare_exchange_ptr(core::ptr::null_mut(), new_node_ptr)
+                    // Try to update the tail pointer to this new node. Only if it still is the old tail.
+                    if self
+                        .tail
+                        .load_ptr()
+                        .eq(&(tail as *const Node<T> as *mut Node<T>))
+                    {
+                        unsafe {
+                            let _ = self
+                                .tail
+                                .compare_exchange_ptr(tail as *const Node<T> as *mut Node<T>, next);
+                        };
                     }
-                    .is_ok()
+                } else {
+                    // No new node avaialble, so we must create and enqueue one
+                    let new_node_ptr = Box::<Node<T>>::into_raw(Box::new(Node::new(data_ptr)));
+
+                    // First update the tail.next pointer
+                    if tail.next.load_ptr().is_null()
+                        && unsafe {
+                            tail.next
+                                .compare_exchange_ptr(core::ptr::null_mut(), new_node_ptr)
+                        }
+                        .is_ok()
                     {
                         // Try to complete the enqueue by uptating the tail pointer
                         unsafe {
@@ -96,14 +103,31 @@ impl<T: Sync + Send> FAAArrayQueue<T> {
                                 new_node_ptr,
                             );
                         }
-                        // The item was succesfully enqueued
+
+                        // The item was succesfully enqueued as part of this new node, so return
                         return;
                     } else {
-                        // Did not go through, so de-alloc new_node, and try loop again.
+                        // Could not enqueue new node, as another thread was first.
                         // We could save this for the next time. But it is a trade-off between memory efficiency and latency.
                         unsafe {
                             drop(Box::from_raw(new_node_ptr));
                         };
+
+                        // Try to help the other thread enqueue its node. Then retry the enqueue loop
+                        if self
+                            .tail
+                            .load_ptr()
+                            .eq(&(tail as *const Node<T> as *mut Node<T>))
+                        {
+                            let next = tail.next.load_ptr();
+                            assert!(!next.is_null());
+                            unsafe {
+                                let _ = self.tail.compare_exchange_ptr(
+                                    tail as *const Node<T> as *mut Node<T>,
+                                    next,
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -114,39 +138,46 @@ impl<T: Sync + Send> FAAArrayQueue<T> {
         loop {
             // if we get the hazard pointer, we acquire and set the values below
             trace!("Entering dequeue loop");
-            let head = match self.head.safe_load(hp) {
-                Some(v) => v,
-                None => {
-                    error!("Queue should never be empty");
-                    panic!("Queue should never be empty");
-                }
-            };
+            let head = self
+                .head
+                .safe_load(hp)
+                .expect("Queue should never be empty");
+
             let current_deqs = head.dequeue_index.load(Ordering::Acquire);
             let current_enqs = head.enqueue_index.load(Ordering::Acquire);
             if current_deqs >= current_enqs {
                 return None;
             }
 
-            let deq_ind = head.dequeue_index.fetch_add(1, Ordering::SeqCst);
+            let deq_ind = head.dequeue_index.fetch_add(1, Ordering::SeqCst); // TODO: is AcqRel eough here?
             if deq_ind < SEGMENT_SIZE {
-                let deq_cell: &RawAtomicPtr<T> = &head.array[deq_ind];
-                let dequeued = deq_cell.swap(1u64 as *mut u64 as *mut T, Ordering::SeqCst);
+                // Try to dequeue a value at the index by swapping in a faulty non-null pointer (TODO: Choose a better faulty pointer)
+                // TODO: For efficiency we might want to read the value first, and maybe wait a bit if it is null. Could speed up empty queues.
+                let dequeued =
+                    &head.array[deq_ind].swap(1u64 as *mut u64 as *mut T, Ordering::AcqRel);
                 if !dequeued.is_null() {
+                    // Dequeued a real value, so return it
                     return unsafe { Some(dequeued.read()) };
                 }
             } else {
+                // Dequeue index outside of the bounds, so try to move on to the next node, or return None
                 let next = head.next.load_ptr();
                 if next.is_null() {
-                    // Return empty as current is empty and there is no next
+                    // Return empty as the current head is empty and there is no next node
                     return None;
                 } else {
-                    // Update the head pointer to the new node.
+                    // Update the head pointer to its next node. Only do it if not already done
                     // Could also try to help the enqueuers here, but is not needed.
-                    unsafe {
-                        let _ = self.head.compare_exchange_ptr(
-                            head as *const Node<T> as *mut Node<T>,
-                            head.next.load_ptr() as *const Node<T> as *mut Node<T>,
-                        );
+                    if self
+                        .head
+                        .load_ptr()
+                        .eq(&(head as *const Node<T> as *mut Node<T>))
+                    {
+                        unsafe {
+                            let _ = self
+                                .head
+                                .compare_exchange_ptr(head as *const Node<T> as *mut Node<T>, next);
+                        }
                     };
                 }
             }
@@ -163,7 +194,7 @@ impl<T> Drop for FAAArrayQueue<T> {
 
         while !next.load_ptr().is_null() {
             let node: Box<Node<T>> = unsafe { Box::from_raw(next.load_ptr()) };
-            // Drop the data
+            // Drop the data inside the arrays between the dequeue and enqueue indexes
             for data in node
                 .array
                 .into_iter()
