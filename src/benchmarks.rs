@@ -367,37 +367,43 @@ T: Default,
             }
             // println!("{:?}", core);
             s.spawn(move || {
-                core_affinity::set_for_current(core);
-                let mut handle = queue.register();
-                let mut l_pushes = 0; 
-                let mut l_pops = 0;
-                barrier.wait();
-                while !done.load(Ordering::Relaxed) {
-                    let random_float = rand::rng().random::<f64>();
-                    if random_float > spread {
-                        match handle.pop() {
-                            Some(_) => l_pops += 1,
-                            None => {
-                                if bench_conf.args.empty_pops {
-                                    l_pops += 1;
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    core_affinity::set_for_current(core);
+                    let mut handle = queue.register();
+                    let mut l_pushes = 0; 
+                    let mut l_pops = 0;
+                    barrier.wait();
+                    while !done.load(Ordering::Relaxed) {
+                        let random_float = rand::rng().random::<f64>();
+                        if random_float > spread {
+                            match handle.pop() {
+                                Some(_) => l_pops += 1,
+                                None => {
+                                    if bench_conf.args.empty_pops {
+                                        l_pops += 1;
+                                    }
                                 }
                             }
+                        } else {
+                            let _ = handle.push(T::default());
+                            l_pushes += 1;
                         }
-                    } else {
-                        // NOTE: Should we care about this Result?
-                        let _ = handle.push(T::default());
-                        l_pushes += 1;
+                        for _ in 0..bench_conf.args.delay {
+                            let _some_num = rand::rng().random::<f64>();
+                        }
                     }
-                    for _ in 0..bench_conf.args.delay {
-                        let _some_num = rand::rng().random::<f64>();
-                    }
+            
+                    pushes.fetch_add(l_pushes, Ordering::Relaxed);
+                    pops.fetch_add(l_pops, Ordering::Relaxed);
+                    tx.send(l_pops + l_pushes).unwrap();
+                    trace!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops);
+                }));
+            
+                if let Err(e) = result {
+                    error!("Thread {} panicked: {:?}", _i, e);
                 }
-
-                pushes.fetch_add(l_pushes, Ordering::Relaxed);
-                pops.fetch_add(l_pops, Ordering::Relaxed);
-                tx.send(l_pops + l_pushes).unwrap();
-                trace!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops)
-            }); 
+            });
+            
         }
         barrier.wait();
         std::thread::sleep(std::time::Duration::from_secs(time_limit));
