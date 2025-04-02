@@ -22,5 +22,7 @@ jobs:
       run: git clone https://github.com/cameron314/concurrentqueue.git ./src/cpp_queues/moodycamel/concurrentqueue
     - name: Build
       run: cargo build --verbose --features all_queues
-    - name: Run tests
+    - name: Run queue tests
       run: cargo test --verbose --features all_queues
+    - name: Run benchmarking suite tests
+      run: cargo test --verbose --features tests_benchmark
