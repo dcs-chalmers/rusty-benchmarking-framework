@@ -4,78 +4,96 @@ fn main() {
         use std::env;
         use std::path::PathBuf;
         
-        // Tell cargo to rerun this if our wrapper changes
-        println!("cargo:rerun-if-changed=src/wrapper.hpp");
-        println!("cargo:rerun-if-changed=src/wrapper.cpp");
-        println!("cargo:rerun-if-changed=src/LCRQueue.hpp");
-        println!("cargo:rerun-if-changed=src/HazardPointers.hpp");
-        println!("cargo:rerun-if-changed=src/cpp-ring-queues-research/include/LPRQueue.hpp");
-        println!("cargo:rerun-if-changed=src/cpp-ring-queues-research/include/LinkedRingQueue.hpp");
-        println!("cargo:rerun-if-changed=src/cpp-ring-queues-research/include/HazardPointers.hpp");
+        let queue_location = "src/cpp_queues";
         
-        // Compile the C++ wrapper code
         let mut build = cc::Build::new();
+        build.cpp(true).flag("-std=c++20").include("/usr/include");
         
-        build.cpp(true)
-            .file("src/wrapper.cpp")
-            .flag("-std=c++20")
-            .include("/usr/include");  // Path to headers
         
-        // Add definitions for conditional compilation
-        #[cfg(feature = "boost")]
-        build.define("USE_BOOST_QUEUE", None);
-        
-        #[cfg(feature = "moodycamel")]
-        build.define("USE_MOODYCAMEL_QUEUE", None);
-
-        #[cfg(feature = "lcrq")]
-        build.define("USE_LCRQUEUE", None);
-
-        #[cfg(feature = "lprq")]
-        build.define("USE_LCRQUEUE", None);
-
-        
-        build.compile("queue_wrapper");
-        
-        // Generate bindings
         let mut bindgen = bindgen::Builder::default()
-            .header("src/wrapper.hpp")
-            .clang_arg("-I/usr/include")
-            .clang_arg("-I/home/jam/lockfree-benchmark/src/cpp-ring-queues-research/include");
+            .clang_arg("-I/usr/include");
         
-        // Include bindings for both queue implementations based on features
-        #[cfg(feature = "boost")]
-        {
-            bindgen = bindgen
-                .allowlist_function("boost_queue_.*")
-                .allowlist_type("BoostLockfreeQueue.*")
-                .opaque_type("BoostLockfreeQueueImpl");
-        }
-        
-        #[cfg(feature = "moodycamel")]
-        {
-            bindgen = bindgen
-                .allowlist_function("moody_camel_.*")
-                .allowlist_type("MoodyCamelConcurrentQueue.*")
-                .opaque_type("MoodyCamelConcurrentQueueImpl");
-        }
-
-        #[cfg(feature = "lcrq")]
-        {
-            bindgen = bindgen
-                .allowlist_function("lcrq_.*")
-                .allowlist_type("LCRQ.*")
-                .opaque_type("LCRQImpl");
-        }
-
+        // Configure for LPRQ
         #[cfg(feature = "lprq")]
         {
+            let my_queue_location = format!("{queue_location}/lprq");
+            println!("cargo:rerun-if-changed={}/lprq_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/lprq_wrapper.cpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/LPRQueue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/LinkedRingQueue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/HazardPointers.hpp", my_queue_location);
+            
+            
+            build.file(format!("{}/lprq_wrapper.cpp", my_queue_location))
+                .define("USE_LPRQUEUE", None);
+                
             bindgen = bindgen
+                .header(format!("{}/lprq_wrapper.hpp", my_queue_location))
+                .clang_arg(format!("-I{}/cpp-ring-queues-research/include", my_queue_location))
                 .allowlist_function("lprq_.*")
                 .allowlist_type("LPRQ.*")
                 .opaque_type("LPRQImpl");
         }
         
+        // Configure for LCRQ
+        #[cfg(feature = "lcrq")]
+        {
+            let my_queue_location = format!("{queue_location}/lcrq");
+            println!("cargo:rerun-if-changed={}/lcrq_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/lcrq_wrapper.cpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/LCRQueue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/HazardPointers.hpp", my_queue_location);
+            
+            build.file(format!("{}/lcrq_wrapper.cpp", my_queue_location))
+                .define("USE_LCRQUEUE", None);
+                
+            bindgen = bindgen
+                .header(format!("{}/lcrq_wrapper.hpp", my_queue_location))
+                .allowlist_function("lcrq_.*")
+                .allowlist_type("LCRQ.*")
+                .opaque_type("LCRQImpl");
+        }
+        
+        // Configure for Boost
+        #[cfg(feature = "boost")]
+        {
+            let my_queue_location = format!("{queue_location}/boost");
+
+            println!("cargo:rerun-if-changed={}/boost_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/boost_wrapper.cpp", my_queue_location);
+            
+            build.file(format!("{}/boost_wrapper.cpp", my_queue_location))
+                .define("USE_BOOST_QUEUE", None);
+                
+            bindgen = bindgen
+                .header(format!("{}/boost_wrapper.hpp", my_queue_location))
+                .allowlist_function("boost_queue_.*")
+                .allowlist_type("BoostLockfreeQueue.*")
+                .opaque_type("BoostLockfreeQueueImpl");
+        }
+        
+        // Configure for MoodyCamel
+        #[cfg(feature = "moodycamel")]
+        {
+            let my_queue_location = format!("{queue_location}/moodycamel");
+
+            println!("cargo:rerun-if-changed={}/moodycamel_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/moodycamel_wrapper.cpp", my_queue_location);
+            
+            build.file(format!("{}/moodycamel_wrapper.cpp", my_queue_location))
+                .define("USE_MOODYCAMEL_QUEUE", None);
+                
+            bindgen = bindgen
+                .header(format!("{}/moodycamel_wrapper.hpp", my_queue_location))
+                .allowlist_function("moody_camel_.*")
+                .allowlist_type("MoodyCamelConcurrentQueue.*")
+                .opaque_type("MoodyCamelConcurrentQueueImpl");
+        }
+        
+        // Compile the C++ code
+        build.compile("queue_wrapper");
+        
+        // Generate bindings
         let bindings = bindgen
             .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
             .generate()

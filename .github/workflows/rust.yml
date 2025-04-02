@@ -19,7 +19,7 @@ jobs:
     - name: Install Boost
       run: sudo apt-get install -y libboost-all-dev
     - name: Pull concurrentqueue
-      run: git clone https://github.com/cameron314/concurrentqueue.git ./src/concurrentqueue
+      run: git clone https://github.com/cameron314/concurrentqueue.git ./src/cpp_queues/moodycamel/concurrentqueue
     - name: Build
       run: cargo build --verbose --features all_queues
     - name: Run tests

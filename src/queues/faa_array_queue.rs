@@ -223,7 +223,7 @@ impl<T: Sync + Send> ConcurrentQueue<T> for FAAArrayQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        String::from("FAAArrayQueue")
+        String::from("faa_array_queue")
     }
     fn new(_size: usize) -> Self {
         let sentinel = Box::into_raw(Box::new(Node::empty()));
