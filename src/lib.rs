@@ -136,11 +136,16 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         benchmark_id,
         output_filename,
     };
-    let mut file = OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(&bench_conf.output_filename)?;
-    writeln!(file, "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness")?;
+    let columns = "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness";
+    if bench_conf.args.write_to_stdout {
+        println!("{columns}")
+    } else {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_conf.output_filename)?;
+        writeln!(file, "{columns}")?;
+    }
     implement_benchmark!(
         "lockfree_queue",
         crate::queues::lockfree_queue::LockfreeQueue<i32>,
