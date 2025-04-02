@@ -18,7 +18,7 @@ impl<T> ConcurrentQueue<T> for BoundedCQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        String::from("concurrent-queue::bounded")
+        String::from("bounded_concurrent_queue")
     }
     fn new(size: usize) -> Self {
         BoundedCQueue {

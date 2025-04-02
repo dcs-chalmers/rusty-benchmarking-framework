@@ -15,7 +15,7 @@ impl<T: Clone + Copy> ConcurrentQueue<T> for SCC2Stack<T> {
         }
     }
     fn get_id(&self) -> String {
-        String::from("SCC2Stack")
+        String::from("scc2_stack")
     }
     fn new(_size: usize) -> Self {
         SCC2Stack {

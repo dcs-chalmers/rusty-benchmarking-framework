@@ -196,7 +196,7 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
         TZQueue::new(c)
     }
     fn get_id(&self) -> String {
-        String::from("TsigasZhangHPQueue")
+        String::from("tz_queue_hp")
     }
     fn register(&self) -> impl crate::Handle<T> {
         TZQueueHandle {

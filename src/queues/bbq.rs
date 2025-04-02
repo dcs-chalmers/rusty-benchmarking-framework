@@ -16,7 +16,7 @@ impl<T: Default> ConcurrentQueue<T> for BBQueue <T>{
         }
     }
     fn get_id(&self) -> String {
-        String::from("BBQ")
+        String::from("bbq")
     }
     fn new(size: usize) -> Self {
         BBQueue {

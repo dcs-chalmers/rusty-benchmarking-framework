@@ -170,7 +170,7 @@ impl<T: Sync + Send> ConcurrentQueue<T> for MSQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        String::from("MSQueue")
+        String::from("ms_queue")
     }
     fn new(_size: usize) -> Self {
         let dummy = Box::new(Node::empty()).into_raw();
