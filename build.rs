@@ -16,19 +16,20 @@ fn main() {
         // Configure for LPRQ
         #[cfg(feature = "lprq")]
         {
-            println!("cargo:rerun-if-changed={}/lprq_wrapper.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/lprq_wrapper.cpp", queue_location);
-            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/LPRQueue.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/LinkedRingQueue.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/HazardPointers.hpp", queue_location);
+            let my_queue_location = format!("{queue_location}/lprq");
+            println!("cargo:rerun-if-changed={}/lprq_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/lprq_wrapper.cpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/LPRQueue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/LinkedRingQueue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/cpp-ring-queues-research/include/HazardPointers.hpp", my_queue_location);
             
             
-            build.file(format!("{}/lprq_wrapper.cpp", queue_location))
+            build.file(format!("{}/lprq_wrapper.cpp", my_queue_location))
                 .define("USE_LPRQUEUE", None);
                 
             bindgen = bindgen
-                .header(format!("{}/lprq_wrapper.hpp", queue_location))
-                .clang_arg(format!("-I{}/cpp-ring-queues-research/include", queue_location))
+                .header(format!("{}/lprq_wrapper.hpp", my_queue_location))
+                .clang_arg(format!("-I{}/cpp-ring-queues-research/include", my_queue_location))
                 .allowlist_function("lprq_.*")
                 .allowlist_type("LPRQ.*")
                 .opaque_type("LPRQImpl");
@@ -37,16 +38,17 @@ fn main() {
         // Configure for LCRQ
         #[cfg(feature = "lcrq")]
         {
-            println!("cargo:rerun-if-changed={}/lcrq_wrapper.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/lcrq_wrapper.cpp", queue_location);
-            println!("cargo:rerun-if-changed={}/LCRQueue.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/HazardPointers.hpp", queue_location);
+            let my_queue_location = format!("{queue_location}/lcrq");
+            println!("cargo:rerun-if-changed={}/lcrq_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/lcrq_wrapper.cpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/LCRQueue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/HazardPointers.hpp", my_queue_location);
             
-            build.file(format!("{}/lcrq_wrapper.cpp", queue_location))
+            build.file(format!("{}/lcrq_wrapper.cpp", my_queue_location))
                 .define("USE_LCRQUEUE", None);
                 
             bindgen = bindgen
-                .header(format!("{}/lcrq_wrapper.hpp", queue_location))
+                .header(format!("{}/lcrq_wrapper.hpp", my_queue_location))
                 .allowlist_function("lcrq_.*")
                 .allowlist_type("LCRQ.*")
                 .opaque_type("LCRQImpl");
@@ -55,14 +57,16 @@ fn main() {
         // Configure for Boost
         #[cfg(feature = "boost")]
         {
-            println!("cargo:rerun-if-changed={}/boost_wrapper.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/boost_wrapper.cpp", queue_location);
+            let my_queue_location = format!("{queue_location}/boost");
+
+            println!("cargo:rerun-if-changed={}/boost_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/boost_wrapper.cpp", my_queue_location);
             
-            build.file(format!("{}/boost_wrapper.cpp", queue_location))
+            build.file(format!("{}/boost_wrapper.cpp", my_queue_location))
                 .define("USE_BOOST_QUEUE", None);
                 
             bindgen = bindgen
-                .header(format!("{}/boost_wrapper.hpp", queue_location))
+                .header(format!("{}/boost_wrapper.hpp", my_queue_location))
                 .allowlist_function("boost_queue_.*")
                 .allowlist_type("BoostLockfreeQueue.*")
                 .opaque_type("BoostLockfreeQueueImpl");
@@ -71,14 +75,16 @@ fn main() {
         // Configure for MoodyCamel
         #[cfg(feature = "moodycamel")]
         {
-            println!("cargo:rerun-if-changed={}/moodycamel_wrapper.hpp", queue_location);
-            println!("cargo:rerun-if-changed={}/moodycamel_wrapper.cpp", queue_location);
+            let my_queue_location = format!("{queue_location}/moodycamel");
+
+            println!("cargo:rerun-if-changed={}/moodycamel_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/moodycamel_wrapper.cpp", my_queue_location);
             
-            build.file(format!("{}/moodycamel_wrapper.cpp", queue_location))
+            build.file(format!("{}/moodycamel_wrapper.cpp", my_queue_location))
                 .define("USE_MOODYCAMEL_QUEUE", None);
                 
             bindgen = bindgen
-                .header(format!("{}/moodycamel_wrapper.hpp", queue_location))
+                .header(format!("{}/moodycamel_wrapper.hpp", my_queue_location))
                 .allowlist_function("moody_camel_.*")
                 .allowlist_type("MoodyCamelConcurrentQueue.*")
                 .opaque_type("MoodyCamelConcurrentQueueImpl");
