@@ -5,7 +5,7 @@ use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use sysinfo::System;
 
 /// Benchmark config struct
@@ -346,8 +346,12 @@ T: Default,
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
         let mut core_iter = available_cores.into_iter().cycle();
 
+    let thread_failed = Arc::new(AtomicBool::new(false));
+
+
     let _ = std::thread::scope(|s| -> Result<(), std::io::Error>{
         let queue = &cqueue;
+        let thread_failed = &thread_failed;
         let pushes = &pushes;
         let pops = &pops;
         let done = &done;
@@ -372,6 +376,7 @@ T: Default,
                     let mut handle = queue.register();
                     let mut l_pushes = 0; 
                     let mut l_pops = 0;
+                    let _thread_failed = thread_failed.clone();
                     barrier.wait();
                     while !done.load(Ordering::Relaxed) {
                         let random_float = rand::rng().random::<f64>();
@@ -398,9 +403,13 @@ T: Default,
                     tx.send(l_pops + l_pushes).unwrap();
                     trace!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops);
                 }));
-            
+                // if a thread panics we set a shared bool to true and "null" the benchmark
                 if let Err(e) = result {
                     error!("Thread {} panicked: {:?}", _i, e);
+                    thread_failed.store(true, Ordering::Relaxed);
+                    done.store(true, Ordering::Relaxed);
+                    return;
+                    
                 }
             });
             
@@ -422,7 +431,18 @@ T: Default,
         vals
     };
     let fairness = calc_fairness(ops_per_thread);
-    let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
+    // 
+    // Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness";
+    if thread_failed.load(Ordering::Relaxed){
+        let mut file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&bench_conf.output_filename)?;
+        writeln!(file, "0, 0, 0, -1, -1, {}, {}, {}, {}, 0", thread_count, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id,)?;
+        Ok(())
+    }
+    else {
+        let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
@@ -433,17 +453,19 @@ T: Default,
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
         fairness);
-    // Write to file or stdout depending on flag
-    if !bench_conf.args.write_to_stdout {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&bench_conf.output_filename)?;
-        writeln!(file, "{}", formatted)?;
-    } else {
-        println!("{}", formatted);
+        // Write to file or stdout depending on flag
+        if !bench_conf.args.write_to_stdout {
+            let mut file = OpenOptions::new()
+                .append(true)
+                .create(true)
+                .open(&bench_conf.output_filename)?;
+            writeln!(file, "{}", formatted)?;
+        } else {
+            println!("{}", formatted);
+        }
+        Ok(())
     }
-    Ok(())
+    
 }
 
 
