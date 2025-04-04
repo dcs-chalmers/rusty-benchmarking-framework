@@ -405,7 +405,7 @@ T: Default,
                 }));
                 // if a thread panics we set a shared bool to true and "null" the benchmark
                 if let Err(e) = result {
-                    error!("Thread {} panicked: {:?}", _i, e);
+                    error!("Thread {} panicked: {:?}. Aborting benchmark, padding results to zero", _i, e);
                     thread_failed.store(true, Ordering::Relaxed);
                     done.store(true, Ordering::Relaxed);
                     return;
