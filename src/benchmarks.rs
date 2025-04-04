@@ -104,6 +104,7 @@ macro_rules! implement_benchmark {
                 match $bench_conf.args.benchmark {
                     Benchmarks::Basic(_)     => $crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                     Benchmarks::PingPong(_)  => $crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                    Benchmarks::BFS(_)       => $crate::benchmarks::benchmark_bfs(test_q, $bench_conf)?,
                 }
 
     //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -440,6 +441,17 @@ T: Default,
     Ok(())
 }
 
+pub fn benchmark_bfs<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+where
+C: ConcurrentQueue<T>,
+T: Default,
+    for<'a> &'a C: Send
+{
+    assert!(matches!(bench_conf.args.benchmark, Benchmarks::Basic(_)));
+    let adj_mat = crate::graph::create_adj_matrix(bench_conf.get_graph_filename().unwrap(), bench_conf.get_node_amount().unwrap());
+    Ok(())
+}
+
 
 pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io::Error>{
     // Create file if printing to stdout is disabled
@@ -498,6 +510,18 @@ impl BenchConfig {
     fn get_producers(&self) -> Option<usize> {
         if let Benchmarks::Basic(s) = &self.args.benchmark {
             return Some(s.producers);
+        }
+        None
+    }
+    fn get_graph_filename(&self) -> Option<String> {
+        if let Benchmarks::BFS(s) = &self.args.benchmark {
+            return Some(s.graph_file.clone());
+        }
+        None
+    }
+    fn get_node_amount(&self) -> Option<usize> {
+        if let Benchmarks::BFS(s) = &self.args.benchmark {
+            return Some(s.node_amount);
         }
         None
     }

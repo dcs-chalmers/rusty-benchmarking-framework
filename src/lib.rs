@@ -19,6 +19,7 @@ use std::io::Write;
 pub mod benchmarks;
 pub mod order;
 pub mod queues;
+pub mod graph;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -65,8 +66,22 @@ pub enum Benchmarks {
     /// A test where each thread performs both consume and produce based on a random floating point
     /// value. Spread is decided using the `--spread` flag.
     PingPong(PingPongArgs),
+    BFS(BFSArgs),
 }
 
+#[derive(ClapArgs, Debug)]
+pub struct BFSArgs {
+    /// Amount of producers to be used for basic throughput test.
+    #[arg(short, long, default_value_t = 20)]
+    producers: usize,
+    /// Amount of consumers to be used for basic throughput test.
+    #[arg(short, long, default_value_t = 20)]
+    consumers: usize,
+    #[arg(short, long)]
+    graph_file: String,
+    #[arg(short, long)]
+    node_amount: usize,
+}
 #[derive(ClapArgs, Debug)]
 pub struct BasicArgs {
     /// Amount of producers to be used for basic throughput test.
@@ -92,6 +107,7 @@ impl Display for Benchmarks {
         match self {
             Benchmarks::Basic(_) => write!(f, "Basic"),
             Benchmarks::PingPong(_) => write!(f, "PingPong"),
+            Benchmarks::BFS(_) => write!(f, "BFS"),
         }
     }
 }
