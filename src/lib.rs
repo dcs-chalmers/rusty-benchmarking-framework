@@ -71,12 +71,8 @@ pub enum Benchmarks {
 
 #[derive(ClapArgs, Debug)]
 pub struct BFSArgs {
-    /// Amount of producers to be used for basic throughput test.
     #[arg(short, long, default_value_t = 20)]
-    producers: usize,
-    /// Amount of consumers to be used for basic throughput test.
-    #[arg(short, long, default_value_t = 20)]
-    consumers: usize,
+    thread_count: usize,
     #[arg(short, long)]
     graph_file: String,
     #[arg(short, long)]
@@ -164,81 +160,81 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     }
     implement_benchmark!(
         "lockfree_queue",
-        crate::queues::lockfree_queue::LockfreeQueue<i32>,
+        crate::queues::lockfree_queue::LockfreeQueue<usize>,
         "lockfree::queue:Queue",
         &bench_conf
     );
     implement_benchmark!(
         "basic_queue",
-        crate::queues::basic_queue::BasicQueue<i32>,
+        crate::queues::basic_queue::BasicQueue<usize>,
         "Basic Queue",
         &bench_conf);
     implement_benchmark!("bounded_concurrent_queue",
-        crate::queues::bounded_concurrent_queue::BoundedCQueue<i32>,
+        crate::queues::bounded_concurrent_queue::BoundedCQueue<usize>,
         "concurrent_queue::bounded",
         &bench_conf);
     implement_benchmark!("array_queue",
-        crate::queues::array_queue::AQueue<Box<i32>>,
+        crate::queues::array_queue::AQueue<usize>,
         "crossbeam::queue::ArrayQueue",
         &bench_conf
     );
     implement_benchmark!(
         "bounded_ringbuffer",
-        crate::queues::bounded_ringbuffer::BoundedRingBuffer<i32>,
+        crate::queues::bounded_ringbuffer::BoundedRingBuffer<usize>,
         "Bounded ringbuffer",
         &bench_conf
     );
     implement_benchmark!(
         "atomic_queue",
-        crate::queues::atomic_queue::AtomicQueue<i32>,
+        crate::queues::atomic_queue::AtomicQueue<usize>,
         "atomic_queue::bounded",
         &bench_conf
     );
     implement_benchmark!(
         "scc_queue",
-        crate::queues::scc_queue::SCCQueue<i32>,
+        crate::queues::scc_queue::SCCQueue<usize>,
         "scc::Queue",
         &bench_conf
     );
     implement_benchmark!(
         "scc2_queue",
-        crate::queues::scc2_queue::SCC2Queue<i32>,
+        crate::queues::scc2_queue::SCC2Queue<usize>,
         "scc2::Queue",
         &bench_conf
     );
     implement_benchmark!(
         "lf_queue",
-        crate::queues::lf_queue::LFQueue<i32>,
+        crate::queues::lf_queue::LFQueue<usize>,
         "lf_queue::Queue",
         &bench_conf
     );
     implement_benchmark!(
         "wfqueue",
-        crate::queues::wfqueue::WFQueue<Box<i32>>,
+        crate::queues::wfqueue::WFQueue<Box<usize>>,
         "wfqueue::Wfqueue",
         &bench_conf
     );
     implement_benchmark!(
         "lockfree_stack",
-        crate::queues::lockfree_stack::LockfreeStack<i32>,
+        crate::queues::lockfree_stack::LockfreeStack<usize>,
         "lockfree::stack",
         &bench_conf
     );
     implement_benchmark!(
         "scc_stack",
-        crate::queues::scc_stack::SCCStack<i32>,
+        crate::queues::scc_stack::SCCStack<usize>,
         "scc::Stack",
         &bench_conf
     );
     implement_benchmark!(
         "scc2_stack",
-        crate::queues::scc2_stack::SCC2Stack<i32>,
+        crate::queues::scc2_stack::SCC2Stack<usize>,
         "scc2::Stack",
         &bench_conf
     );
     implement_benchmark!(
         "ms_queue",
-        crate::queues::ms_queue::MSQueue<i32>,
+        crate::queues::ms_queue::MSQueue<usize>,
         "MSQueue",
         &bench_conf
     );
@@ -262,29 +258,29 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     );
     implement_benchmark!(
         "lprq",
-        crate::queues::lprq::LPRQueue,
+        crate::queues::lprq::LPRQueue<usize>,
         "lprqcpp",
         &bench_conf);
     implement_benchmark!("tz_queue",
-        crate::queues::tsigas_zhang_queue::TZQueue<i32>,
+        crate::queues::tsigas_zhang_queue::TZQueue<usize>,
         "tz_queue",
         &bench_conf);
     implement_benchmark!("tz_queue_hp",
-        crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
+        crate::queues::tsigas_zhang_queue_hp::TZQueue<usize>,
         "Tsigas-Zhang HP queue",
         &bench_conf);
     implement_benchmark!("bbq",
-        crate::queues::bbq::BBQueue<i32>,
+        crate::queues::bbq::BBQueue<usize>,
         "bbq",
         &bench_conf);
     implement_benchmark!("seg_queue",
-        crate::queues::seg_queue::SQueue<i32>,
+        crate::queues::seg_queue::SQueue<usize>,
         "Segqueue",
         &bench_conf
     );
     implement_benchmark!(
         "faa_array_queue",
-        crate::queues::faa_array_queue::FAAArrayQueue<i32>,
+        crate::queues::faa_array_queue::FAAArrayQueue<usize>,
         "FAAArrayQueue",
         &bench_conf
     );

@@ -1,7 +1,8 @@
+use concache::manual::MapHandle;
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
+use std::{collections::HashSet, sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier, Mutex}, thread};
 use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -441,14 +442,59 @@ T: Default,
     Ok(())
 }
 
-pub fn benchmark_bfs<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_bfs<C> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where
-C: ConcurrentQueue<T>,
-T: Default,
+C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
     assert!(matches!(bench_conf.args.benchmark, Benchmarks::Basic(_)));
-    let adj_mat = crate::graph::create_adj_matrix(bench_conf.get_graph_filename().unwrap(), bench_conf.get_node_amount().unwrap());
+    let adj_mat = crate::graph::create_adj_matrix(
+        bench_conf.get_graph_filename().unwrap(),
+        bench_conf.get_node_amount().unwrap()
+    ).unwrap();
+    let thread_count = bench_conf.get_thread_count().unwrap();
+    let continue_working = AtomicBool::new(true);
+    let idle_threads = AtomicUsize::new(0);
+    let visited = dashmap::DashMap::<usize, bool>::new();
+    cqueue.register().push(adj_mat[0][0]);
+    let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
+        let adj_mat = &adj_mat;
+        let queue = &cqueue;
+        let visited = &visited;
+        let continue_working = &continue_working;
+        let idle_threads = &idle_threads;
+        let thread_count = &thread_count;
+
+        for _ in 0..*thread_count {
+            s.spawn(move || {
+                let mut handle = queue.register();
+                while continue_working.load(Ordering::SeqCst) {
+                    match handle.pop() {
+                        Some(node) => {
+                            for &n in &adj_mat[node] {
+                                if let None = visited.get(&n) {
+                                    visited.insert(n, true);
+                                    handle.push(n).expect("Queue failed to enqueue.");
+                                }
+                            }
+                        },
+                        None => {
+                            idle_threads.fetch_add(1, Ordering::SeqCst);
+                            if idle_threads.load(Ordering::SeqCst) == *thread_count {
+                                break;
+                            } else {
+                                thread::yield_now();
+                                idle_threads.fetch_sub(1, Ordering::Relaxed);
+                            }
+                        }
+                    } 
+                }
+            });
+        }
+
+        Ok(())
+    });
+
     Ok(())
 }
 
@@ -491,7 +537,8 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
 impl BenchConfig {
     pub fn get_thread_count(&self) -> Option<usize> {
         match &self.args.benchmark {
-            Benchmarks::PingPong(s)=> Some(s.thread_count),
+            Benchmarks::PingPong(s) => Some(s.thread_count),
+            Benchmarks::BFS(s)      => Some(s.thread_count),
             _ => None,
         }  
     }
