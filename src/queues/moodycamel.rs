@@ -8,15 +8,16 @@ use crate::{ConcurrentQueue, Handle};
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 // A safe Rust wrapper around the C bindings
-pub struct MoodyCamelCppQueue {
+pub struct MoodyCamelCppQueue<T> {
     raw: MoodyCamelConcurrentQueue,
+    phantom_data: std::marker::PhantomData<T>
 }
 
-unsafe impl Send for MoodyCamelCppQueue {}
-unsafe impl Sync for MoodyCamelCppQueue {}
+unsafe impl<T> Send for MoodyCamelCppQueue<T> {}
+unsafe impl<T> Sync for MoodyCamelCppQueue<T> {}
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-impl MoodyCamelCppQueue {
+impl<T> MoodyCamelCppQueue<T> {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
         unsafe { moody_camel_push(self.raw, item) == 1 }
@@ -31,43 +32,47 @@ impl MoodyCamelCppQueue {
             None
         }
     }
+    fn new() -> Self {
+        let raw = unsafe { moody_camel_create() };
+        MoodyCamelCppQueue { raw, phantom_data: std::marker::PhantomData}
+    }
     
 }
 
-impl Drop for MoodyCamelCppQueue {
+impl<T> Drop for MoodyCamelCppQueue<T> {
     fn drop(&mut self) {
         unsafe { moody_camel_destroy(self.raw) };
     }
 }
 
-struct MoodyCamelCppQueueHandle<'a> {
-    pub q: &'a MoodyCamelCppQueue
+struct MoodyCamelCppQueueHandle<'a,T> {
+    pub q: &'a MoodyCamelCppQueue<T>
 }
 
-impl Handle<Box<i32>> for MoodyCamelCppQueueHandle<'_> {
-    fn push(&mut self, item: Box<i32>) -> Result<(), Box<i32>>{
-        let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
+impl<T> Handle<T> for MoodyCamelCppQueueHandle<'_,T> {
+    fn push(&mut self, item: T) -> Result<(), T>{
+        let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
         match self.q.push(ptr) {
             true => {
                 Ok(())
             },
             false => {
                 // Unsure about this
-                let reclaimed_mem: Box<i32> = unsafe { Box::from_raw(ptr as *mut i32) };
-                Err(reclaimed_mem)
+                let reclaimed_mem: Box<T> = unsafe { Box::from_raw(ptr as *mut T) };
+                Err(*reclaimed_mem)
             },
         }
     }
 
-    fn pop(&mut self) -> Option<Box<i32>> {
+    fn pop(&mut self) -> Option<T> {
         let res = self.q.pop()?;
-        let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
-        Some(val)
+        let val = unsafe { Box::from_raw(res as *const T as *mut T) };
+        Some(*val)
     }
 }
 
-impl ConcurrentQueue<Box<i32>> for MoodyCamelCppQueue {
-    fn register(&self) -> impl crate::Handle<Box<i32>> {
+impl<T> ConcurrentQueue<T> for MoodyCamelCppQueue<T> {
+    fn register(&self) -> impl crate::Handle<T> {
         MoodyCamelCppQueueHandle {
             q: self,
         }
@@ -78,8 +83,7 @@ impl ConcurrentQueue<Box<i32>> for MoodyCamelCppQueue {
     }
 
     fn new(_capacity: usize) -> Self {
-        let raw = unsafe { moody_camel_create() };
-        MoodyCamelCppQueue { raw }
+        MoodyCamelCppQueue::new()
     }
 }
 
@@ -90,7 +94,7 @@ mod tests {
 
     #[test]
     fn create_moody_camel() {
-        let q: MoodyCamelCppQueue = MoodyCamelCppQueue::new(1000);
+        let q: MoodyCamelCppQueue<i32> = MoodyCamelCppQueue::new();
         let _ = q.push(Box::<i32>::into_raw(Box::new(32)) as *mut std::ffi::c_void);
         let _ = q.push(Box::<i32>::into_raw(Box::new(33)) as *mut std::ffi::c_void);
         let _ = q.push(Box::<i32>::into_raw(Box::new(34)) as *mut std::ffi::c_void);
@@ -109,7 +113,7 @@ mod tests {
     }
     #[test]
     fn register_moody_camel() {
-        let q: MoodyCamelCppQueue = MoodyCamelCppQueue::new(1000);
+        let q: MoodyCamelCppQueue<Box<i32>> = MoodyCamelCppQueue::new();
         let mut handle = q.register();
         handle.push(Box::new(1)).unwrap();
         handle.push(Box::new(2)).unwrap();
@@ -124,8 +128,8 @@ mod tests {
     #[ignore]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: MoodyCamelCppQueue = MoodyCamelCppQueue::new(10);
-        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+        let q: MoodyCamelCppQueue<i32> = MoodyCamelCppQueue::new();
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }

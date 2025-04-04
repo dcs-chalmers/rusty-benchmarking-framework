@@ -240,13 +240,13 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     );
     implement_benchmark!(
         "boost",
-        crate::queues::boost::BoostCppQueue,
+        crate::queues::boost::BoostCppQueue<usize>,
         "boostcpp",
         &bench_conf
     );
     implement_benchmark!(
         "moodycamel",
-        crate::queues::moodycamel::MoodyCamelCppQueue,
+        crate::queues::moodycamel::MoodyCamelCppQueue<usize>,
         "moodycamelcpp",
         &bench_conf
     );
