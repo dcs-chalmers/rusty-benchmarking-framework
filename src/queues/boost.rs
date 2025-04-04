@@ -8,15 +8,16 @@ use crate::{ConcurrentQueue, Handle};
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 // A safe Rust wrapper around the C bindings
-pub struct BoostCppQueue {
+pub struct BoostCppQueue<T> {
     raw: BoostLockfreeQueue,
+    phantom_data: std::marker::PhantomData<T>,
 }
 
-unsafe impl Send for BoostCppQueue {}
-unsafe impl Sync for BoostCppQueue {}
+unsafe impl<T> Send for BoostCppQueue<T> {}
+unsafe impl<T> Sync for BoostCppQueue<T> {}
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-impl BoostCppQueue {
+impl<T> BoostCppQueue<T> {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
         unsafe { 
@@ -36,38 +37,38 @@ impl BoostCppQueue {
     
 }
 
-impl Drop for BoostCppQueue {
+impl<T> Drop for BoostCppQueue<T> {
     fn drop(&mut self) {
         unsafe { boost_queue_destroy(self.raw) };
     }
 }
 
-struct BoostCppQueueHandle<'a> {
-    pub q: &'a BoostCppQueue
+struct BoostCppQueueHandle<'a,T> {
+    pub q: &'a BoostCppQueue<T>
 }
 
-impl Handle<Box<i32>> for BoostCppQueueHandle<'_> {
-    fn push(&mut self, item: Box<i32>) -> Result<(), Box<i32>> {
-        let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
+impl<T> Handle<T> for BoostCppQueueHandle<'_,T> {
+    fn push(&mut self, item: T) -> Result<(), T> {
+        let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
         match self.q.push(ptr) {
             true => Ok(()),
             false => {
                 // Really unsure if this is possible
-                let reclaimed: Box<i32> = unsafe { Box::from_raw(ptr as *mut i32) };
-                Err(reclaimed)
+                let reclaimed: Box<T> = unsafe { Box::from_raw(ptr as *mut T) };
+                Err(*reclaimed)
             },
         }
     }
 
-    fn pop(&mut self) -> Option<Box<i32>> {
+    fn pop(&mut self) -> Option<T> {
         let res = self.q.pop()?;
-        let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
-        Some(val)
+        let val = unsafe { Box::from_raw(res as *const T as *mut T) };
+        Some(*val)
     }
 }
 
-impl ConcurrentQueue<Box<i32>> for BoostCppQueue {
-    fn register(&self) -> impl crate::Handle<Box<i32>> {
+impl<T> ConcurrentQueue<T> for BoostCppQueue<T> {
+    fn register(&self) -> impl crate::Handle<T> {
         BoostCppQueueHandle {
             q: self,
         }
@@ -79,7 +80,7 @@ impl ConcurrentQueue<Box<i32>> for BoostCppQueue {
 
     fn new(capacity: usize) -> Self {
         let raw = unsafe { boost_queue_create(capacity as u32) };
-        BoostCppQueue { raw }
+        BoostCppQueue { raw, phantom_data: std::marker::PhantomData}
     }
 }
 
@@ -90,7 +91,7 @@ mod tests {
 
     #[test]
     fn create_boost_queue() {
-        let q: BoostCppQueue = BoostCppQueue::new(1000);
+        let q: BoostCppQueue<i32> = BoostCppQueue::new(1000);
         let _ = q.push(Box::<i32>::into_raw(Box::new(32)) as *mut std::ffi::c_void);
         let _ = q.push(Box::<i32>::into_raw(Box::new(33)) as *mut std::ffi::c_void);
         let _ = q.push(Box::<i32>::into_raw(Box::new(34)) as *mut std::ffi::c_void);
@@ -109,22 +110,22 @@ mod tests {
     }
     #[test]
     fn register_boost_queue() {
-        let q: BoostCppQueue = BoostCppQueue::new(1000);
+        let q: BoostCppQueue<i32> = BoostCppQueue::new(1000);
         let mut handle = q.register();
-        handle.push(Box::new(1)).unwrap();
-        handle.push(Box::new(2)).unwrap();
-        handle.push(Box::new(3)).unwrap();
-        handle.push(Box::new(4)).unwrap();
-        assert_eq!(*handle.pop().unwrap(), 1);
-        assert_eq!(*handle.pop().unwrap(), 2);
-        assert_eq!(*handle.pop().unwrap(), 3);
-        assert_eq!(*handle.pop().unwrap(), 4);
+        handle.push(1).unwrap();
+        handle.push(2).unwrap();
+        handle.push(3).unwrap();
+        handle.push(4).unwrap();
+        assert_eq!(handle.pop().unwrap(), 1);
+        assert_eq!(handle.pop().unwrap(), 2);
+        assert_eq!(handle.pop().unwrap(), 3);
+        assert_eq!(handle.pop().unwrap(), 4);
     }
     #[test]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: BoostCppQueue = BoostCppQueue::new(10);
-        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+        let q: BoostCppQueue<i32> = BoostCppQueue::new(10);
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }
