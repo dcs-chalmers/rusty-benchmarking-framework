@@ -23,7 +23,6 @@ env_logger = { version = "0.11.6", optional = true }
 haphazard = { version = "0.1.8", optional = true }
 sysinfo = "0.33"
 bbq-rs = { version = "0.1.1", optional = true }
-concache = "0.2.1"
 dashmap = "6.1.0"
 
 [target.'cfg(unix)'.dependencies]
@@ -79,7 +78,6 @@ all_queues = [
     "scc_queue",
     "scc2_queue",
     "lf_queue",
-    "wfqueue",
     "scc_stack",
     "scc2_stack",
     "lockfree_stack",

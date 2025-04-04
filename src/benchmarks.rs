@@ -447,7 +447,7 @@ where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
-    assert!(matches!(bench_conf.args.benchmark, Benchmarks::Basic(_)));
+    assert!(matches!(bench_conf.args.benchmark, Benchmarks::BFS(_)));
     let adj_mat = crate::graph::create_adj_matrix(
         bench_conf.get_graph_filename().unwrap(),
         bench_conf.get_node_amount().unwrap()
@@ -456,7 +456,17 @@ C: ConcurrentQueue<usize>,
     let continue_working = AtomicBool::new(true);
     let idle_threads = AtomicUsize::new(0);
     let visited = dashmap::DashMap::<usize, bool>::new();
-    cqueue.register().push(adj_mat[0][0]);
+    let mut biggest = 0;
+    let mut curr = 0;
+    for (i, edge) in adj_mat.iter().enumerate() {
+        if  edge.len() > biggest {
+            biggest = edge.len();
+            curr = i;
+        }
+    }
+    visited.insert(curr, true);
+    let _ = cqueue.register().push(curr);
+    debug!("first node is {} with neighbours {:?}", curr, adj_mat[curr]);
     let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
         let adj_mat = &adj_mat;
         let queue = &cqueue;
@@ -472,8 +482,10 @@ C: ConcurrentQueue<usize>,
                     match handle.pop() {
                         Some(node) => {
                             for &n in &adj_mat[node] {
-                                if let None = visited.get(&n) {
+                                if visited.get(&n).is_none() {
                                     visited.insert(n, true);
+                                    trace!("visiting {n}");
+                                    trace!("{n} has neighbours {:?}", adj_mat[n]);
                                     handle.push(n).expect("Queue failed to enqueue.");
                                 }
                             }
