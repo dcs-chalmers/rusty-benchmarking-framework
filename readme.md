@@ -108,7 +108,6 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
    [...]
    implement_benchmark!("new_queue_name",          // Feature name
         crate::queues::new_queue::NewQueue<i32>,   // Your queue with desired type
-        "New queue",                               // A &str just for printing
         &bench_conf);                              // Benchmark config struct, just pass as reference
 
    Ok(())
