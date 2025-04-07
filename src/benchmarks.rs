@@ -104,7 +104,21 @@ macro_rules! implement_benchmark {
                     Benchmarks::Basic(_)     => $crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                     Benchmarks::PingPong(_)  => $crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
                     #[cfg(feature = "bfs")]
-                    Benchmarks::BFS(_)       => $crate::benchmarks::benchmark_bfs(test_q, $bench_conf)?,
+                    Benchmarks::BFS(_)       => {
+                        // HACK: Temporary hack to not have to load the adjacency matrix each
+                        // iteration.
+                        $crate::benchmarks::benchmark_bfs(test_q, $bench_conf)?;
+                        #[cfg(feature = "memory_tracking")]
+                        {
+                            use std::sync::atomic::Ordering;
+                            
+                            _done.store(true, Ordering::Relaxed);
+                            if let Err(e) = mem_thread_handle.join().unwrap() {
+                                log::error!("Couldnt join memory tracking thread: {}", e);
+                            }
+                        }
+                        break;
+                    },
                 }
 
     //////////////////////////////////// MEMORY TRACKING ///////////////////////////
@@ -453,10 +467,6 @@ C: ConcurrentQueue<usize>,
         bench_conf.get_node_amount().unwrap()
     ).unwrap();
     let thread_count = bench_conf.get_thread_count().unwrap();
-    let continue_working = AtomicBool::new(true);
-    let idle_threads = AtomicUsize::new(0);
-    let visited = dashmap::DashMap::<usize, bool>::new();
-    let barrier = Barrier::new(thread_count + 1);
     let mut biggest = 0;
     let mut curr = 0;
     for (i, edge) in adj_mat.iter().enumerate() {
@@ -465,54 +475,62 @@ C: ConcurrentQueue<usize>,
             curr = i;
         }
     }
-    visited.insert(curr, true);
-    let _ = cqueue.register().push(curr);
-    debug!("first node is {} with neighbours {:?}", curr, adj_mat[curr]);
-    let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
-        let adj_mat = &adj_mat;
-        let queue = &cqueue;
-        let visited = &visited;
-        let continue_working = &continue_working;
-        let idle_threads = &idle_threads;
-        let thread_count = &thread_count;
-        let barrier = &barrier;
-        for _ in 0..*thread_count {
-            s.spawn(move || {
-                let mut handle = queue.register();
-                barrier.wait();
-                while continue_working.load(Ordering::SeqCst) {
-                    match handle.pop() {
-                        Some(node) => {
-                            for &n in &adj_mat[node] {
-                                if visited.get(&n).is_none() {
-                                    visited.insert(n, true);
-                                    trace!("visiting {n}");
-                                    trace!("{n} has neighbours {:?}", adj_mat[n]);
-                                    handle.push(n).expect("Queue failed to enqueue.");
+    // HACK: Temporary hack to not have to load the adjacency matrix each
+    // iteration.
+    for _ in 0..bench_conf.args.iterations {
+        let continue_working = AtomicBool::new(true);
+        let idle_threads = AtomicUsize::new(0);
+        let visited = dashmap::DashMap::<usize, bool>::new();
+        let barrier = Barrier::new(thread_count + 1);
+        visited.insert(curr, true);
+        let _ = cqueue.register().push(curr);
+        debug!("first node is {} with neighbours {:?}", curr, adj_mat[curr]);
+        let _ = std::thread::scope(|s| -> Result<(), std::io::Error> {
+            let adj_mat          = &adj_mat;
+            let queue            = &cqueue;
+            let visited          = &visited;
+            let continue_working = &continue_working;
+            let idle_threads     = &idle_threads;
+            let thread_count     = &thread_count;
+            let barrier          = &barrier;
+            for _ in 0..*thread_count {
+                s.spawn(move || {
+                    let mut handle = queue.register();
+                    barrier.wait();
+                    while continue_working.load(Ordering::SeqCst) {
+                        match handle.pop() {
+                            Some(node) => {
+                                for &n in &adj_mat[node] {
+                                    if visited.get(&n).is_none() {
+                                        visited.insert(n, true);
+                                        trace!("visiting {n}");
+                                        trace!("{n} has neighbours {:?}", adj_mat[n]);
+                                        handle.push(n).expect("Queue failed to enqueue.");
+                                    }
+                                }
+                            },
+                            None => {
+                                idle_threads.fetch_add(1, Ordering::SeqCst);
+                                if idle_threads.load(Ordering::SeqCst) == *thread_count {
+                                    continue_working.store(false, Ordering::SeqCst);
+                                    break;
+                                } else {
+                                    thread::yield_now();
+                                    idle_threads.fetch_sub(1, Ordering::Relaxed);
                                 }
                             }
-                        },
-                        None => {
-                            idle_threads.fetch_add(1, Ordering::SeqCst);
-                            if idle_threads.load(Ordering::SeqCst) == *thread_count {
-                                continue_working.store(false, Ordering::SeqCst);
-                                break;
-                            } else {
-                                thread::yield_now();
-                                idle_threads.fetch_sub(1, Ordering::Relaxed);
-                            }
-                        }
-                    } 
-                }
-            });
-        }
-        barrier.wait();
-        let start = std::time::Instant::now();
-        while continue_working.load(Ordering::Relaxed) {}
-        let duration = start.elapsed();
-        println!("Graph traversal done. Took {:?}.", duration);
-        Ok(())
-    });
+                        } 
+                    }
+                });
+            }
+            barrier.wait();
+            let start = std::time::Instant::now();
+            while continue_working.load(Ordering::Relaxed) {}
+            let duration = start.elapsed();
+            println!("Graph traversal done. Took {:?}.", duration);
+            Ok(())
+        });
+    }
 
     Ok(())
 }
