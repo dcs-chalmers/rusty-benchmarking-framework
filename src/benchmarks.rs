@@ -21,16 +21,16 @@ pub struct BenchConfig {
 /// A macro used to add your queue to the benchmark.
 /// * `$feature:&str` - The name of the queue/feature.
 /// * `$wrapper` - The queue type. Queue must implement `ConcurrentQueue` trait.
-/// * `$desc` - A description to be printed when the queue gets benchmarked.
 /// * `$bench_conf` - The benchmark config struct.
 #[macro_export]
 macro_rules! implement_benchmark {
-    ($feature:literal, $wrapper:ty, $desc:expr, $bench_conf:expr) => {
+    ($feature:literal, $wrapper:ty, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
             for _current_iteration in 0..$bench_conf.args.iterations {
-                info!("Running benchmark on: {}", $desc);
                 let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
+                let queue_type = test_q.get_id();
+                info!("Running benchmark on: {}", queue_type);
                 {
                     let mut tmp_handle = test_q.register();
                     for _ in 0..$bench_conf.args.prefill_amount {
@@ -54,7 +54,6 @@ macro_rules! implement_benchmark {
                     // }
                     let _done = std::sync::Arc::clone(&_done);
                     let benchmark_id = $bench_conf.benchmark_id.clone();
-                    let queue_type = test_q.get_id();
                     let bench_type = format!("{}", $bench_conf.args.benchmark);
                     let to_stdout = $bench_conf.args.write_to_stdout;
                     
@@ -122,7 +121,7 @@ macro_rules! implement_benchmark {
 ////////////////////////////////////// MEMORY END //////////////////////////////
             }
             if $bench_conf.args.print_info {
-                $crate::benchmarks::print_info($desc.to_string(), $bench_conf)?;
+                $crate::benchmarks::print_info($feature.to_string(), $bench_conf)?;
             }
         }
     };
