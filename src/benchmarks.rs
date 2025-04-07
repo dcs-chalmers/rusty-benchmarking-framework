@@ -279,17 +279,13 @@ where
         };
         vals
     };
+    let formatted;
     if thread_failed.load(Ordering::Relaxed){
-        let mut file = OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&bench_conf.output_filename)?;
-        writeln!(file, "0, 0, 0, {}, {}, -1, {}, {}, {}, 0", producers, consumers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id,)?;
-        Ok(())
+        formatted = format!("0,0,0,{},{},-1,{},{},{},0",producers,consumers,cqueue.get_id(),bench_conf.args.benchmark,bench_conf.benchmark_id);
     }
     else {
         let fairness = calc_fairness(ops_per_thread);
-        let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
+        formatted = format!("{},{},{},{},{},{},{},{},{},{}",
             (pushes + pops) as f64 / time_limit as f64,
             pushes,
             pops,
@@ -300,6 +296,7 @@ where
             bench_conf.args.benchmark,
             bench_conf.benchmark_id,
             fairness);
+    }
         if !bench_conf.args.write_to_stdout {
             let mut file = OpenOptions::new()
                 .append(true)
@@ -314,7 +311,6 @@ where
 
         Ok(())
     }
-}
 
 
 /// Calculates the fairness based on paper: [A Study of the Behavior of Synchronization Methods in Commonly Used Languages and Systems](https://ieeexplore.ieee.org/document/6569906).
@@ -464,16 +460,12 @@ T: Default,
     let fairness = calc_fairness(ops_per_thread);
     // 
     // Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness";
+    let formatted;
     if thread_failed.load(Ordering::Relaxed){
-        let mut file = OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&bench_conf.output_filename)?;
-        writeln!(file, "0, 0, 0, -1, -1, {}, {}, {}, {}, 0", thread_count, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id,)?;
-        Ok(())
+        formatted = format!("0,0,0,-1,-1,{},{},{},{},0",thread_count,cqueue.get_id(),bench_conf.args.benchmark,bench_conf.benchmark_id);
     }
     else {
-        let formatted = format!("{},{},{},{},{},{},{},{},{},{}",
+        formatted = format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
@@ -484,6 +476,7 @@ T: Default,
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
         fairness);
+    }
         // Write to file or stdout depending on flag
         if !bench_conf.args.write_to_stdout {
             let mut file = OpenOptions::new()
@@ -495,7 +488,7 @@ T: Default,
             println!("{}", formatted);
         }
         Ok(())
-    }
+    
     
 }
 
