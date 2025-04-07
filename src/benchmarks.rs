@@ -103,6 +103,7 @@ macro_rules! implement_benchmark {
                 match $bench_conf.args.benchmark {
                     Benchmarks::Basic(_)     => $crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                     Benchmarks::PingPong(_)  => $crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
+                    #[cfg(feature = "bfs")]
                     Benchmarks::BFS(_)       => $crate::benchmarks::benchmark_bfs(test_q, $bench_conf)?,
                 }
 
@@ -440,6 +441,7 @@ T: Default,
     Ok(())
 }
 
+#[cfg(feature = "bfs")]
 pub fn benchmark_bfs<C> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where
 C: ConcurrentQueue<usize>,
@@ -454,6 +456,7 @@ C: ConcurrentQueue<usize>,
     let continue_working = AtomicBool::new(true);
     let idle_threads = AtomicUsize::new(0);
     let visited = dashmap::DashMap::<usize, bool>::new();
+    let barrier = Barrier::new(thread_count + 1);
     let mut biggest = 0;
     let mut curr = 0;
     for (i, edge) in adj_mat.iter().enumerate() {
@@ -472,10 +475,11 @@ C: ConcurrentQueue<usize>,
         let continue_working = &continue_working;
         let idle_threads = &idle_threads;
         let thread_count = &thread_count;
-
+        let barrier = &barrier;
         for _ in 0..*thread_count {
             s.spawn(move || {
                 let mut handle = queue.register();
+                barrier.wait();
                 while continue_working.load(Ordering::SeqCst) {
                     match handle.pop() {
                         Some(node) => {
@@ -491,6 +495,7 @@ C: ConcurrentQueue<usize>,
                         None => {
                             idle_threads.fetch_add(1, Ordering::SeqCst);
                             if idle_threads.load(Ordering::SeqCst) == *thread_count {
+                                continue_working.store(false, Ordering::SeqCst);
                                 break;
                             } else {
                                 thread::yield_now();
@@ -501,7 +506,11 @@ C: ConcurrentQueue<usize>,
                 }
             });
         }
-
+        barrier.wait();
+        let start = std::time::Instant::now();
+        while continue_working.load(Ordering::Relaxed) {}
+        let duration = start.elapsed();
+        println!("Graph traversal done. Took {:?}.", duration);
         Ok(())
     });
 
@@ -548,6 +557,7 @@ impl BenchConfig {
     pub fn get_thread_count(&self) -> Option<usize> {
         match &self.args.benchmark {
             Benchmarks::PingPong(s) => Some(s.thread_count),
+            #[cfg(feature = "bfs")]
             Benchmarks::BFS(s)      => Some(s.thread_count),
             _ => None,
         }  
@@ -570,12 +580,15 @@ impl BenchConfig {
         }
         None
     }
+
+    #[cfg(feature = "bfs")]
     fn get_graph_filename(&self) -> Option<String> {
         if let Benchmarks::BFS(s) = &self.args.benchmark {
             return Some(s.graph_file.clone());
         }
         None
     }
+    #[cfg(feature = "bfs")]
     fn get_node_amount(&self) -> Option<usize> {
         if let Benchmarks::BFS(s) = &self.args.benchmark {
             return Some(s.node_amount);

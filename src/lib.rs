@@ -66,6 +66,7 @@ pub enum Benchmarks {
     /// A test where each thread performs both consume and produce based on a random floating point
     /// value. Spread is decided using the `--spread` flag.
     PingPong(PingPongArgs),
+    #[cfg(feature = "bfs")]
     BFS(BFSArgs),
 }
 
@@ -103,6 +104,7 @@ impl Display for Benchmarks {
         match self {
             Benchmarks::Basic(_) => write!(f, "Basic"),
             Benchmarks::PingPong(_) => write!(f, "PingPong"),
+            #[cfg(feature = "bfs")]
             Benchmarks::BFS(_) => write!(f, "BFS"),
         }
     }
