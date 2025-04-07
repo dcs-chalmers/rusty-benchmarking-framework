@@ -641,7 +641,6 @@ mod tests {
         };
         implement_benchmark!("basic_queue",
             BasicQueue<i32>,
-            "Testing macro",
             &bench_conf);
         Ok(())
     }
