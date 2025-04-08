@@ -16,6 +16,7 @@ use std::fmt::Display;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
+
 pub mod benchmarks;
 pub mod order;
 pub mod queues;
@@ -38,7 +39,7 @@ pub struct Args {
     /// Set the size of the bounded queues.
     #[arg(short, long, default_value_t = 10000)]
     queue_size: u32,
-    /// Set the amount of floating point numbers generated between each operation. Default is 10
+    /// Set the amount of floating point numbers generated between each operation. Default is 10.
     #[arg(short, long, default_value_t = 10)]
     delay: u64,
     /// Set the output path for the result files.
@@ -53,8 +54,13 @@ pub struct Args {
     /// Prefill the queue with values before running the benchmark.
     #[arg(short, long, default_value_t = 0)]
     prefill_amount: u64,
+    /// Write benchmark configuration and hardware info to a separate file. 
     #[arg(long, default_value_t = false, action = ArgAction::SetTrue)]
     print_info: bool,
+    #[cfg(feature = "memory_tracking")]
+    /// The interval of which memory tracking will update [ms].
+    #[arg(long, default_value_t = 50)]
+    memory_tracking_interval: u64,
 }
 
 /// Possible benchmark types.
@@ -87,6 +93,8 @@ pub struct PingPongArgs {
     spread: f64,
 }
 
+/// This is used to write the benchmark type to the output.
+/// That is why the arguments are discarded.
 impl Display for Benchmarks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -95,7 +103,7 @@ impl Display for Benchmarks {
         }
     }
 }
-
+/// This is used in the print_info function.
 impl Display for Args {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Time limit:             {}", self.time_limit)?;
@@ -111,6 +119,9 @@ impl Display for Args {
     }
 }
 
+/// Starts the actual benchmark.
+/// 
+/// All work unrelated to the chosen benchmark is done here.
 pub fn start_benchmark() -> Result<(), std::io::Error> {
     let args = Args::parse();
     let date_time = Local::now().format("%Y%m%d%H%M%S").to_string();
@@ -230,16 +241,20 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     implement_benchmark!(
         "lprq",
         crate::queues::lprq::LPRQueue,
-        &bench_conf);
+        &bench_conf
+    );
     implement_benchmark!("tz_queue",
         crate::queues::tsigas_zhang_queue::TZQueue<i32>,
-        &bench_conf);
+        &bench_conf
+    );
     implement_benchmark!("tz_queue_hp",
         crate::queues::tsigas_zhang_queue_hp::TZQueue<i32>,
-        &bench_conf);
+        &bench_conf
+    );
     implement_benchmark!("bbq",
         crate::queues::bbq::BBQueue<i32>,
-        &bench_conf);
+        &bench_conf
+    );
     implement_benchmark!("seg_queue",
         crate::queues::seg_queue::SQueue<i32>,
         &bench_conf
@@ -253,17 +268,28 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     Ok(())
 }
 
+/// One of the traits that all queues implemented in the benchmark
+/// needs to implement.
 pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl Handle<T>;
+    /// Returns the name of the queue.
     fn get_id(&self) -> String;
+    /// Used to create a new queue.
+    /// `size` is discarded for unbounded queues.
     fn new(size: usize) -> Self;
 }
 
+/// One of the traits all queues implemented in the benchmark
+/// needs to implement.
 pub trait Handle<T> {
+    /// Pushes an item to the queue.
+    /// If it fails, returns the item pushed.
     fn push(&mut self, item: T) -> Result<(), T>;
+    /// Pops an item from the queue.
     fn pop(&mut self) -> Option<T>;
 }
 
+/// Implemented so that tests are easier to write.
 impl Default for Args {
     fn default() -> Self {
         Args {
@@ -281,6 +307,8 @@ impl Default for Args {
             }),
             write_to_stdout: true,
             print_info: false,
+            #[cfg(feature = "memory_tracking")]
+            memory_tracking_interval: 50,
         }
     }
 }
