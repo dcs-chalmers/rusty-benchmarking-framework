@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 pub struct SCCStack<T: 'static> {
     pub queue: scc::Stack<T>,

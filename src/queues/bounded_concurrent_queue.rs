@@ -1,7 +1,7 @@
 use concurrent_queue::PushError;
 use log::warn;
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 pub struct BoundedCQueueHandle<'a, T> {
     queue: &'a BoundedCQueue<T>

@@ -6,8 +6,7 @@ use std::sync::{
     Barrier,
 };
 
-use crate::ConcurrentQueue;
-use crate::Handle;
+use crate::traits::{ConcurrentQueue, Handle};
 
 #[allow(clippy::result_unit_err)]
 pub fn benchmark_order_box<C>(

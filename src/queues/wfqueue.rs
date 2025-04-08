@@ -1,6 +1,6 @@
 use wfqueue::{Queueable, WfQueue};
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 
 pub struct WFQueueHandle<'a, T: Queueable> {

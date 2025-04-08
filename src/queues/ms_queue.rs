@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use haphazard::{raw::Pointer, AtomicPtr, HazardPointer};
 use log::{error, trace};
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 struct Node<T> {
     next: AtomicPtr<Node<T>>,

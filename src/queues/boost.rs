@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 // Include the generated bindings
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -68,7 +68,7 @@ impl<T> Handle<T> for BoostCppQueueHandle<'_,T> {
 }
 
 impl<T> ConcurrentQueue<T> for BoostCppQueue<T> {
-    fn register(&self) -> impl crate::Handle<T> {
+    fn register(&self) -> impl Handle<T> {
         BoostCppQueueHandle {
             q: self,
         }

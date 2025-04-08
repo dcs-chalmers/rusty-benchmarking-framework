@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 // Include the generated bindings
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -72,7 +72,7 @@ impl<T> Handle<T> for MoodyCamelCppQueueHandle<'_,T> {
 }
 
 impl<T> ConcurrentQueue<T> for MoodyCamelCppQueue<T> {
-    fn register(&self) -> impl crate::Handle<T> {
+    fn register(&self) -> impl Handle<T> {
         MoodyCamelCppQueueHandle {
             q: self,
         }

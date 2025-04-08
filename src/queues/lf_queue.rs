@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 pub struct LFQueue<T> {
     pub lfq: lf_queue::Queue<T>

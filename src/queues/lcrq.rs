@@ -4,7 +4,7 @@
 
 use std::{cell::Cell, sync::atomic::{AtomicI32, Ordering}};
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 // Include the generated bindings
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -95,7 +95,7 @@ impl<T> Handle<T> for LCRQHandle<'_, T> {
 }
 
 impl<T> ConcurrentQueue<T> for LCRQueue<T> {
-    fn register(&self) -> impl crate::Handle<T> {
+    fn register(&self) -> impl Handle<T> {
         LCRQHandle {
             q: self,
         }

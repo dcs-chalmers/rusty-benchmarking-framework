@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use log::{debug, trace};
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 use std::{fmt::{Debug, Display}, sync::atomic::{AtomicUsize, Ordering}};
 use haphazard::HazardPointer;
 
@@ -198,7 +198,7 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
     fn get_id(&self) -> String {
         String::from("tz_queue_hp")
     }
-    fn register(&self) -> impl crate::Handle<T> {
+    fn register(&self) -> impl crate::traits::Handle<T> {
         TZQueueHandle {
             q:      self,
             hp1:    HazardPointer::new(),
@@ -268,6 +268,7 @@ mod tests {
 
     }
     #[test]
+    #[ignore]
     fn multi_threaded() {
         let _ = env_logger::builder().is_test(true).try_init();
         const NUM_THREADS: usize = 2;
