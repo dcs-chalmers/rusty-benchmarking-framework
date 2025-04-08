@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 pub struct AtomicQueue<T> {
     pub queue: atomic_queue::Queue<T>,

@@ -2,7 +2,7 @@ use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
-use crate::{Args, Benchmarks, ConcurrentQueue, Handle};
+use crate::{arguments::{Args, Benchmarks}, traits::{ConcurrentQueue, Handle}};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{mpsc, Arc};
@@ -19,25 +19,27 @@ pub struct BenchConfig {
 
 /// # Explanation:
 /// A macro used to add your queue to the benchmark.
-/// * `$feature:&str` - The name of the queue/feature.
-/// * `$wrapper` - The queue type. Queue must implement `ConcurrentQueue` trait.
-/// * `$bench_conf` - The benchmark config struct.
+/// * `$feature:&str`   - The name of the queue/feature.
+/// * `$wrapper`        - The queue type. Queue must implement `ConcurrentQueue` trait.
+/// * `$bench_conf`     - The benchmark config struct.
 #[macro_export]
 macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
             for _current_iteration in 0..$bench_conf.args.iterations {
+                // Create the queue.
                 let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
                 let queue_type = test_q.get_id();
                 info!("Running benchmark on: {}", queue_type);
                 {
+                    debug!("Prefilling queue with {} items.", $bench_conf.args.prefill_amount);
                     let mut tmp_handle = test_q.register();
                     for _ in 0..$bench_conf.args.prefill_amount {
                         tmp_handle.push(Default::default()).expect("Queue size too small");
                     } 
                 }
-    //////////////////////////////////// MEMORY TRACKING ///////////////////////////
+//////////////////////////////////////// MEMORY TRACKING ///////////////////////////
                 #[cfg(feature = "memory_tracking")]
                 let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
                 #[cfg(feature = "memory_tracking")]
@@ -77,6 +79,8 @@ macro_rules! implement_benchmark {
                     };
                     
                     // Spawn thread to check total memory allocated every 50ms
+                    let interval = $bench_conf.args.memory_tracking_interval;
+                    debug!("Spawning memory thread.");
                     mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
                         while !_done.load(Ordering::Relaxed) {
                             // Update stats
@@ -93,25 +97,25 @@ macro_rules! implement_benchmark {
                                 None => println!("{}", output),
                             }
 
-                            std::thread::sleep(std::time::Duration::from_millis(50));
+                            std::thread::sleep(std::time::Duration::from_millis(interval));
                         }
                         Ok(())
                     });
                 }
-    ////////////////////////////////////// MEMORY END //////////////////////////////
+////////////////////////////////////////// MEMORY END //////////////////////////////
                 // Select which benchmark to use
                 match $bench_conf.args.benchmark {
                     Benchmarks::Basic(_)     => $crate::benchmarks::benchmark_throughput(test_q, $bench_conf)?,
                     Benchmarks::PingPong(_)  => $crate::benchmarks::benchmark_ping_pong(test_q, $bench_conf)?,
                 }
 
-    //////////////////////////////////// MEMORY TRACKING ///////////////////////////
+//////////////////////////////////////// MEMORY TRACKING ///////////////////////////
                 // Join the thread again
-                debug!("Queue should have been dropped now, joining memory thread.");
+                debug!("Queue should have been dropped now.");
                 #[cfg(feature = "memory_tracking")]
                 {
                     use std::sync::atomic::Ordering;
-                    
+                    debug!("Joining memory thread.");
                     _done.store(true, Ordering::Relaxed);
                     if let Err(e) = mem_thread_handle.join().unwrap() {
                         log::error!("Couldnt join memory tracking thread: {}", e);
@@ -129,8 +133,11 @@ macro_rules! implement_benchmark {
 
 /// # Explanation:
 /// A simple benchmark that measures the throughput of a queue.
-/// Has by default a 1ns delay between each operation, but this can be changed
+/// Has by default a 10 floating points generated delay between each operation, but this can be changed
 /// through flags passed to the program.
+/// Benchmark specific flags:
+/// * -p        Set specified amount of producers
+/// * -c        Set specified amount of consumers
 #[allow(dead_code)]
 pub fn benchmark_throughput<C, T>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
@@ -158,6 +165,7 @@ where
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
         let mut core_iter = available_cores.into_iter().cycle();
 
+    // Shared atomic bool for when a thread fails
     let thread_failed = Arc::new(AtomicBool::new(false));
 
     let _ = std::thread::scope(|s| -> Result<(), std::io::Error>{
@@ -186,7 +194,7 @@ where
                 let mut handle = queue.register();
                 // push
                 let mut l_pushes = 0; 
-                let _thread_failed = thread_failed.clone();
+                let _thread_failed = thread_failed.clone(); // Every thread clones the thread_failed bool
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
                     // NOTE: Maybe we should care about this result?
@@ -203,11 +211,11 @@ where
                     error!("Error sending operations down the channel: {}", e);
                 };
             }));
+            // A thread panicked, aborting the benchmark...
             if let Err (e) = result {
                 error!("Thread {} panicked in pushing: {:?}. Aborting benchmark, padding results to zero", i, e);
                     thread_failed.store(true, Ordering::Relaxed);
                     done.store(true, Ordering::Relaxed);
-                    return;
             }
             }); 
         }
@@ -227,7 +235,7 @@ where
                 // pop
                 let mut l_pops = 0; 
                 let mut empty_pops = 0;
-                let _thread_failed = thread_failed.clone();
+                let _thread_failed = thread_failed.clone(); // Every thread clones the thread_failed bool
                 barrier.wait();
                 // TODO: add empty pops probably to fairness calculations
                 while !done.load(Ordering::Relaxed) {
@@ -250,11 +258,11 @@ where
                     error!("Error sending operations down the channel: {}", e);
                 };
             }));
+            // A thread panicked, aborting the benchmark...
             if let Err(e) = result {
                 error!("Thread {} panicked while popping: {:?}. Aborting benchmark, padding results to zero", i, e);
                 thread_failed.store(true, Ordering::Relaxed);
                 done.store(true, Ordering::Relaxed);
-                return;
             }
             }); 
         }
@@ -279,13 +287,13 @@ where
         };
         vals
     };
-    let formatted;
-    if thread_failed.load(Ordering::Relaxed){
-        formatted = format!("0,0,0,{},{},-1,{},{},{},0",producers,consumers,cqueue.get_id(),bench_conf.args.benchmark,bench_conf.benchmark_id);
+    // If a thread crashed, pad the results with zero-values 
+    let formatted = if thread_failed.load(Ordering::Relaxed) {
+        format!("0,0,0,{},{},-1,{},{},{},0", producers, consumers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)
     }
     else {
         let fairness = calc_fairness(ops_per_thread);
-        formatted = format!("{},{},{},{},{},{},{},{},{},{}",
+        format!("{},{},{},{},{},{},{},{},{},{}",
             (pushes + pops) as f64 / time_limit as f64,
             pushes,
             pops,
@@ -295,25 +303,26 @@ where
             cqueue.get_id(),
             bench_conf.args.benchmark,
             bench_conf.benchmark_id,
-            fairness);
-    }
-        if !bench_conf.args.write_to_stdout {
-            let mut file = OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&bench_conf.output_filename)?;
+            fairness)
+    };
+    if !bench_conf.args.write_to_stdout {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_conf.output_filename)?;
 
-            writeln!(file, "{}", formatted)?;
+        writeln!(file, "{}", formatted)?;
 
-        } else {
-            println!("{}", formatted);
-        }
-
-        Ok(())
+    } else {
+        println!("{}", formatted);
     }
 
+    Ok(())
+}
 
-/// Calculates the fairness based on paper: [A Study of the Behavior of Synchronization Methods in Commonly Used Languages and Systems](https://ieeexplore.ieee.org/document/6569906).
+
+/// Calculates the fairness based on paper: 
+/// [A Study of the Behavior of Synchronization Methods in Commonly Used Languages and Systems](https://ieeexplore.ieee.org/document/6569906).
 pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
     debug!("Calculating fairness");
     let sum: usize = ops_per_thread.iter().sum();
@@ -348,6 +357,13 @@ pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
     fairness
 }
 
+
+/// # Explanation:
+/// A benchmark that measures the throughput of a queue.
+/// Here threads vary between producers and consumers,
+/// Benchmark specific flags:
+/// * --spread              Set the spread of consumers/producers, value between 0 - 1.        Ex. --spread 0.3,  gives 30% consume, 70% produce        
+/// * --thread-count        Set the amount of threads to run in the benchmark
 #[allow(dead_code)]
 pub fn benchmark_ping_pong<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where
@@ -368,17 +384,18 @@ T: Default,
     
 
 
-    // get cores for fairness of threads
+    // Get cores for fairness of threads
     let available_cores: Vec<CoreId> =
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
         let mut core_iter = available_cores.into_iter().cycle();
 
+    // Shared atomic bool for when a thread fails
     let thread_failed = Arc::new(AtomicBool::new(false));
 
 
     let _ = std::thread::scope(|s| -> Result<(), std::io::Error>{
         let queue = &cqueue;
-        let thread_failed = &thread_failed;
+        let thread_failed = &thread_failed; // Every thread clones the thread_failed bool
         let pushes = &pushes;
         let pops = &pops;
         let done = &done;
@@ -430,13 +447,11 @@ T: Default,
                     tx.send(l_pops + l_pushes).unwrap();
                     trace!("{}: Pushed: {}, Popped: {}", _i, l_pushes, l_pops);
                 }));
-                // if a thread panics we set a shared bool to true and "null" the benchmark
+                // A thread panicked, aborting the benchmark...
                 if let Err(e) = result {
                     error!("Thread {} panicked: {:?}. Aborting benchmark, padding results to zero", _i, e);
                     thread_failed.store(true, Ordering::Relaxed);
                     done.store(true, Ordering::Relaxed);
-                    return;
-                    
                 }
             });
             
@@ -458,14 +473,13 @@ T: Default,
         vals
     };
     let fairness = calc_fairness(ops_per_thread);
-    // 
-    // Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness";
-    let formatted;
-    if thread_failed.load(Ordering::Relaxed){
-        formatted = format!("0,0,0,-1,-1,{},{},{},{},0",thread_count,cqueue.get_id(),bench_conf.args.benchmark,bench_conf.benchmark_id);
+
+    // If a thread crashed, pad the results with zero-values
+    let formatted = if thread_failed.load(Ordering::Relaxed) {
+        format!("0,0,0,-1,-1,{},{},{},{},0", thread_count, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)
     }
     else {
-        formatted = format!("{},{},{},{},{},{},{},{},{},{}",
+        format!("{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
@@ -475,24 +489,24 @@ T: Default,
         cqueue.get_id(),
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
-        fairness);
+        fairness)
+    };
+    // Write to file or stdout depending on flag
+    if !bench_conf.args.write_to_stdout {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_conf.output_filename)?;
+        writeln!(file, "{}", formatted)?;
+    } else {
+        println!("{}", formatted);
     }
-        // Write to file or stdout depending on flag
-        if !bench_conf.args.write_to_stdout {
-            let mut file = OpenOptions::new()
-                .append(true)
-                .create(true)
-                .open(&bench_conf.output_filename)?;
-            writeln!(file, "{}", formatted)?;
-        } else {
-            println!("{}", formatted);
-        }
-        Ok(())
+    Ok(())
     
     
 }
 
-
+/// Function to print the specifications of the hardware used and the benchmnark configs that ran
 pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io::Error>{
     // Create file if printing to stdout is disabled
     if bench_conf.args.write_to_stdout {
@@ -559,6 +573,7 @@ impl BenchConfig {
 #[cfg(test)]
 mod tests {
     use crate::queues::basic_queue::{BQueue, BasicQueue};
+    use crate::arguments::PingPongArgs;
 
     use super::*;
     
@@ -581,7 +596,7 @@ mod tests {
     #[test]
     fn run_pingpong() {
         let args = Args {
-            benchmark: Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::PingPong(PingPongArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {
@@ -634,7 +649,7 @@ mod tests {
     #[test]
     fn run_pingpong_with_string() {
         let args = Args {
-            benchmark: Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::PingPong(PingPongArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {
@@ -669,7 +684,7 @@ mod tests {
     #[test]
     fn run_pingpong_with_struct() {
         let args = Args {
-            benchmark: Benchmarks::PingPong(crate::PingPongArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::PingPong(PingPongArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {

@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 use std::{collections::VecDeque, sync::Mutex};
 
 pub struct BQueue<T> {

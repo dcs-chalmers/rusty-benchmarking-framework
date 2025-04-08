@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 
 pub struct LockfreeQueueHandle<'a, T> {

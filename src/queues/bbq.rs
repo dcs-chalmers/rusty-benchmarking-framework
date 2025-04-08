@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 use bbq_rs::BlockingQueue;
 
 pub struct BBQueue<T>{

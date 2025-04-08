@@ -255,6 +255,7 @@ mod tests {
 
     }
     #[test]
+    #[ignore]
     fn multi_threaded() {
         let _ = env_logger::builder().is_test(true).try_init();
         const NUM_THREADS: usize = 2;

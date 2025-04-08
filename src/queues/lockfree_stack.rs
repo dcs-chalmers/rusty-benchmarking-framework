@@ -1,5 +1,4 @@
-// now get to work jam
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 pub struct LockfreeStack<T>{
     pub lfs: lockfree::stack::Stack<T>
 }

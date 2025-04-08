@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicPtr as RawAtomicPtr, AtomicUsize, Ordering};
 use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
 use log::trace;
 
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 
 const SEGMENT_SIZE: usize = 1024;
 

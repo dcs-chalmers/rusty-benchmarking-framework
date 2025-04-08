@@ -1,4 +1,4 @@
-use crate::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 use crossbeam::queue::ArrayQueue;
 
 pub struct AQueueHandle<'a, T>{

@@ -1,4 +1,4 @@
-use crate:: {ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, Handle};
 use std::sync::Mutex;
 
 pub struct BRingBuffer<T> {
