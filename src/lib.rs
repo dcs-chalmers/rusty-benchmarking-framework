@@ -21,7 +21,6 @@ use crate::traits::{ConcurrentQueue, Handle};
 pub mod benchmarks;
 pub mod order;
 pub mod queues;
-pub mod graph;
 pub mod arguments;
 pub mod traits;
 
