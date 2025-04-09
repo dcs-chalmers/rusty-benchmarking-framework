@@ -1,6 +1,6 @@
 
 use crate::{benchmarks::BenchConfig, traits::{ConcurrentQueue, Handle}, arguments::Benchmarks};
-use std::sync::{atomic::{AtomicUsize, Ordering}, Barrier};
+use std::{sync::{atomic::{AtomicUsize, Ordering}, Barrier}, usize};
 use log::{error, debug};
 use std::fs;
 
@@ -30,22 +30,24 @@ C: ConcurrentQueue<usize>,
         }
     }
     debug!("Starting parallell BFS now");
-    for _ in 0..10 {
-
-        let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, &graph, node_amount, curr, thread_count);
-        println!("Graph traversal done. Took {:?}.", dur_par);
-    }
-    // let seq_ret_vec = sequential_bfs();
-    // for (i, node) in par_ret_vec.iter().enumerate() {
-    //     if *node != seq_ret_vec[i] {
-    //         error!("Parallell BFS solution arrived at wrong answer.");
-    //         break;
-    //     }
+    // for _ in 0..10 {
+    //
     // }
+    let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, &graph, node_amount, curr, thread_count);
+    println!("Graph traversal done. Took {:?}.", dur_par);
+    debug!("Starting sequential BFS now");
+    let seq_ret_vec = sequential_bfs(&cqueue, &graph, node_amount, curr);
+    for (i, node) in par_ret_vec.iter().enumerate() {
+        debug!("{}:{} {}:{}",*node, i, seq_ret_vec[i], i);
+        if *node != seq_ret_vec[i] {
+            error!("Parallell BFS solution arrived at wrong answer.");
+            break;
+        }
+    }
     Ok(())
 }
 
-fn parallell_bfs <C> (cqueue: &C, graph: &Vec<Vec<usize>>, node_amount: usize, start_node: usize, thread_count: usize) -> (std::time::Duration, Vec<usize>)
+fn parallell_bfs <C> (cqueue: &C, graph: &[Vec<usize>], node_amount: usize, start_node: usize, thread_count: usize) -> (std::time::Duration, Vec<usize>)
 where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
@@ -56,8 +58,8 @@ C: ConcurrentQueue<usize>,
     let no_work_count: AtomicUsize = AtomicUsize::new(0);
     let barrier = Barrier::new(thread_count + 1);
     let scope_result = std::thread::scope(|s| -> Result<std::time::Duration, ()>{
-        let cqueue = cqueue;
-        let graph = graph;
+        // let cqueue = cqueue;
+        // let graph = graph;
         let idle_count = &idle_count;
         let no_work_count = &no_work_count;
         let barrier = &barrier;
@@ -94,11 +96,11 @@ C: ConcurrentQueue<usize>,
                         },
                         None => {
                             no_work_count.fetch_add(1, Ordering::Relaxed);
-                            while let None = handle.pop() {
-                                if no_work_count.load(Ordering::Relaxed) >= thread_count {
-                                    if should_terminate(idle_count, no_work_count, thread_count) {
-                                        return;
-                                    }
+                            while handle.pop().is_none() {
+                                if no_work_count.load(Ordering::Relaxed) >= thread_count
+                                    && should_terminate(idle_count, no_work_count, thread_count)
+                                {
+                                    return;
                                 }
                             }
                             no_work_count.fetch_sub(1, Ordering::Relaxed);
@@ -133,11 +135,38 @@ fn should_terminate(idle_count: &AtomicUsize, no_work_count: &AtomicUsize, threa
         std::hint::spin_loop();
     }
     idle_count.fetch_sub(1, Ordering::Relaxed);
-    return false;
+    false
 }
 
-fn sequential_bfs() -> Vec<usize> {
-    todo!()
+fn sequential_bfs<C>(cqueue: &C, graph: &[Vec<usize>], node_amount: usize, start_node: usize) -> Vec<usize> 
+where
+C: ConcurrentQueue<usize>,
+    for<'a> &'a C: Send
+{
+    let mut result_vector: Vec<usize> = (0..node_amount).map(|_| usize::MAX).collect();
+    debug!("Length of result vector: {}\tnode_amount: {node_amount}", result_vector.len());
+    let mut visited: std::collections::HashSet<usize> = std::collections::HashSet::new();
+    let mut q = cqueue.register();
+    result_vector[start_node] = 0;
+    if q.push(start_node).is_err() {
+        error!("Failed to start BFS, couldn't push start node");
+    }
+    while let Some(node) = q.pop() {
+        if !visited.contains(&node) {
+            let distance = result_vector[node];
+            for n in &graph[node] {
+                let n_distance = result_vector[*n];
+                if n_distance > distance + 1 {
+                    result_vector[*n] = distance + 1;
+                }
+                if q.push(*n).is_err() {
+                    error!("Failed to push in sequential BFS");
+                } 
+                visited.insert(*n);
+            }
+        }
+    }
+    result_vector
 }
 
 pub fn create_graph(graph_file: String, node_amount: usize) -> Result<Vec<Vec<usize>>, std::io::Error> {
