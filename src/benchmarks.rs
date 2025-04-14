@@ -597,13 +597,13 @@ impl BenchConfig {
         }
         None
     }
-    #[cfg(feature = "bfs")]
-    fn get_node_amount(&self) -> Option<usize> {
-        if let Benchmarks::BFS(s) = &self.args.benchmark {
-            return Some(s.node_amount);
-        }
-        None
-    }
+    // #[cfg(feature = "bfs")]
+    // fn get_node_amount(&self) -> Option<usize> {
+    //     if let Benchmarks::BFS(s) = &self.args.benchmark {
+    //         return Some(s.node_amount);
+    //     }
+    //     None
+    // }
 }
 
 #[cfg(feature = "tests_benchmark")]

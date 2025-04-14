@@ -14,6 +14,9 @@ impl<T> BQueue<T> {
         let mut q = self.basic_queue.lock().unwrap();
         q.push_back(item);
     }
+    pub fn is_empty(&self) -> bool {
+        self.basic_queue.lock().unwrap().len() == 0
+    }
     pub fn new() -> Self {
         BQueue {
             basic_queue: Mutex::new(VecDeque::new()),
@@ -58,6 +61,9 @@ impl<T> Handle<T> for BasicQueueHandle<'_, T> {
     }
     fn pop(&mut self) -> Option<T> {
         self.queue.bqueue.pop()
+    }
+    fn is_empty(&self) -> bool {
+       self.queue.bqueue.is_empty()
     }
 }
 

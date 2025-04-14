@@ -35,7 +35,7 @@ cc = {version = "1.0", optional = true}
 
 
 [features]
-default = ["log/release_max_level_info", "dep:env_logger", "bfs"]
+default = ["log/release_max_level_info", "dep:env_logger"]
 bfs = ["dep:dashmap"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
@@ -89,7 +89,7 @@ all_queues = [
     "lprq",
     "seg_queue",
     "tz_queue_hp",
-    "faa_array_queue"
+    "faa_array_queue",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

@@ -80,8 +80,6 @@ pub struct BFSArgs {
     pub thread_count: usize,
     #[arg(short, long)]
     pub graph_file: String,
-    #[arg(short, long)]
-    pub node_amount: usize,
 }
 /// This is used to write the benchmark type to the output.
 /// That is why the arguments are discarded.
