@@ -16,6 +16,7 @@ use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::Write;
 use crate::arguments::Benchmarks;
+#[allow(unused_imports)]
 use crate::traits::{ConcurrentQueue, Handle};
 
 pub mod benchmarks;
@@ -52,7 +53,15 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         benchmark_id,
         output_filename,
     };
-    let columns = "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness";
+    let columns = match bench_conf.args.benchmark {
+        #[cfg(feature = "bfs")]
+        Benchmarks::BFS(_) => {
+            "Milliseconds,Queuetype"
+        },
+        _ => {
+            "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness"
+        }
+    };
     if bench_conf.args.write_to_stdout {
         println!("{columns}")
     } else {

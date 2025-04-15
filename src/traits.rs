@@ -17,6 +17,4 @@ pub trait Handle<T> {
     fn push(&mut self, item: T) -> Result<(), T>;
     /// Pops an item from the queue.
     fn pop(&mut self) -> Option<T>;
-    #[cfg(feature = "bfs")]
-    fn is_empty(&self) -> bool;
 }

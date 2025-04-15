@@ -1,24 +1,23 @@
 
 use crate::{benchmarks::BenchConfig, traits::{ConcurrentQueue, Handle}, arguments::Benchmarks};
 use std::sync::{atomic::{AtomicUsize, Ordering}, Barrier};
-use log::{debug, error, trace};
-use std::fs;
+use log::{debug, error, info, trace};
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
-/*
-arr[]
-dist_to_start_node 
-*/
-pub fn benchmark_bfs<C> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+
+/// Generates the graph, generates the sequential solution and gets which
+/// node to start at.
+pub fn pre_bfs_work<C>(cqueue: C, bench_conf: &BenchConfig)
+    -> (Vec<Vec<usize>>, Vec<usize>, usize)
 where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
-    assert!(matches!(bench_conf.args.benchmark, Benchmarks::BFS(_)));
-    debug!("Loading graph now.");
+    info!("Loading graph now...");
     let graph = create_graph(
         bench_conf.get_graph_filename().unwrap(),
     ).unwrap();
-    let thread_count = bench_conf.get_thread_count().unwrap();
     let mut biggest = 0;
     let mut curr = 0;
     for (i, edge) in graph.iter().enumerate() {
@@ -27,21 +26,43 @@ C: ConcurrentQueue<usize>,
             curr = i;
         }
     }
+    info!("Generating correct solution...");
     debug!("Start node is: {curr}");
-    println!("Starting parallell BFS now");
-    let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, &graph, curr, thread_count);
-    println!("Graph traversal done. Took {:?}.", dur_par);
+    let seq_ret_vec = sequential_bfs(cqueue, &graph, curr);
+    (graph, seq_ret_vec, curr)
+}
+
+/*
+arr[]
+dist_to_start_node 
+*/
+pub fn benchmark_bfs<C> (
+    cqueue: C,
+    graph: &[Vec<usize>],
+    bench_conf: &BenchConfig,
+    seq_ret_vec: &[usize],
+    start_node: usize,
+    ) -> Result<(), std::io::Error>
+where
+C: ConcurrentQueue<usize>,
+    for<'a> &'a C: Send
+{
+    assert!(matches!(bench_conf.args.benchmark, Benchmarks::BFS(_)));
+    let thread_count = bench_conf.get_thread_count().unwrap();
+    let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, graph, start_node, thread_count);
+    debug!("Graph traversal done. Took {:?}.", dur_par);
     debug!("Starting sequential BFS now");
-    println!("Checking solution...");
-    let seq_ret_vec = sequential_bfs(&cqueue, &graph, curr);
     for (i, node) in par_ret_vec.iter().enumerate() {
-        debug!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
+        trace!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
         if *node != seq_ret_vec[i] {
             error!("Parallell BFS solution arrived at wrong answer.");
             return Ok(());
         }
     }
-    println!("Solution looks good.");
+    debug!("Solution looks good.");
+    if bench_conf.args.write_to_stdout {
+        println!("{}", dur_par.as_millis());
+    }
     Ok(())
 }
 
@@ -84,7 +105,8 @@ C: ConcurrentQueue<usize>,
                     i,
                     no_work_count,
                     idle_count,
-                    thread_count);
+                    thread_count
+                );
             }));
         }
         barrier.wait();
@@ -100,22 +122,27 @@ C: ConcurrentQueue<usize>,
         .iter()
         .map(|val| val.load(Ordering::Relaxed))
         .collect();
-    debug!("Parallell sol: {:?}", ret_vec);
+    trace!("Parallell sol: {:?}", ret_vec);
     (duration, ret_vec)
 }
 
 fn pbfs_helper(
     mut handle: impl Handle<usize>,
-    result_vector: &Vec<AtomicUsize>,
+    result_vector: &[AtomicUsize],
     graph: &[Vec<usize>],
     i: usize,
     no_work_count: &AtomicUsize,
     idle_count: &AtomicUsize,
     thread_count: usize) 
 {
+    let mut next = None;
     loop {
-        match handle.pop() {
+        if next.is_none() {
+            next = handle.pop();
+        }
+        match next {
             Some(node) => {
+                next = None;
                 trace!("Thread: {i}; Acquired node {node}");
                 let distance = result_vector[node].load(Ordering::SeqCst);
                 for neighbour in &graph[node] {
@@ -146,7 +173,9 @@ fn pbfs_helper(
             None => {
                 trace!("Thread: {i}; Did not acquire any work");
                 no_work_count.fetch_add(1, Ordering::Relaxed);
-                while handle.is_empty() {
+                loop {
+                    next = handle.pop();
+                    if next.is_some() { break; }
                     if no_work_count.load(Ordering::Relaxed) >= thread_count
                         && should_terminate(idle_count, no_work_count, thread_count)
                     {
@@ -172,7 +201,7 @@ fn should_terminate(idle_count: &AtomicUsize, no_work_count: &AtomicUsize, threa
     false
 }
 
-fn sequential_bfs<C>(cqueue: &C, graph: &[Vec<usize>], start_node: usize) -> Vec<usize> 
+fn sequential_bfs<C>(cqueue: C, graph: &[Vec<usize>], start_node: usize) -> Vec<usize> 
 where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
@@ -200,25 +229,36 @@ C: ConcurrentQueue<usize>,
             visited.insert(*n);
         }
     }
-    debug!("Sequential sol: {:?}", result_vector);
+    trace!("Sequential sol: {:?}", result_vector);
     result_vector
 }
 
 pub fn create_graph(graph_file: String) -> Result<Vec<Vec<usize>>, std::io::Error> {
-    let graph_contents = fs::read_to_string(graph_file)?;
-    let edges: Vec<Vec<usize>> = graph_contents.lines()
-        .filter(|line| !line.starts_with('%'))
-        .map(|line| {
-                line.split(" ")
-                    .map(|n| n.parse::<usize>().expect("File populated with non-integers"))
-                    .collect::<Vec<usize>>()
-        }).collect();
+    let file = File::open(graph_file)?;
+    let reader = BufReader::new(file);
+    
+    let mut edges = Vec::new();
+    for line in reader.lines() {
+        let line = line?;
+        if line.starts_with('%') {
+            continue;
+        }
+        
+        let edge: Vec<usize> = line.split(' ')
+            .map(|n| n.parse::<usize>().expect("File populated with non-integers"))
+            .collect();
+        
+        edges.push(edge);
+    }
+    
     let size = edges[0][0] + 1; // in case graph is not zero-indexed.
     let mut graph: Vec<Vec<usize>> = vec![Vec::new(); size];
+    
     for edge in edges.iter().skip(1) {
         let src = edge[0];
         let dst = edge[1];
-        graph[src].push(dst); 
+        graph[src].push(dst);
     }
+    
     Ok(graph)
 }

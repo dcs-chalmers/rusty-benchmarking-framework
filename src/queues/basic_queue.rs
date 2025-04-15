@@ -62,9 +62,6 @@ impl<T> Handle<T> for BasicQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.queue.bqueue.pop()
     }
-    fn is_empty(&self) -> bool {
-       self.queue.bqueue.is_empty()
-    }
 }
 
 

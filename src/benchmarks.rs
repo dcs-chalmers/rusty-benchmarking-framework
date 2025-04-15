@@ -22,6 +22,7 @@ impl BenchConfig {
     pub fn get_thread_count(&self) -> Option<usize> {
         match &self.args.benchmark {
             Benchmarks::PingPong(s)=> Some(s.thread_count),
+            Benchmarks::BFS(s) => Some(s.thread_count),
             _ => None,
         }  
     }
@@ -44,7 +45,7 @@ impl BenchConfig {
         None
     }
     #[cfg(feature = "bfs")]
-    fn get_graph_filename(&self) -> Option<String> {
+    pub fn get_graph_filename(&self) -> Option<String> {
         if let Benchmarks::BFS(s) = &self.args.benchmark {
             return Some(s.graph_file.clone());
         }
@@ -62,11 +63,15 @@ macro_rules! implement_benchmark {
     ($feature:literal, $wrapper:ty, $bench_conf:expr) => {
         #[cfg(feature = $feature)]
         {
+            #[cfg(feature = "bfs")]
+            let (graph, seq_ret_vec, start_node) = 
+                $crate::benchmarks::bfs::pre_bfs_work(
+                    <$wrapper>::new($bench_conf.args.queue_size as usize),
+                    $bench_conf,
+                );
             for _current_iteration in 0..$bench_conf.args.iterations {
                 // Create the queue.
                 let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
-                let queue_type = test_q.get_id();
-                log::info!("Running benchmark on: {}", queue_type);
                 {
                     debug!("Prefilling queue with {} items.", $bench_conf.args.prefill_amount);
                     let mut tmp_handle = test_q.register();
@@ -93,7 +98,8 @@ macro_rules! implement_benchmark {
                     let benchmark_id = $bench_conf.benchmark_id.clone();
                     let bench_type = format!("{}", $bench_conf.args.benchmark);
                     let to_stdout = $bench_conf.args.write_to_stdout;
-                    
+                    let queue_type = test_q.get_id();
+
                     // Create file if printing to stdout is disabled
                     let top_line = "Memory Allocated,Queuetype,Benchmark,Test ID,Iteration";
                     let mut memfile = if !to_stdout {
@@ -144,19 +150,13 @@ macro_rules! implement_benchmark {
                     Benchmarks::PingPong(_)  => $crate::benchmarks::ping_pong::benchmark_ping_pong(test_q, $bench_conf)?,
                     #[cfg(feature = "bfs")]
                     Benchmarks::BFS(_)       => {
-                        // HACK: Temporary hack to not have to load the adjacency matrix each
-                        // iteration.
-                        $crate::benchmarks::bfs::benchmark_bfs(test_q, $bench_conf)?;
-                        #[cfg(feature = "memory_tracking")]
-                        {
-                            use std::sync::atomic::Ordering;
-                            
-                            _done.store(true, Ordering::Relaxed);
-                            if let Err(e) = mem_thread_handle.join().unwrap() {
-                                log::error!("Couldnt join memory tracking thread: {}", e);
-                            }
-                        }
-                        break;
+                        $crate::benchmarks::bfs::benchmark_bfs(
+                            test_q,
+                            &graph,
+                            $bench_conf,
+                            &seq_ret_vec,
+                            start_node
+                            )?
                     },
                 }
 
