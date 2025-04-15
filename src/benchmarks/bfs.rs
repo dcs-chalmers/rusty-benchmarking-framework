@@ -43,17 +43,28 @@ C: ConcurrentQueue<usize>,
     Ok(())
 }
 
-fn parallell_bfs <C> (cqueue: &C, graph: &[Vec<usize>], start_node: usize, thread_count: usize) -> (std::time::Duration, Vec<usize>)
+fn parallell_bfs <C> (
+    cqueue: &C,
+    graph: &[Vec<usize>],
+    start_node: usize,
+    thread_count: usize)
+-> (std::time::Duration, Vec<usize>)
 where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
-    let result_vector: Vec<AtomicUsize> = (0..graph.len()).map(|_| AtomicUsize::new(usize::MAX)).collect();
+
+    let result_vector: Vec<AtomicUsize> = 
+        (0..graph.len()).map(|_| AtomicUsize::new(usize::MAX)).collect();
+
+    // Set distance of first node
     result_vector[start_node].store(0, Ordering::Relaxed);
+
     let idle_count: AtomicUsize = AtomicUsize::new(0);
     let no_work_count: AtomicUsize = AtomicUsize::new(0);
     let barrier = Barrier::new(thread_count + 1);
     let _ = cqueue.register().push(start_node);
+
     let scope_result = std::thread::scope(|s| -> Result<std::time::Duration, ()>{
         let idle_count = &idle_count;
         let no_work_count = &no_work_count;
@@ -62,51 +73,16 @@ C: ConcurrentQueue<usize>,
         let mut handles = vec![];
         for i in 0..thread_count {
             handles.push(s.spawn(move|| {
-                let mut handle = cqueue.register();
+                let handle = cqueue.register();
                 barrier.wait();
-                loop {
-                    match handle.pop() {
-                        Some(node) => {
-                            trace!("Thread: {i}; Acquired node {node}");
-                            let distance = result_vector[node].load(Ordering::SeqCst);
-                            for neighbour in &graph[node] {
-                                let mut n_distance = result_vector[*neighbour].load(Ordering::SeqCst);
-                                while distance + 1 < n_distance {
-                                    if result_vector[*neighbour].compare_exchange_weak(
-                                        n_distance,
-                                        distance + 1,
-                                        Ordering::SeqCst,
-                                        Ordering::SeqCst)
-                                        .is_ok() {
-                                            match handle.push(*neighbour) {
-                                                Err(e) => {
-                                                    error!("Failed to push to queue: {e}");
-                                                    continue;
-                                                },
-                                                Ok(_) => {
-                                                    trace!("Thread: {i}; Pushed {}", *neighbour);
-                                                    break;
-                                                },
-                                            }
-                                    }
-                                    n_distance = result_vector[*neighbour].load(Ordering::SeqCst);
-                                }
-                            }
-                        },
-                        None => {
-                            trace!("Thread: {i}; Did not acquire any work");
-                            no_work_count.fetch_add(1, Ordering::Relaxed);
-                            while handle.is_empty() {
-                                if no_work_count.load(Ordering::Relaxed) >= thread_count
-                                    && should_terminate(idle_count, no_work_count, thread_count)
-                                {
-                                    return;
-                                }
-                            }
-                            no_work_count.fetch_sub(1, Ordering::Relaxed);
-                        }
-                    }
-                }
+                pbfs_helper(
+                    handle,
+                    result_vector,
+                    graph,
+                    i,
+                    no_work_count,
+                    idle_count,
+                    thread_count);
             }));
         }
         barrier.wait();
@@ -126,11 +102,65 @@ C: ConcurrentQueue<usize>,
     (duration, ret_vec)
 }
 
+fn pbfs_helper(
+    mut handle: impl Handle<usize>,
+    result_vector: &Vec<AtomicUsize>,
+    graph: &[Vec<usize>],
+    i: usize,
+    no_work_count: &AtomicUsize,
+    idle_count: &AtomicUsize,
+    thread_count: usize) 
+{
+    loop {
+        match handle.pop() {
+            Some(node) => {
+                trace!("Thread: {i}; Acquired node {node}");
+                let distance = result_vector[node].load(Ordering::SeqCst);
+                for neighbour in &graph[node] {
+                    let mut n_distance = result_vector[*neighbour].load(Ordering::SeqCst);
+                    while distance + 1 < n_distance {
+                        if result_vector[*neighbour].compare_exchange_weak(
+                            n_distance,
+                            distance + 1,
+                            Ordering::SeqCst,
+                            Ordering::SeqCst)
+                            .is_ok() 
+                        {
+                            match handle.push(*neighbour) {
+                                Err(e) => {
+                                    error!("Failed to push to queue: {e}");
+                                    continue;
+                                },
+                                Ok(_) => {
+                                    trace!("Thread: {i}; Pushed {}", *neighbour);
+                                    break;
+                                },
+                            }
+                        }
+                        n_distance = result_vector[*neighbour].load(Ordering::SeqCst);
+                    }
+                }
+            },
+            None => {
+                trace!("Thread: {i}; Did not acquire any work");
+                no_work_count.fetch_add(1, Ordering::Relaxed);
+                while handle.is_empty() {
+                    if no_work_count.load(Ordering::Relaxed) >= thread_count
+                        && should_terminate(idle_count, no_work_count, thread_count)
+                    {
+                        return;
+                    }
+                }
+                no_work_count.fetch_sub(1, Ordering::Relaxed);
+            }
+        }
+    }
+}
+
 fn should_terminate(idle_count: &AtomicUsize, no_work_count: &AtomicUsize, thread_count: usize) -> bool {
     idle_count.fetch_add(1, Ordering::Relaxed);
     while no_work_count.load(Ordering::Relaxed) >= thread_count {
         if idle_count.load(Ordering::Relaxed) >= thread_count {
-            trace!("no_work_count: {}; idle_count: {}", no_work_count.load(Ordering::Relaxed), idle_count.load(Ordering::Relaxed));
             return true;
         }
         //PAUSE? no-op
