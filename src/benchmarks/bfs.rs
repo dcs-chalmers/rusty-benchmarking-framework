@@ -28,18 +28,20 @@ C: ConcurrentQueue<usize>,
         }
     }
     debug!("Start node is: {curr}");
-    debug!("Starting parallell BFS now");
+    println!("Starting parallell BFS now");
     let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, &graph, curr, thread_count);
     println!("Graph traversal done. Took {:?}.", dur_par);
     debug!("Starting sequential BFS now");
+    println!("Checking solution...");
     let seq_ret_vec = sequential_bfs(&cqueue, &graph, curr);
     for (i, node) in par_ret_vec.iter().enumerate() {
         debug!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
         if *node != seq_ret_vec[i] {
             error!("Parallell BFS solution arrived at wrong answer.");
-            break;
+            return Ok(());
         }
     }
+    println!("Solution looks good.");
     Ok(())
 }
 
