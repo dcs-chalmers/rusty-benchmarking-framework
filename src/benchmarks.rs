@@ -22,6 +22,7 @@ impl BenchConfig {
     pub fn get_thread_count(&self) -> Option<usize> {
         match &self.args.benchmark {
             Benchmarks::PingPong(s)=> Some(s.thread_count),
+            #[cfg(feature = "bfs")]
             Benchmarks::BFS(s) => Some(s.thread_count),
             _ => None,
         }  
