@@ -1,5 +1,5 @@
 use core_affinity::CoreId;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use rand::Rng;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use crate::{traits::{ConcurrentQueue, Handle}, benchmarks::{calc_fairness, BenchConfig}};
@@ -24,6 +24,13 @@ T: Default,
         crate::arguments::Benchmarks::PingPong(a) => a,
         _ => panic!(),
     };
+    {
+        debug!("Prefilling queue with {} items.", bench_conf.args.prefill_amount);
+        let mut tmp_handle = cqueue.register();
+        for _ in 0..bench_conf.args.prefill_amount {
+            let _ = tmp_handle.push(Default::default());
+        } 
+    }
     let thread_count = args.thread_count;
     let time_limit: u64 = bench_conf.args.time_limit;
     let barrier = Barrier::new(thread_count + 1);

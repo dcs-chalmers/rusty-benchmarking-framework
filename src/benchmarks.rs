@@ -42,13 +42,6 @@ macro_rules! implement_benchmark {
             for _current_iteration in 0..$bench_conf.args.iterations {
                 // Create the queue.
                 let test_q: $wrapper = <$wrapper>::new($bench_conf.args.queue_size as usize);
-                {
-                    debug!("Prefilling queue with {} items.", $bench_conf.args.prefill_amount);
-                    let mut tmp_handle = test_q.register();
-                    for _ in 0..$bench_conf.args.prefill_amount {
-                        tmp_handle.push(Default::default()).expect("Queue size too small");
-                    } 
-                }
 //////////////////////////////////////// MEMORY TRACKING ///////////////////////////
                 #[cfg(feature = "memory_tracking")]
                 let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
