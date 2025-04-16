@@ -1,8 +1,12 @@
+#[cfg(feature = "memory_tracking")]
+use jemalloc_ctl::{epoch, stats};
 use log::{debug, error, trace};
 #[allow(unused_imports)]
 use crate::arguments::{Args, Benchmarks};
+use crate::traits::ConcurrentQueue;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::atomic::AtomicBool;
 use sysinfo::System;
 
 pub mod throughput;
@@ -49,66 +53,12 @@ macro_rules! implement_benchmark {
                 #[cfg(feature = "memory_tracking")]
                 let _done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
                 #[cfg(feature = "memory_tracking")]
-                let mem_thread_handle: std::thread::JoinHandle<_>;
-                #[cfg(feature = "memory_tracking")]
-                {
-                    use std::sync::atomic::Ordering;
-                    // TODO: Check if core stuff is possible here as well.
-                    // let mut core : CoreId = core_iter.next().unwrap();
-                    // if is_one_socket is true, make all thread ids even 
-                    // (this was used for our testing enviroment to get one socket)
-                    // if *is_one_socket {
-                    //     core = core_iter.next().unwrap();
-                    // }
-                    let _done = std::sync::Arc::clone(&_done);
-                    let benchmark_id = $bench_conf.benchmark_id.clone();
-                    let bench_type = format!("{}", $bench_conf.args.benchmark);
-                    let to_stdout = $bench_conf.args.write_to_stdout;
-                    let queue_type = test_q.get_id();
-
-                    // Create file if printing to stdout is disabled
-                    let top_line = "Memory Allocated,Queuetype,Benchmark,Test ID,Iteration";
-                    let mut memfile = if !to_stdout {
-                        let output_filename = format!("{}/mem{}", $bench_conf.args.path_output, $bench_conf.date_time);
-                        let mut file = OpenOptions::new()
-                            .append(true)
-                            .create(true)
-                            .open(&output_filename)?;
-                        if _current_iteration == 0 {
-                            writeln!(file, "{}", top_line)?;
-                        }
-                        Some(file)
-                    } else {
-                        if _current_iteration == 0 {
-                            println!("{}", top_line);
-                        }
-                        None
-                    };
-                    
-                    // Spawn thread to check total memory allocated every 50ms
-                    let interval = $bench_conf.args.memory_tracking_interval;
-                    debug!("Spawning memory thread.");
-                    mem_thread_handle = std::thread::spawn(move|| -> Result<(), std::io::Error>{
-                        while !_done.load(Ordering::Relaxed) {
-                            // Update stats
-                            if let Err(e) = epoch::advance() {
-                                eprintln!("Error occured while advancing epoch: {}", e);
-                            }
-                            // Get allocated bytes
-                            let allocated = stats::allocated::read().unwrap();
-
-                            let output = format!("{},{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id, _current_iteration);
-                            
-                            match &mut memfile {
-                                Some(file) => writeln!(file, "{}", output)?,
-                                None => println!("{}", output),
-                            }
-
-                            std::thread::sleep(std::time::Duration::from_millis(interval));
-                        }
-                        Ok(())
-                    });
-                }
+                let mem_thread_handle = $crate::benchmarks::create_mem_tracking_thread(
+                    $bench_conf,
+                    _current_iteration,
+                    &test_q,
+                    &_done
+                )?;
 ////////////////////////////////////////// MEMORY END //////////////////////////////
                 // Select which benchmark to use
                 match $bench_conf.args.benchmark {
@@ -146,6 +96,77 @@ macro_rules! implement_benchmark {
         }
     };
     
+}
+
+
+#[cfg(feature = "memory_tracking")]
+pub fn create_mem_tracking_thread<Q,T>(
+    bench_conf: &BenchConfig,
+    _current_iteration: u32,
+    test_q: &Q,
+    _done: &std::sync::Arc<AtomicBool>) 
+-> Result<std::thread::JoinHandle<Result<(), std::io::Error>>, std::io::Error>
+where
+    Q: ConcurrentQueue<T>
+{
+     
+    use std::sync::atomic::Ordering;
+    // TODO: Check if core stuff is possible here as well.
+    // let mut core : CoreId = core_iter.next().unwrap();
+    // if is_one_socket is true, make all thread ids even 
+    // (this was used for our testing enviroment to get one socket)
+    // if *is_one_socket {
+    //     core = core_iter.next().unwrap();
+    // }
+    let _done = std::sync::Arc::clone(&_done);
+    let benchmark_id = bench_conf.benchmark_id.clone();
+    let bench_type = format!("{}", bench_conf.args.benchmark);
+    let to_stdout = bench_conf.args.write_to_stdout;
+    let queue_type = test_q.get_id();
+
+    // Create file if printing to stdout is disabled
+    let top_line = "Memory Allocated,Queuetype,Benchmark,Test ID,Iteration";
+    let mut memfile = if !to_stdout {
+        let output_filename = format!("{}/mem{}", bench_conf.args.path_output, bench_conf.date_time);
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&output_filename)?;
+        if _current_iteration == 0 {
+            writeln!(file, "{}", top_line)?;
+        }
+        Some(file)
+    } else {
+        if _current_iteration == 0 {
+            println!("{}", top_line);
+        }
+        None
+    };
+    
+    // Spawn thread to check total memory allocated every 50ms
+    let interval = bench_conf.args.memory_tracking_interval;
+    debug!("Spawning memory thread.");
+    Ok(std::thread::spawn(move|| -> Result<(), std::io::Error>{
+        while !_done.load(Ordering::Relaxed) {
+            // Update stats
+            if let Err(e) = epoch::advance() {
+                eprintln!("Error occured while advancing epoch: {}", e);
+            }
+            // Get allocated bytes
+            let allocated = stats::allocated::read().unwrap();
+
+            let output = format!("{},{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id, _current_iteration);
+            
+            match &mut memfile {
+                Some(file) => writeln!(file, "{}", output)?,
+                None => println!("{}", output),
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(interval));
+        }
+        Ok(())
+    }))
+                
 }
 
 /// Calculates the fairness based on paper: 

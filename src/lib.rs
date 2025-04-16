@@ -1,5 +1,3 @@
-#[cfg(feature = "memory_tracking")]
-use jemalloc_ctl::{epoch, stats};
 #[cfg(not(target_os = "windows"))]
 use jemallocator::Jemalloc;
 
