@@ -1,9 +1,8 @@
-
 use crate::{benchmarks::BenchConfig, traits::{ConcurrentQueue, Handle}, arguments::Benchmarks};
-use std::sync::{atomic::{AtomicUsize, Ordering}, Barrier};
+use std::{fs::OpenOptions, sync::{atomic::{AtomicUsize, Ordering}, Barrier}};
 use log::{debug, error, info, trace};
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 
 
 /// Generates the graph, generates the sequential solution and gets which
@@ -18,6 +17,7 @@ C: ConcurrentQueue<usize>,
     let graph = create_graph(
         bench_conf.get_graph_filename().unwrap(),
     ).unwrap();
+    // Find start node. Currently finds node with most neighbours.
     let mut biggest = 0;
     let mut curr = 0;
     for (i, edge) in graph.iter().enumerate() {
@@ -28,7 +28,12 @@ C: ConcurrentQueue<usize>,
     }
     info!("Generating correct solution...");
     debug!("Start node is: {curr}");
-    let seq_ret_vec = sequential_bfs(cqueue, &graph, curr);
+    
+    let seq_ret_vec = if !bench_conf.get_no_verify().unwrap() {
+        sequential_bfs(cqueue, &graph, curr)
+    } else {
+        vec![]
+    };
     (graph, seq_ret_vec, curr)
 }
 
@@ -36,6 +41,18 @@ C: ConcurrentQueue<usize>,
 arr[]
 dist_to_start_node 
 */
+
+/// Explanation:
+/// A benchmark to test how fast your data structure can complete a Breadth-First Search (BFS)
+/// and if it does so correctly.
+/// Need to send in your data structure and the graph you want to do bfs on (only .mtx files allowed).
+/// Benchmark specififc flags:
+/// * `--graph-file`                      The .mtx graph file you want to use in your bfs.
+/// * `--thread-count`        (OPTIONAL)  The amount of threads you want to have in your benchmark (if left out, standard 20).
+/// * `--no-verify`           (OPTIONAL)  Boolean to opt out of verifying the parallel benchmark results against the sequential (standard false).
+/// 
+///     Ex. run:
+///     cargo run -features data_structure,bfs -- bfs --graph-file graph.mtx 
 pub fn benchmark_bfs<C> (
     cqueue: C,
     graph: &[Vec<usize>],
@@ -48,21 +65,40 @@ C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
     assert!(matches!(bench_conf.args.benchmark, Benchmarks::BFS(_)));
+
     let thread_count = bench_conf.get_thread_count().unwrap();
+    debug!("Starting parallell BFS now");
     let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, graph, start_node, thread_count);
     debug!("Graph traversal done. Took {:?}.", dur_par);
-    debug!("Starting sequential BFS now");
-    for (i, node) in par_ret_vec.iter().enumerate() {
-        trace!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
-        if *node != seq_ret_vec[i] {
-            error!("Parallell BFS solution arrived at wrong answer.");
-            return Ok(());
+
+    if bench_conf.get_no_verify().unwrap(){
+        debug!("Comparing results to the sequential solution");
+        for (i, node) in par_ret_vec.iter().enumerate() {
+            trace!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
+            if *node != seq_ret_vec[i] {
+                error!("Parallell BFS solution arrived at wrong answer.");
+                return Ok(());
+            }
         }
+        debug!("Solution looks good.");
     }
-    debug!("Solution looks good.");
-    if bench_conf.args.write_to_stdout {
-        println!("{}", dur_par.as_millis());
-    }
+    let formatted = format!("{},{},{},{}",
+            dur_par.as_millis(),
+            cqueue.get_id(),
+            bench_conf.get_thread_count().unwrap(),
+            bench_conf.benchmark_id);
+    if !bench_conf.args.write_to_stdout {
+        let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&bench_conf.output_filename)?;
+
+        writeln!(file, "{}", formatted)?;
+
+    } else {
+        println!("{}", formatted);
+    }  
+
     Ok(())
 }
 
@@ -86,6 +122,7 @@ C: ConcurrentQueue<usize>,
     let idle_count: AtomicUsize = AtomicUsize::new(0);
     let no_work_count: AtomicUsize = AtomicUsize::new(0);
     let barrier = Barrier::new(thread_count + 1);
+    // Add start node to queue
     let _ = cqueue.register().push(start_node);
 
     let scope_result = std::thread::scope(|s| -> Result<std::time::Duration, ()>{
@@ -96,8 +133,11 @@ C: ConcurrentQueue<usize>,
         let mut handles = vec![];
         for i in 0..thread_count {
             handles.push(s.spawn(move|| {
+                // Register queue
                 let handle = cqueue.register();
+                // Wait for other queues
                 barrier.wait();
+                // Start BFS
                 pbfs_helper(
                     handle,
                     result_vector,
@@ -262,3 +302,5 @@ pub fn create_graph(graph_file: String) -> Result<Vec<Vec<usize>>, std::io::Erro
     
     Ok(graph)
 }
+// Milliseconds,Queuetype,Thread Count,Test ID
+

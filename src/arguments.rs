@@ -80,6 +80,8 @@ pub struct BFSArgs {
     pub thread_count: usize,
     #[arg(short, long)]
     pub graph_file: String,
+    #[arg(short, long, default_value_t = false)]
+    pub no_verify: bool,
 }
 /// This is used to write the benchmark type to the output.
 /// That is why the arguments are discarded.

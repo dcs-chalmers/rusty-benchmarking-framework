@@ -52,6 +52,13 @@ impl BenchConfig {
         }
         None
     }
+    #[cfg(feature = "bfs")]
+    pub fn get_no_verify(&self) -> Option<bool> {
+        if let Benchmarks::BFS(s) = &self.args.benchmark {
+            return Some(s.no_verify);
+        }
+        None
+    }
 }
 
 /// # Explanation:

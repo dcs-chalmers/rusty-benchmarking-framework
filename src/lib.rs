@@ -56,7 +56,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     let columns = match bench_conf.args.benchmark {
         #[cfg(feature = "bfs")]
         Benchmarks::BFS(_) => {
-            "Milliseconds,Queuetype"
+            "Milliseconds,Queuetype,Thread Count,Test ID"
         },
         _ => {
             "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness"
