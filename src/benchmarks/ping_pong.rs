@@ -20,9 +20,11 @@ C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
-    let thread_count = bench_conf
-        .get_thread_count()
-        .expect("Should not get here if Benchmark != PingPong");
+    let args = match &bench_conf.args.benchmark {
+        crate::arguments::Benchmarks::PingPong(a) => a,
+        _ => panic!(),
+    };
+    let thread_count = args.thread_count;
     let time_limit: u64 = bench_conf.args.time_limit;
     let barrier = Barrier::new(thread_count + 1);
     let pops  = AtomicUsize::new(0);
@@ -36,7 +38,7 @@ T: Default,
     // Get cores for fairness of threads
     let available_cores: Vec<CoreId> =
         core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
-        let mut core_iter = available_cores.into_iter().cycle();
+    let mut core_iter = available_cores.into_iter().cycle();
 
     // Shared atomic bool for when a thread fails
     let thread_failed = Arc::new(AtomicBool::new(false));
@@ -50,9 +52,7 @@ T: Default,
         let done = &done;
         let barrier = &barrier;
         let &thread_count = &thread_count; 
-        let &spread = &bench_conf
-            .get_spread()
-            .expect("Should not get here if Benchmark != PingPong");
+        let &spread = &args.spread;
         let is_one_socket = &bench_conf.args.one_socket;
         let tx = &tx;
         for _i in 0..thread_count{

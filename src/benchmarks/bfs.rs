@@ -1,5 +1,6 @@
 use crate::{benchmarks::BenchConfig, traits::{ConcurrentQueue, Handle}, arguments::Benchmarks};
 use std::{fs::OpenOptions, sync::{atomic::{AtomicUsize, Ordering}, Barrier}};
+use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -13,9 +14,13 @@ where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
+    let args = match &bench_conf.args.benchmark {
+        crate::arguments::Benchmarks::BFS(a) => a,
+        _ => panic!(),
+    };
     info!("Loading graph now...");
     let graph = create_graph(
-        bench_conf.get_graph_filename().unwrap(),
+        args.graph_file.clone(),
     ).unwrap();
     // Find start node. Currently finds node with most neighbours.
     let mut biggest = 0;
@@ -29,7 +34,7 @@ C: ConcurrentQueue<usize>,
     info!("Generating correct solution...");
     debug!("Start node is: {curr}");
     
-    let seq_ret_vec = if !bench_conf.get_no_verify().unwrap() {
+    let seq_ret_vec = if !args.no_verify {
         sequential_bfs(cqueue, &graph, curr)
     } else {
         vec![]
@@ -65,13 +70,16 @@ C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
     assert!(matches!(bench_conf.args.benchmark, Benchmarks::BFS(_)));
-
-    let thread_count = bench_conf.get_thread_count().unwrap();
+    let args = match &bench_conf.args.benchmark {
+        crate::arguments::Benchmarks::BFS(a) => a,
+        _ => panic!(),
+    };
+    let thread_count = args.thread_count;
     debug!("Starting parallell BFS now");
-    let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, graph, start_node, thread_count);
+    let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, graph, start_node, thread_count, bench_conf);
     debug!("Graph traversal done. Took {:?}.", dur_par);
 
-    if bench_conf.get_no_verify().unwrap(){
+    if args.no_verify {
         debug!("Comparing results to the sequential solution");
         for (i, node) in par_ret_vec.iter().enumerate() {
             trace!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
@@ -85,7 +93,7 @@ C: ConcurrentQueue<usize>,
     let formatted = format!("{},{},{},{}",
             dur_par.as_millis(),
             cqueue.get_id(),
-            bench_conf.get_thread_count().unwrap(),
+            args.thread_count,
             bench_conf.benchmark_id);
     if !bench_conf.args.write_to_stdout {
         let mut file = OpenOptions::new()
@@ -106,7 +114,8 @@ fn parallell_bfs <C> (
     cqueue: &C,
     graph: &[Vec<usize>],
     start_node: usize,
-    thread_count: usize)
+    thread_count: usize,
+    bench_conf: &BenchConfig)
 -> (std::time::Duration, Vec<usize>)
 where
 C: ConcurrentQueue<usize>,
@@ -125,29 +134,44 @@ C: ConcurrentQueue<usize>,
     // Add start node to queue
     let _ = cqueue.register().push(start_node);
 
+    // Get cores for fairness of threads
+    let available_cores: Vec<CoreId> =
+        core_affinity::get_core_ids().unwrap_or(vec![CoreId { id: 0 }]);
+    let mut core_iter = available_cores.into_iter().cycle();
+
     let scope_result = std::thread::scope(|s| -> Result<std::time::Duration, ()>{
         let idle_count = &idle_count;
         let no_work_count = &no_work_count;
         let barrier = &barrier;
         let result_vector = &result_vector;
         let mut handles = vec![];
+        let is_one_socket = &bench_conf.args.one_socket;
         for i in 0..thread_count {
-            handles.push(s.spawn(move|| {
-                // Register queue
-                let handle = cqueue.register();
-                // Wait for other queues
-                barrier.wait();
-                // Start BFS
-                pbfs_helper(
-                    handle,
-                    result_vector,
-                    graph,
-                    i,
-                    no_work_count,
-                    idle_count,
-                    thread_count
-                );
-            }));
+            handles.push({
+                let mut core : CoreId = core_iter.next().unwrap();
+                // if is_one_socket is true, make all thread ids even 
+                // (this was used for our testing enviroment to get one socket)
+                if *is_one_socket {
+                    core = core_iter.next().unwrap();
+                }
+                s.spawn(move|| {
+                    core_affinity::set_for_current(core);
+                    // Register queue
+                    let handle = cqueue.register();
+                    // Wait for other queues
+                    barrier.wait();
+                    // Start BFS
+                    pbfs_helper(
+                        handle,
+                        result_vector,
+                        graph,
+                        i,
+                        no_work_count,
+                        idle_count,
+                        thread_count
+                    );
+                })
+            });
         }
         barrier.wait();
         let start = std::time::Instant::now();

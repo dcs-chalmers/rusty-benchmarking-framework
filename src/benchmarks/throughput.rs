@@ -21,12 +21,12 @@ where
     T: Default,
     for<'a> &'a C: Send
 {
-    let producers = bench_conf
-        .get_producers()
-        .expect("Should not be able to get here if Benchmark != Basic");
-    let consumers = bench_conf
-        .get_consumers()
-        .expect("Should not be able to get here if Benchmark != Basic");
+    let args = match &bench_conf.args.benchmark {
+        crate::arguments::Benchmarks::Basic(a) => a,
+        _ => panic!(),
+    };
+    let producers = args.producers;
+    let consumers = args.consumers;
 
     let time_limit: u64 = bench_conf.args.time_limit;
     let barrier = Barrier::new(consumers + producers + 1);

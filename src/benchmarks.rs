@@ -1,4 +1,5 @@
 use log::{debug, error, trace};
+#[allow(unused_imports)]
 use crate::arguments::{Args, Benchmarks};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -16,49 +17,6 @@ pub struct BenchConfig {
     pub date_time: String,
     pub benchmark_id: String,
     pub output_filename: String,
-}
-
-impl BenchConfig {
-    pub fn get_thread_count(&self) -> Option<usize> {
-        match &self.args.benchmark {
-            Benchmarks::PingPong(s)=> Some(s.thread_count),
-            #[cfg(feature = "bfs")]
-            Benchmarks::BFS(s) => Some(s.thread_count),
-            _ => None,
-        }  
-    }
-    fn get_spread(&self) -> Option<f64> {
-        if let Benchmarks::PingPong(s) = &self.args.benchmark {
-            return Some(s.spread);
-        }
-        None
-    }
-    fn get_consumers(&self) -> Option<usize> {
-        if let Benchmarks::Basic(s) = &self.args.benchmark {
-            return Some(s.consumers);
-        }
-        None
-    }
-    fn get_producers(&self) -> Option<usize> {
-        if let Benchmarks::Basic(s) = &self.args.benchmark {
-            return Some(s.producers);
-        }
-        None
-    }
-    #[cfg(feature = "bfs")]
-    pub fn get_graph_filename(&self) -> Option<String> {
-        if let Benchmarks::BFS(s) = &self.args.benchmark {
-            return Some(s.graph_file.clone());
-        }
-        None
-    }
-    #[cfg(feature = "bfs")]
-    pub fn get_no_verify(&self) -> Option<bool> {
-        if let Benchmarks::BFS(s) = &self.args.benchmark {
-            return Some(s.no_verify);
-        }
-        None
-    }
 }
 
 /// # Explanation:
