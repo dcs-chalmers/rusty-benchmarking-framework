@@ -17,16 +17,17 @@ static MAX_THREADS: i32 = 512;
 
 
 // A safe Rust wrapper around the C bindings
-pub struct LCRQueue {
+pub struct LCRQueue<T> {
     raw: LCRQ,
     next_thread_id: AtomicI32,
+    phantom_data: std::marker::PhantomData<T>,
 }
 
-unsafe impl Send for LCRQueue {}
-unsafe impl Sync for LCRQueue {}
+unsafe impl<T> Send for LCRQueue<T> {}
+unsafe impl<T> Sync for LCRQueue<T> {}
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-impl LCRQueue {
+impl<T> LCRQueue<T> {
     
     pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
         let tid = self.get_thread_id();
@@ -54,41 +55,47 @@ impl LCRQueue {
             }
         })
     }
-    
+    fn new() -> Self {
+        THREAD_ID.with(|id| {
+            id.set(Some(0));
+        });
+        let raw = unsafe { lcrq_create(MAX_THREADS) };
+        Self { raw, next_thread_id: AtomicI32::new(1), phantom_data: std::marker::PhantomData}
+    } 
 }
 
-impl Drop for LCRQueue {
+impl<T> Drop for LCRQueue<T> {
     fn drop(&mut self) {
         unsafe { lcrq_destroy(self.raw) };
 
     }
 }
 
-struct LCRQHandle<'a> {
-    pub q: &'a LCRQueue
+struct LCRQHandle<'a, T> {
+    pub q: &'a LCRQueue<T>
 }
 
-impl Handle<Box<i32>> for LCRQHandle<'_> {
-    fn push(&mut self, item: Box<i32>) -> Result<(), Box<i32>> {
-        let ptr: *mut std::ffi::c_void = Box::<i32>::into_raw(item) as *mut std::ffi::c_void;
+impl<T> Handle<T> for LCRQHandle<'_, T> {
+    fn push(&mut self, item: T) -> Result<(), T> {
+        let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
         match self.q.push(ptr) {
             true => Ok(()),
             false => {
-                let reclaimed: Box<i32> = unsafe { Box::from_raw(ptr as *mut i32) };
-                Err(reclaimed)
+                let reclaimed: Box<T> = unsafe { Box::from_raw(ptr as *mut T) };
+                Err(*reclaimed)
             },
         }
     }
 
-    fn pop(&mut self) -> Option<Box<i32>> {
+    fn pop(&mut self) -> Option<T> {
         let res = self.q.pop()?;
-        let val = unsafe { Box::from_raw(res as *const i32 as *mut i32) };
-        Some(val)
+        let val = unsafe { Box::from_raw(res as *const T as *mut T) };
+        Some(*val)
     }
 }
 
-impl ConcurrentQueue<Box<i32>> for LCRQueue {
-    fn register(&self) -> impl crate::traits::Handle<Box<i32>> {
+impl<T> ConcurrentQueue<T> for LCRQueue<T> {
+    fn register(&self) -> impl Handle<T> {
         LCRQHandle {
             q: self,
         }
@@ -99,11 +106,7 @@ impl ConcurrentQueue<Box<i32>> for LCRQueue {
     }
 
     fn new(_capacity: usize) -> Self {
-        THREAD_ID.with(|id| {
-            id.set(Some(0));
-        });
-        let raw = unsafe { lcrq_create(MAX_THREADS) };
-        LCRQueue { raw, next_thread_id: AtomicI32::new(1) }
+        LCRQueue::new()
     }
 }
 
@@ -115,7 +118,7 @@ mod tests {
     #[test]
     fn create_lcrq() {
         println!("creating lcrq for creation test");
-        let q: LCRQueue = LCRQueue::new(1000);
+        let q: LCRQueue<i32> = LCRQueue::new();
         let _ = q.push(Box::<i32>::into_raw(Box::new(32)) as *mut std::ffi::c_void);
         let _ = q.push(Box::<i32>::into_raw(Box::new(33)) as *mut std::ffi::c_void);
         let _ = q.push(Box::<i32>::into_raw(Box::new(34)) as *mut std::ffi::c_void);
@@ -137,22 +140,22 @@ mod tests {
     #[test]
     fn register_lcrq() {
         println!("creating lcrq for register test");
-        let q: LCRQueue = LCRQueue::new(1000);
+        let q: LCRQueue<i32> = LCRQueue::new();
         let mut handle = q.register();
-        handle.push(Box::new(1)).unwrap();
-        handle.push(Box::new(2)).unwrap();
-        handle.push(Box::new(3)).unwrap();
-        handle.push(Box::new(4)).unwrap();
-        assert_eq!(*handle.pop().unwrap(), 1);
-        assert_eq!(*handle.pop().unwrap(), 2);
-        assert_eq!(*handle.pop().unwrap(), 3);
-        assert_eq!(*handle.pop().unwrap(), 4);
+        handle.push(1).unwrap();
+        handle.push(2).unwrap();
+        handle.push(3).unwrap();
+        handle.push(4).unwrap();
+        assert_eq!(handle.pop().unwrap(), 1);
+        assert_eq!(handle.pop().unwrap(), 2);
+        assert_eq!(handle.pop().unwrap(), 3);
+        assert_eq!(handle.pop().unwrap(), 4);
     }
     #[test]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: LCRQueue = LCRQueue::new(10);
-        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+        let q: LCRQueue<i32> = LCRQueue::new();
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }

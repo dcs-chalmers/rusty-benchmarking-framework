@@ -23,6 +23,7 @@ env_logger = { version = "0.11.6", optional = true }
 haphazard = { version = "0.1.8", optional = true }
 sysinfo = "0.33"
 bbq-rs = { version = "0.1.1", optional = true }
+dashmap = { version = "6.1.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 jemallocator = "0.5.4"
@@ -35,6 +36,7 @@ cc = {version = "1.0", optional = true}
 
 [features]
 default = ["log/release_max_level_info", "dep:env_logger"]
+bfs = ["dep:dashmap"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 bounded_concurrent_queue = ["dep:concurrent-queue"]
@@ -77,7 +79,6 @@ all_queues = [
     "scc_queue",
     "scc2_queue",
     "lf_queue",
-    "wfqueue",
     "scc_stack",
     "scc2_stack",
     "lockfree_stack",
@@ -88,7 +89,7 @@ all_queues = [
     "lprq",
     "seg_queue",
     "tz_queue_hp",
-    "faa_array_queue"
+    "faa_array_queue",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]

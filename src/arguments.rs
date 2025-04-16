@@ -51,6 +51,8 @@ pub enum Benchmarks {
     /// A test where each thread performs both consume and produce based on a random floating point
     /// value. Spread is decided using the `--spread` flag.
     PingPong(PingPongArgs),
+    #[cfg(feature = "bfs")]
+    BFS(BFSArgs),
 }
 
 #[derive(ClapArgs, Debug)]
@@ -72,7 +74,15 @@ pub struct PingPongArgs {
     #[arg(long = "spread", default_value_t = 0.5)]
     pub spread: f64,
 }
-
+#[derive(ClapArgs, Debug)]
+pub struct BFSArgs {
+    #[arg(short, long, default_value_t = 20)]
+    pub thread_count: usize,
+    #[arg(short, long)]
+    pub graph_file: String,
+    #[arg(short, long, default_value_t = false)]
+    pub no_verify: bool,
+}
 /// This is used to write the benchmark type to the output.
 /// That is why the arguments are discarded.
 impl Display for Benchmarks {
@@ -80,6 +90,8 @@ impl Display for Benchmarks {
         match self {
             Benchmarks::Basic(_) => write!(f, "Basic"),
             Benchmarks::PingPong(_) => write!(f, "PingPong"),
+            #[cfg(feature = "bfs")]
+            Benchmarks::BFS(_) => write!(f, "BFS"),
         }
     }
 }

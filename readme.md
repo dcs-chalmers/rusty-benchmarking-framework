@@ -22,10 +22,17 @@ This will compile and run the benchmarking tool. It will run the `basic` benchma
 
 There are several useful scripts located inside the `scripts` folder, as well
 as a README which describes how to use them.
+### BFS
+Since the BFS benchmark is not implemented with a generic queue type but specifically `usize`, it will will not be compiled by default. Thus to use it you have to add the `bfs` feature to the list of features when you want to run it.
+```bash
+# Example
+cargo run -F basic_queue,bfs -- bfs --graph-file example.mtx
+```
 ## Benchmark types
 You have to choose which type of benchmark you want to run on your queue. They have sub commands specific to themselves. Use the `--help` flag after specifying queue type to print a help text about the sub commands.
 * `basic` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
 * `ping-pong` - Measures throughput and fairness. Threads alternate between producers and consumers randomly. You can choose the spread of producers/consumers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the test.
+* `bfs` - Performs a parallell breadth first search on a graph of your choosing. Measures the amount of milliseconds it takes to perform the BFS. After performing the parallell BFS, the benchmark will also do it sequentially and then verify the parallell solution using the sequential solution. This can be turned off by passing the `--no-verify` flag. Choose graph file by passing the `--graph-file` flag and specifying the path. The benchmark supports `.mtx` files, but any files that follow the same structure will work as well. You can run several iterations of BFS by passing the `-i` flag, just as in the other benchmarks. The graph file will still only be loaded once, and the sequential solution will also only be generated once.
 ## Queue implementations and features
 Implemented queues are:
 * `array_queue` - A queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
@@ -49,7 +56,7 @@ Implemented queues are:
 * `lprq` - [An unbounded C++ queue](https://zenodo.org/records/7337237). **Experimental**.
 * `tz_queue_hp` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation uses hazard pointers for memory reclamation. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue_hp.rs)
 * `tz_queue` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation has no memory reclamation scheme. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue.rs)
-* `bbq` - A Block Based Bounded Queue based on [this paper](https://www.usenix.org/conference/atc22/presentation/wang-jiawei) from the crate[`bbq-rs`](https://crates.io/crates/bbq-rs). This queue implements [`BlockingQueue`](https://crates.io/crates/blockingqueue) and thus, does not work for `ping-pong`.
+* `bbq` - A Block Based Bounded Queue based on [this paper](https://www.usenix.org/conference/atc22/presentation/wang-jiawei) from the crate[`bbq-rs`](https://crates.io/crates/bbq-rs). This queue implements a blocking mechanism and thus does not work for `ping-pong`.
 
 ### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program
@@ -207,6 +214,20 @@ System kernel version:  x
 System OS version:      x
 Total RAM (in GB):      x
 ```
+### BFS
+The output file for the BFS benchmark is a little bit different from the other benchmarks. It looks like the following:
+| Milliseconds | Queuetype  | Thread Count | Test ID           |
+|--------------|------------|--------------|-------------------|
+| 3836116      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3680283      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3797156      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3630639      | BasicQueue | 20           | b820a6af3925aa03  |
+| 4054568      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3725101      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3439946      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3397534      | BasicQueue | 20           | b820a6af3925aa03  | 
+| 3611314      | BasicQueue | 20           | b820a6af3925aa03  |
+| 3539239      | BasicQueue | 20           | b820a6af3925aa03  | 
 
 ## Logging
 The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
