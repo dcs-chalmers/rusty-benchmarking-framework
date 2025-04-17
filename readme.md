@@ -374,18 +374,18 @@ impl<T> Handle<T> for YourCppQueueHandle<'_,T> {
 
 impl<T> ConcurrentQueue<T> for YourCppQueue<T> {
     fn register(&self) -> impl Handle<T> {
-        BoostCppQueueHandle {
+        YourCppQueueHandle {
             q: self,
         }
     }
 
     fn get_id(&self) -> String {
-        String::from("boost")
+        String::from("your_queue")
     }
 
     fn new(capacity: usize) -> Self {
-        let raw = unsafe { boost_queue_create(capacity as u32) };
-        BoostCppQueue { raw, phantom_data: std::marker::PhantomData}
+        let raw = unsafe { your_queue_create(capacity as u32) };
+        YourCppQueue { raw, phantom_data: std::marker::PhantomData}
     }
 }
 
