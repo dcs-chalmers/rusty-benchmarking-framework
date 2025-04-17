@@ -2,6 +2,21 @@
 This is a project to benchmark different implementations of queues (currently 
 FIFO, LIFO, bounded or unbounded) to measure their output and performance.
 
+# Contents
+- [How to use](#how-to-use)
+  - [BFS](#bfs)
+- [Benchmark types](#benchmark-types)
+- [Queue implementations and features](#queue-implementations-and-features)
+  - [Optional extra feature](#optional-extra-feature)
+- [Flags](#flags)
+- [Add your own queues](#add-your-own-queues)
+  - [IDE Help](#ide-help)
+  - [Order test](#order-test)
+  - [Adding C/C++ queues](#adding-cc-queues)
+- [Output files](#output-files)
+  - [BFS](#bfs-1)
+- [Logging](#logging)
+
 ## How to use:
 ```bash
 # Using cargo run
@@ -85,7 +100,7 @@ To use specific values you can add different flags to the run command:
     * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
 
 ## Add your own queues
-To add your own queues to the benchmark, you first create a new file in `src/queues` for the source code. You then have to add the queue to the `src/queues.rs` file as a feature in the following way:
+To add your own queues to the framework, you first create a new file in `src/queues` for the source code. You then have to add the queue to the `src/queues.rs` file as a feature in the following way:
 ```rust
 // Module name has to be the same as the file name of the file you created.
 // The name inside quotation marks will be your feature name and has to
@@ -107,6 +122,30 @@ all_queues = [
    "new_queue_name"
 ]
 ```
+Your queue will have to implement the traits found in `src/traits.rs` so that the framework can run it. The traits look like this:
+```rust
+/// One of the traits that all queues implemented in the benchmark
+/// needs to implement.
+pub trait ConcurrentQueue<T> {
+    fn register(&self) -> impl Handle<T>;
+    /// Returns the name of the queue.
+    fn get_id(&self) -> String;
+    /// Used to create a new queue.
+    /// `size` is discarded for unbounded queues.
+    fn new(size: usize) -> Self;
+}
+
+/// One of the traits all queues implemented in the benchmark
+/// needs to implement.
+pub trait Handle<T> {
+    /// Pushes an item to the queue.
+    /// If it fails, returns the item pushed.
+    fn push(&mut self, item: T) -> Result<(), T>;
+    /// Pops an item from the queue.
+    fn pop(&mut self) -> Option<T>;
+}
+```
+
 To be able to use the queue in the benchmarking suite you will have to add it to the `src/lib.rs` file as well. All you need to do there is add a call to the macro `implement_benchmark!()`.
 ```rust
 // lib.rs
@@ -146,12 +185,12 @@ vim.g.rustaceanvim = {
 }
 ```
 ### Order test
-In the file `order.rs` there are two functions that test that the queue dequeues
+In the file `order.rs`, there are two functions that test that the queue dequeues
 items in the same order that they were enqueued. This function returning `Ok(())`
 does not mean that the queue always dequeues in order, however it returning
 `Err(())` does mean that the queue sometimes dequeues out of order. The way we
-have used these functions is by creating one test per queue that run one of the
-two (depending on if the queue uses `Box` or not). Example:
+have used these functions is by creating one test per queue that runs one of the
+two (depending on whether the queue uses `Box` or not). Example:
 ```rust
     #[test]
     fn test_order() {
@@ -172,6 +211,184 @@ two (depending on if the queue uses `Box` or not). Example:
             panic!();
         }
     }
+```
+### Adding C/C++ queues
+The benchmark is capable of running benchmarks on C/C++ queues as well. Adding them is not as straightforward as Rust queues. We are far from experienced with C/C++, so there probably exists a better way to do this. We use [bindgen](https://github.com/rust-lang/rust-bindgen) to generate the bindings for the C/C++ queues. However, since bindgen is built mostly for C, we create C wrappers for the C++ queues first. The guide will show how to add C++ queues. Keep in mind, the files will look different depending on how the queues are implemented.
+
+First, create a folder in `src/cpp_queues` for the queue. Add all the headers etc. to this folder. Then, create two files `your_queue.cpp` and `your_queue.hpp`. These files will be wrappers for the actual queue.
+
+In `your_queue.hpp`, add the functions you want. Typically `create`, `destroy`, `push` and `pop`.
+```C
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct YourQueueImpl* YourQueue;
+
+YourQueue create();
+void your_queue_destroy()
+int your_queue_push(YourQueue q, void* item);
+int your_queue_pop(YourQueue q, void** item);
+
+#ifdef __cplusplus
+}
+#endif
+```
+
+Then, in `your_queue.cpp` create the functions:
+```CPP
+// Include everything you need.
+#include <your_queue.hpp>
+
+// The actual implementation
+struct YourQueueImpl {
+    your::actual::queue queue;
+    
+    explicit YourQueueImpl() 
+        : queue() {}
+};
+
+YourQueue your_queue_create() {
+    return new YourQueueImpl(capacity);
+}
+
+void your_queue_destroy(YourQueue queue) {
+    delete queue;
+}
+
+int your_queue_push(YourQueue queue, void* item) {
+    return queue->queue.push(item) ? 1 : 0;
+}
+
+int your_queue_pop(YourQueue queue, void** item) {
+    return queue->queue.pop(*item) ? 1 : 0;
+}
+```
+After that, create a feature in `Cargo.toml` just as in the guide for regular queues. Then, build instructions have to be added to `build.rs`.
+
+```rust
+        // [...]
+        // Configure for your queue
+        #[cfg(feature = "your_queue")]
+        {
+            let my_queue_location = format!("{queue_location}/your_folder_name");
+
+            // Add files as needed here
+            println!("cargo:rerun-if-changed={}/your_queue.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/your_queue.cpp", my_queue_location);
+            
+            build.file(format!("{}/your_queue.cpp", my_queue_location))
+                .define("USE_YOUR_QUEUE", None);
+                
+            bindgen = bindgen
+                .header(format!("{}/your_queue.hpp", my_queue_location))
+                .allowlist_function("your_queue_.*")
+                .allowlist_type("YourQueue.*")
+                .opaque_type("YourQueueImpl");
+        }
+        // [...]
+```
+
+Now all that is left is to create the Rust queue files. Create a file `src/queues/your_queue.rs` and add your queue to `src/queues.rs`:
+```rust
+// Module name has to be the same as the file name of the file you created.
+// The name inside quotation marks will be your feature name and has to
+// match 1:1 with what you put inside the Cargo.toml file.
+// src/queues.rs
+// [...]
+#[cfg(feature = "your_queue_name")]
+pub mod your_queue;
+```
+Then, in `your_queue.rs`, add wrapper code to run the underlying C++ code.
+```rust
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+
+use crate::traits::{ConcurrentQueue, Handle};
+
+// Include the generated bindings
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+// A safe Rust wrapper around the C bindings
+pub struct YourCppQueue<T> {
+    raw: YourQueue,
+    phantom_data: std::marker::PhantomData<T>,
+}
+
+unsafe impl<T> Send for YourQueue<T> {}
+unsafe impl<T> Sync for YourpQueue<T> {}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+impl<T> YourCppQueue<T> {
+    
+    pub fn push(&self, item: *mut std::ffi::c_void) -> bool {
+        unsafe { 
+            your_queue_push(self.raw, item) == 1 
+        }
+    }
+    
+    pub fn pop(&self) -> Option<*mut std::ffi::c_void> {
+        let mut item: *mut std::ffi::c_void = std::ptr::null_mut();
+        let success = unsafe { your_queue_pop(self.raw, &mut item) == 1 };
+        if success {
+            Some(item)
+        } else {
+            None
+        }
+    }
+    
+}
+
+impl<T> Drop for YourCppQueue<T> {
+    fn drop(&mut self) {
+        unsafe { your_queue_destroy(self.raw) };
+    }
+}
+
+struct YourQueueHandle<'a,T> {
+    pub q: &'a YourCppQueue<T>
+}
+
+impl<T> Handle<T> for YourCppQueueHandle<'_,T> {
+    fn push(&mut self, item: T) -> Result<(), T> {
+        let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
+        match self.q.push(ptr) {
+            true => Ok(()),
+            false => {
+                // Really unsure if this is possible
+                let reclaimed: Box<T> = unsafe { Box::from_raw(ptr as *mut T) };
+                Err(*reclaimed)
+            },
+        }
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        let res = self.q.pop()?;
+        let val = unsafe { Box::from_raw(res as *const T as *mut T) };
+        Some(*val)
+    }
+}
+
+impl<T> ConcurrentQueue<T> for YourCppQueue<T> {
+    fn register(&self) -> impl Handle<T> {
+        BoostCppQueueHandle {
+            q: self,
+        }
+    }
+
+    fn get_id(&self) -> String {
+        String::from("boost")
+    }
+
+    fn new(capacity: usize) -> Self {
+        let raw = unsafe { boost_queue_create(capacity as u32) };
+        BoostCppQueue { raw, phantom_data: std::marker::PhantomData}
+    }
+}
+
 ```
 ## Output files
 If the `--write-stdout` flag is not set, the benchmark will produce a folder called `./output` and in it will include a .csv file with the headers and results of the entire benchmark test. For example, with the command:
