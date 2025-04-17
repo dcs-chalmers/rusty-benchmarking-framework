@@ -1,4 +1,4 @@
-# Queue benchmarking tool
+# Queue benchmarking framework
 This is a project to benchmark different implementations of queues (currently 
 FIFO, LIFO, bounded or unbounded) to measure their output and performance.
 
@@ -33,7 +33,7 @@ cargo run --features basic_queue --release -- basic
 # Basic queue, benchmark measures throughput and memory allocation
 cargo run --features basic_queue,memory_tracking --release -- basic
 ```
-This will compile and run the benchmarking tool. It will run the `basic` benchmark on the `basic_queue` implementation and produce a file in the `./output` with information from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
+This will compile and run the benchmarking framework. It will run the `basic` benchmark on the `basic_queue` implementation and produce a file in the `./output` with output from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
 
 There are several useful scripts located inside the `scripts` folder, as well
 as a README which describes how to use them.
@@ -44,7 +44,7 @@ Since the BFS benchmark is not implemented with a generic queue type but specifi
 cargo run -F basic_queue,bfs -- bfs --graph-file example.mtx
 ```
 ## Benchmark types
-You have to choose which type of benchmark you want to run on your queue. They have sub commands specific to themselves. Use the `--help` flag after specifying queue type to print a help text about the sub commands.
+You have to choose which type of benchmark you want to run on your queue. They have sub-commands specific to themselves. Use the `--help` flag after specifying the queue type to print a help text about the sub commands.
 * `basic` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
 * `ping-pong` - Measures throughput and fairness. Threads alternate between producers and consumers randomly. You can choose the spread of producers/consumers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the test.
 * `bfs` - Performs a parallell breadth first search on a graph of your choosing. Measures the amount of milliseconds it takes to perform the BFS. After performing the parallell BFS, the benchmark will also do it sequentially and then verify the parallell solution using the sequential solution. This can be turned off by passing the `--no-verify` flag. Choose graph file by passing the `--graph-file` flag and specifying the path. The benchmark supports `.mtx` files, but any files that follow the same structure will work as well. You can run several iterations of BFS by passing the `-i` flag, just as in the other benchmarks. The graph file will still only be loaded once, and the sequential solution will also only be generated once.
@@ -66,7 +66,7 @@ Implemented queues are:
 * `seg_queue` - An unbounded queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
 * `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) by William to be able to be compiled.
 * `boost` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
-* `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). Can be benchmarked using bindings. **Experimental**.
+* `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). **Experimental**.
 * `lcrq` - [An unbounded C++ queue](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/CPP/queues/LCRQueue.hpp). **Experimental**.
 * `lprq` - [An unbounded C++ queue](https://zenodo.org/records/7337237). **Experimental**.
 * `tz_queue_hp` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation uses hazard pointers for memory reclamation. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue_hp.rs)
@@ -146,7 +146,7 @@ pub trait Handle<T> {
 }
 ```
 
-To be able to use the queue in the benchmarking suite you will have to add it to the `src/lib.rs` file as well. All you need to do there is add a call to the macro `implement_benchmark!()`.
+To be able to use the queue in the benchmarking framework you will have to add it to the `src/lib.rs` file as well. All you need to do there is add a call to the macro `implement_benchmark!()`.
 ```rust
 // lib.rs
 [...]
@@ -213,7 +213,7 @@ two (depending on whether the queue uses `Box` or not). Example:
     }
 ```
 ### Adding C/C++ queues
-The benchmark is capable of running benchmarks on C/C++ queues as well. Adding them is not as straightforward as Rust queues. We are far from experienced with C/C++, so there probably exists a better way to do this. We use [bindgen](https://github.com/rust-lang/rust-bindgen) to generate the bindings for the C/C++ queues. However, since bindgen is built mostly for C, we create C wrappers for the C++ queues first. The guide will show how to add C++ queues. Keep in mind, the files will look different depending on how the queues are implemented.
+The framework is capable of running benchmarks on C/C++ queues as well. Adding them is not as straightforward as Rust queues. We are far from experienced with C/C++, so there probably exists a better way to do this. We use [bindgen](https://github.com/rust-lang/rust-bindgen) to generate the bindings for the C/C++ queues. However, since bindgen is built mostly for C, we create C wrappers for the C++ queues first. The guide will show how to add C++ queues. Keep in mind, the files will look different depending on how the queues are implemented.
 
 First, create a folder in `src/cpp_queues` for the queue. Add all the headers etc. to this folder. Then, create two files `your_queue.cpp` and `your_queue.hpp`. These files will be wrappers for the actual queue.
 
@@ -391,7 +391,7 @@ impl<T> ConcurrentQueue<T> for YourCppQueue<T> {
 
 ```
 ## Output files
-If the `--write-stdout` flag is not set, the benchmark will produce a folder called `./output` and in it will include a .csv file with the headers and results of the entire benchmark test. For example, with the command:
+If the `--write-stdout` flag is not set, the framework will produce a folder called `./output` and in it will include a .csv file with the headers and results of the entire benchmark. For example, with the command:
 ```bash
 cargo run --release --features basic_queue -- -t 1 -i 10 basic
 ```
@@ -447,7 +447,7 @@ The output file for the BFS benchmark is a little bit different from the other b
 | 3539239      | BasicQueue | 20           | b820a6af3925aa03  | 
 
 ## Logging
-The benchmark tool contains a logger which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
+The framework contains a logger, which you can change the level of by changing the environment variable `RUST_LOG`. When compiled in debug mode, there are 5 levels you can choose from (`error` will only print errors, `warn` will print warnings and errors etc.):
 1. `error`
 2. `warn`
 3. `info`
