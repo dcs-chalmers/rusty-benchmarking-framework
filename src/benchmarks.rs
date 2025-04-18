@@ -111,7 +111,7 @@ where
     // if *is_one_socket {
     //     core = core_iter.next().unwrap();
     // }
-    let _done = std::sync::Arc::clone(&_done);
+    let _done = std::sync::Arc::clone(_done);
     let benchmark_id = bench_conf.benchmark_id.clone();
     let bench_type = format!("{}", bench_conf.args.benchmark);
     let to_stdout = bench_conf.args.write_to_stdout;
