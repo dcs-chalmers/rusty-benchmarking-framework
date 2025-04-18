@@ -25,6 +25,13 @@ where
         crate::arguments::Benchmarks::Basic(a) => a,
         _ => panic!(),
     };
+    {
+        debug!("Prefilling queue with {} items.", bench_conf.args.prefill_amount);
+        let mut tmp_handle = cqueue.register();
+        for _ in 0..bench_conf.args.prefill_amount {
+            let _ = tmp_handle.push(Default::default());
+        } 
+    }
     let producers = args.producers;
     let consumers = args.consumers;
 
