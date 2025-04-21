@@ -1,12 +1,12 @@
-use std::{mem::MaybeUninit, ptr::{null, null_mut}, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
+use std::{mem::MaybeUninit, ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
 use std::sync::atomic::Ordering::SeqCst as SeqCst;
-use haphazard::{raw::Pointer, AtomicPtr as HpAtomicPtr, HazardPointer};
-use log::trace;
+// use haphazard::{raw::Pointer, AtomicPtr as HpAtomicPtr, HazardPointer};
+use log::{error, trace};
 
 use crate::traits::{ConcurrentQueue, Handle};
 
-static RING_SIZE: u64 = 1024;
-static MAX_THREADS: usize = 256;
+static RING_SIZE: u64 = 5;
+// static MAX_THREADS: usize = 256;
 
 thread_local! {
     static THREAD_ID: std::cell::Cell<Option<usize>> = const {std::cell::Cell::new(None)};
@@ -19,11 +19,12 @@ struct LPRQueue<E> {
     next_thread_id: AtomicUsize,
 }
 
-impl<E> LPRQueue<E> {
+impl<E: std::fmt::Debug> LPRQueue<E> {
     fn new() -> Self {
+        let start = Box::into_raw(Box::new(PRQ::new()));
         LPRQueue {
-            head: RawAtomicPtr::new(Box::into_raw(Box::new(PRQ::new()))),
-            tail: RawAtomicPtr::new(Box::into_raw(Box::new(PRQ::new()))),
+            head: RawAtomicPtr::new(start),
+            tail: RawAtomicPtr::new(start), 
             next_thread_id: AtomicUsize::new(1),
         }
     }
@@ -49,13 +50,18 @@ impl<E> LPRQueue<E> {
     }
     fn dequeue(&self) -> Option<E> {
         loop {
+            trace!("starting lprqueue dequeue");
             let prq_ptr = self.head.load(SeqCst);
             let prq = unsafe { prq_ptr.as_ref().unwrap() };
+            trace!("Starting inner dequeue now");
             let mut res = prq.dequeue();
             if res.is_some() {
+                trace!("Dequeue was a success");
                 return res;
             }
+            trace!("Dequeue failed");
             if prq.next.load(SeqCst).is_null() {
+
                 return None;
             }
             res = prq.dequeue();
@@ -78,12 +84,15 @@ impl<E> LPRQueue<E> {
     }
 }
 
+#[derive(std::fmt::Debug)]
 enum CellValue<E> {
     Empty,
     ThreadToken(usize),
     Value(MaybeUninit<E>),
 }
 
+
+#[derive(std::fmt::Debug)]
 struct Cell<E> {
     safe_and_epoch: AtomicU64,
     value: RawAtomicPtr<CellValue<E>>,
@@ -93,7 +102,7 @@ impl<E> Cell<E> {
     fn new() -> Self {
         Self {
             safe_and_epoch: AtomicU64::new(1),
-            value: RawAtomicPtr::new(std::ptr::null_mut()),
+            value: RawAtomicPtr::new(Box::into_raw(Box::new(CellValue::Empty))),
         }
     }
     fn safe_and_epoch(&self) -> (u64, bool, u64) {
@@ -112,7 +121,7 @@ struct PRQ<E> {
     tail: AtomicU64,
 }
 
-impl<E> PRQ<E> {
+impl<E: std::fmt::Debug> PRQ<E> {
     fn new() -> Self {
         let mut a = Vec::with_capacity(RING_SIZE as usize);
         for _ in 0..RING_SIZE {
@@ -129,6 +138,13 @@ impl<E> PRQ<E> {
     fn enqueue(&self, item: *mut CellValue<E>, thread_id: usize) -> Result<(), E>{
         let item_ptr = item;
         loop {
+            for cell in &self.A {
+                if cell.value.load(SeqCst).is_null() {
+                    trace!("null");
+                } else {
+                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+                }
+            }
             let t = self.tail.fetch_add(1, Ordering::SeqCst);
             if self.closed.load(Ordering::SeqCst) { 
                 if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
@@ -139,8 +155,8 @@ impl<E> PRQ<E> {
             let i: usize = (t % RING_SIZE) as usize;
             
             let (whole, safe, epoch) = self.A[i].safe_and_epoch();
-            let value = self.A[i].value.load(Ordering::SeqCst);
-
+            let mut value = self.A[i].value.load(Ordering::SeqCst);
+            trace!("{safe}, {epoch}");
             trace!("Checking if is_empty");
             let is_empty = unsafe {
                 if value.is_null() {
@@ -156,19 +172,20 @@ impl<E> PRQ<E> {
                 }
                 else {matches!(*value, CellValue::ThreadToken(_))}
             };
-            if is_empty || is_t &&
+            if (is_empty || is_t) &&
                 epoch < cycle && (safe || self.head.load(Ordering::SeqCst) <= t)
             {
                 trace!("not occupied not overtaken");
                 let new_val = Box::into_raw(Box::new(CellValue::ThreadToken(thread_id)));
-                if self.A[i]
+                let cas_1 = self.A[i]
                     .value
                     .compare_exchange(
                         value,
                         new_val,
                         Ordering::SeqCst,
                         Ordering::SeqCst 
-                        ).is_err() {
+                        );
+                if cas_1.is_err() {
                     trace!("Failed CAS 1");
                     if check_overflow(t, self.head.load(SeqCst), &self.closed) {
                         continue;
@@ -178,7 +195,9 @@ impl<E> PRQ<E> {
                             return Err(unsafe{val.assume_init()});
                         }
                     }
-                } 
+                } else {
+                    value = new_val;
+                }
                 let new_safe_and_epoch = (cycle << 1) | 1;
                 if self.A[i].safe_and_epoch
                     .compare_exchange(
@@ -215,8 +234,12 @@ impl<E> PRQ<E> {
                 trace!("Attempting to return item");
                 unsafe {
                     if !value.is_null() {
+                        trace!("Value was not null");
+                        trace!("{:?}", *value);
                         if let CellValue::ThreadToken(token) = *value {
                             trace!("Managed to deref val");
+                            trace!("token: {token}, thread_id: {thread_id}");
+                            trace!("value: {:?}, self.value: {:?}", value, self.A[i].value);
                             if token == thread_id 
                                 && self.A[i].value.compare_exchange(value, item_ptr, SeqCst, SeqCst).is_ok() 
                             {
@@ -238,6 +261,14 @@ impl<E> PRQ<E> {
     } 
     fn dequeue(&self) -> Option<E> {
         loop {
+            // trace!("{:?}", self.A);
+            for cell in &self.A {
+                if cell.value.load(SeqCst).is_null() {
+                    trace!("null");
+                } else {
+                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+                }
+            }
             let h = self.head.fetch_add(1, SeqCst);
             let cycle = h / RING_SIZE;
             let i = (h % RING_SIZE) as usize;
@@ -258,15 +289,22 @@ impl<E> PRQ<E> {
                     if is_empty { false }
                     else {matches!(*value, CellValue::ThreadToken(_))}
                 };
-                if epoch == cycle && (!is_empty || !is_t) {
-                    self.A[i].value.store(to_raw(CellValue::Empty), SeqCst);
+                if epoch == cycle && (!is_empty && !is_t) {
+                    trace!("In case 1");
                     let boxs = unsafe {
                         Box::from_raw(value)
                     };
+                    trace!("{:?}", *boxs);
                     if let CellValue::Value(val) = *boxs{
-                        return Some(unsafe {std::ptr::read(val.assume_init_ref())});
+                        let r_val = Some(unsafe {std::ptr::read(val.assume_init_ref())});
+                        trace!("{:?}", r_val);
+                        self.A[i].value.store(to_raw(CellValue::Empty), SeqCst);
+                        return r_val;
+                    } else {
+                        error!("Cell contained no value.");
                     }
                 } else if epoch <= cycle && (is_empty || is_t) {
+                    trace!("In case 2");
                     if is_t 
                         && self.A[i].value.compare_exchange(value, to_raw(CellValue::Empty), SeqCst, SeqCst).is_err()
                     {
@@ -276,12 +314,14 @@ impl<E> PRQ<E> {
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
-                } else if epoch < cycle && (!is_empty || !is_t) {
+                } else if epoch < cycle && (!is_empty && !is_t) {
+                    trace!("In case 3");
                     let new_safe_and_epoch = (cycle << 1) | (false as u64);
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
                 } else {
+                    trace!("In case 4");
                     break;
                 }
             }
@@ -291,7 +331,7 @@ impl<E> PRQ<E> {
 }
 
 
-impl<T> ConcurrentQueue<T> for LPRQueue<T> {
+impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
     fn get_id(&self) -> String {
         "lprq_rust".to_string()
     }
@@ -309,7 +349,7 @@ struct LPRQueueHandle<'a, T> {
     queue: &'a LPRQueue<T>,
 }
 
-impl<T> Handle<T> for LPRQueueHandle<'_, T> {
+impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.queue.dequeue()
     }
@@ -343,14 +383,26 @@ mod tests {
         q.enqueue(1);
         assert_eq!(q.dequeue().unwrap(), 1);
     }
-    // #[test]
-    // fn register_ms_queue() {
-    //     let q: LPRQueue<i32> = LPRQueue::new();
-    //     let mut handle = q.register();
-    //     handle.push(1).unwrap();
-    //     assert_eq!(handle.pop().unwrap(), 1);
-    //
-    // }
+    #[test]
+    fn register_lprqueue() {
+        let q: LPRQueue<i32> = LPRQueue::new();
+        let mut handle = q.register();
+        handle.push(1).unwrap();
+        assert_eq!(handle.pop().unwrap(), 1);
+
+    }
+    #[test]
+    fn enqueue_full_prq() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LPRQueue<i32> = LPRQueue::new();
+        for _ in 0..RING_SIZE + 1 {
+            q.enqueue(1);
+        }
+        for _ in 0..RING_SIZE + 1 {
+            assert_eq!(q.dequeue().unwrap(), 1);
+        }
+        
+    }
     // #[test]
     // fn test_order() {
     //     let _ = env_logger::builder().is_test(true).try_init();
