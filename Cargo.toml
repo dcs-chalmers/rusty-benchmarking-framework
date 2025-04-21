@@ -65,6 +65,7 @@ faa_array_queue = ["dep:haphazard"]
 benchmark_order = []
 bbq = ["dep:bbq-rs"]
 tests_benchmark = ["basic_queue"]
+rust_lprq = ["dep:haphazard"]
 
 all_queues = [
     "lockfree_queue",
@@ -90,6 +91,7 @@ all_queues = [
     "seg_queue",
     "tz_queue_hp",
     "faa_array_queue",
+    "rust_lprq",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
