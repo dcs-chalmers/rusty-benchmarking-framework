@@ -17,3 +17,9 @@ src/cpp-ring-queues-research/src/*
 src/cpp-ring-queues-research/ring-size-benchmarks.sh
 src/cpp-ring-queues-research/include/LCRQueue.hpp
 src/cpp-ring-queues-research/include/AdditionalWork.hpp
+*.mtx
+*.svg
+*.png
+*.data
+*.old
+*.edges
