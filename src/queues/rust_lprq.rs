@@ -13,13 +13,31 @@ thread_local! {
 }
 
 
-struct LPRQueue<E> {
+pub struct LPRQueue<E> {
     head: RawAtomicPtr<PRQ<E>>,
     tail: RawAtomicPtr<PRQ<E>>,
     next_thread_id: AtomicUsize,
 }
 
 impl<E: std::fmt::Debug> LPRQueue<E> {
+    fn trace_through(&self) {
+        let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
+        loop {
+            for cell in &curr.A {
+                if cell.value.load(SeqCst).is_null() {
+                    trace!("null");
+                } else {
+                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+                }
+            }
+            let tmp  = unsafe { curr.next.load(SeqCst).as_ref() };
+            curr = if let Some(val) = tmp {
+                val 
+            } else {
+                break;
+            }
+        }
+    }
     fn new() -> Self {
         let start = Box::into_raw(Box::new(PRQ::new()));
         LPRQueue {
@@ -30,18 +48,27 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     }
     fn enqueue(&self, item: E) {
         trace!("Starting LPRQ enqueue");
-        let inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(item))));
+        let mut inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(item))));
         loop {
             let prq_ptr = self.tail.load(SeqCst);
             let prq = unsafe { prq_ptr.as_ref().unwrap() };
             trace!("Enqueueing item now");
-            if prq.enqueue(inner_item, self.get_thread_id()).is_ok() {return}
-            trace!("Enqueue failed.");
+            match prq.enqueue(inner_item, self.get_thread_id()) {
+                Ok(()) => return,
+                Err(val) => inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(val)))),
+            }
+            trace!("Enqueue failed. PRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(PRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
+            trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
             let _ = new_tail.enqueue(inner_item, self.get_thread_id());
             if prq.next.compare_exchange(null_mut(), new_tail_ptr, SeqCst, SeqCst).is_ok() {
-                let _ = self.tail.compare_exchange(prq_ptr, new_tail_ptr, SeqCst, SeqCst);
+                
+                trace!("switched next pointer to new tail");
+                match self.tail.compare_exchange(prq_ptr, new_tail_ptr, SeqCst, SeqCst) {
+                    Ok(_) => trace!("tail swap success"),
+                    Err(_) => trace!("tail swap failure"),
+                }
                 return;
             } else {
                 let _ = self.tail.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
@@ -68,6 +95,8 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
             if res.is_some() {
                 return res;
             }
+            trace!("prq is empty, update HEAD and restart");
+            self.trace_through();
             let _ = self.head.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
         }
     }
@@ -252,8 +281,10 @@ impl<E: std::fmt::Debug> PRQ<E> {
                 trace!("Failed to return item");
             }
             if !check_overflow(t, self.head.load(SeqCst), &self.closed) {
+                trace!("PRQ full now");
                 #[allow(clippy::collapsible_if)]
                 if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
+                    trace!("item_ptr is still a value");
                     return Err(unsafe{val.assume_init()});
                 }
             }
@@ -395,13 +426,29 @@ mod tests {
     fn enqueue_full_prq() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LPRQueue<i32> = LPRQueue::new();
-        for _ in 0..RING_SIZE + 1 {
+        for _ in 0..RING_SIZE + 3 {
             q.enqueue(1);
         }
-        for _ in 0..RING_SIZE + 1 {
+        for _ in 0..RING_SIZE + 3 {
             assert_eq!(q.dequeue().unwrap(), 1);
         }
         
+    }
+    #[test]
+    fn enqueue_full_prq2() {
+
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LPRQueue<i32> = LPRQueue::new();
+        let mut curr = 0;
+        for _ in 0..RING_SIZE + 3 {
+            q.enqueue(curr);
+            curr += 1;
+        }
+        curr = 0;
+        for _ in 0..RING_SIZE + 3 {
+            assert_eq!(q.dequeue().unwrap(), curr);
+            curr += 1;
+        }
     }
     // #[test]
     // fn test_order() {

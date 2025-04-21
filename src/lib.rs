@@ -178,6 +178,11 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::faa_array_queue::FAAArrayQueue<usize>,
         &bench_conf
     );
+    implement_benchmark!(
+        "rust_lprq",
+        crate::queues::rust_lprq::LPRQueue<usize>,
+        &bench_conf
+    );
 
     Ok(())
 }
