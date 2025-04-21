@@ -96,6 +96,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
                 return res;
             }
             trace!("prq is empty, update HEAD and restart");
+            // NOTE: Drop old one here?
             self.trace_through();
             let _ = self.head.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
         }
@@ -405,6 +406,8 @@ fn check_overflow(t: u64, head: u64, closed: &AtomicBool) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicI32;
+
     use super::*;
 
     #[test]
@@ -449,6 +452,35 @@ mod tests {
             assert_eq!(q.dequeue().unwrap(), curr);
             curr += 1;
         }
+    }
+    #[test]
+    fn multi_thread() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LPRQueue<i32> = LPRQueue::new();
+        let barrier = std::sync::Barrier::new(10);
+        let sum = AtomicI32::new(0);
+        std::thread::scope(|s| {
+            let q = &q;      
+            let barrier = &barrier;
+            let sum = &sum;
+            for _ in 0..10 {
+                s.spawn(move|| {
+                    let mut handle = q.register();
+                    barrier.wait();
+                    let mut local = 0;
+                    for i in 0..10 {
+                        let _ = handle.push(i + 1);
+                        local += i + 1;
+                    } 
+                    sum.fetch_add(local, SeqCst);
+                });
+            }
+        });
+        let mut thesum: i32 = 0;
+        while let Some(val) = q.dequeue() {
+            thesum += val;
+        }
+        assert_eq!(thesum, sum.into_inner());
     }
     // #[test]
     // fn test_order() {
