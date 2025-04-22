@@ -5,7 +5,7 @@ use log::{error, trace};
 
 use crate::traits::{ConcurrentQueue, Handle};
 
-static RING_SIZE: u64 = 5;
+static RING_SIZE: u64 = 1024;
 // static MAX_THREADS: usize = 256;
 
 thread_local! {
@@ -97,7 +97,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
             }
             trace!("prq is empty, update HEAD and restart");
             // NOTE: Drop old one here?
-            self.trace_through();
+            // self.trace_through();
             let _ = self.head.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
         }
     }
@@ -168,13 +168,13 @@ impl<E: std::fmt::Debug> PRQ<E> {
     fn enqueue(&self, item: *mut CellValue<E>, thread_id: usize) -> Result<(), E>{
         let item_ptr = item;
         loop {
-            for cell in &self.A {
-                if cell.value.load(SeqCst).is_null() {
-                    trace!("null");
-                } else {
-                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-                }
-            }
+            // for cell in &self.A {
+            //     if cell.value.load(SeqCst).is_null() {
+            //         trace!("null");
+            //     } else {
+            //         unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+            //     }
+            // }
             let t = self.tail.fetch_add(1, Ordering::SeqCst);
             if self.closed.load(Ordering::SeqCst) { 
                 if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
@@ -294,13 +294,13 @@ impl<E: std::fmt::Debug> PRQ<E> {
     fn dequeue(&self) -> Option<E> {
         loop {
             // trace!("{:?}", self.A);
-            for cell in &self.A {
-                if cell.value.load(SeqCst).is_null() {
-                    trace!("null");
-                } else {
-                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-                }
-            }
+            // for cell in &self.A {
+            //     if cell.value.load(SeqCst).is_null() {
+            //         trace!("null");
+            //     } else {
+            //         unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+            //     }
+            // }
             let h = self.head.fetch_add(1, SeqCst);
             let cycle = h / RING_SIZE;
             let i = (h % RING_SIZE) as usize;
@@ -397,7 +397,8 @@ fn to_raw<T>(item: T) -> *mut T {
 
 
 fn check_overflow(t: u64, head: u64, closed: &AtomicBool) -> bool {
-    if t - head >= RING_SIZE {
+    // HACK: Check the t >= head part
+    if t >= head && t - head >= RING_SIZE {
         closed.store(true, Ordering::SeqCst);
         return false;
     }
@@ -482,12 +483,12 @@ mod tests {
         }
         assert_eq!(thesum, sum.into_inner());
     }
-    // #[test]
-    // fn test_order() {
-    //     let _ = env_logger::builder().is_test(true).try_init();
-    //     let q: LPRQueue<i32> = LPRQueue::new();
-    //     if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
-    //         panic!();
-    //     }
-    // }
+    #[test]
+    fn test_order() {
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LPRQueue<i32> = LPRQueue::new();
+        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+            panic!();
+        }
+    }
 }
