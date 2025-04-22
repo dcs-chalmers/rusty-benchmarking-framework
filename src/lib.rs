@@ -179,7 +179,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         &bench_conf
     );
     implement_benchmark!(
-        "rust_lprq",
+        "lprq_rust",
         crate::queues::rust_lprq::LPRQueue<usize>,
         &bench_conf
     );

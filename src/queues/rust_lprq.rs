@@ -20,24 +20,27 @@ pub struct LPRQueue<E> {
 }
 
 impl<E: std::fmt::Debug> LPRQueue<E> {
-    // fn trace_through(&self) {
-    //     let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
-    //     loop {
-    //         for cell in &curr.A {
-    //             if cell.value.load(SeqCst).is_null() {
-    //                 trace!("null");
-    //             } else {
-    //                 unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-    //             }
-    //         }
-    //         let tmp  = unsafe { curr.next.load(SeqCst).as_ref() };
-    //         curr = if let Some(val) = tmp {
-    //             val 
-    //         } else {
-    //             break;
-    //         }
-    //     }
-    // }
+    fn trace_through(&self) {
+        trace!("############ STARTING TRACE THROUGH ######################");
+        let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
+        loop {
+            for cell in &curr.A {
+                if cell.value.load(SeqCst).is_null() {
+                    trace!("null");
+                } else {
+                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+                }
+            }
+            trace!("##### NEW PRQ #####");
+            let tmp  = unsafe { curr.next.load(SeqCst).as_ref() };
+            curr = if let Some(val) = tmp {
+                val 
+            } else {
+                break;
+            }
+        }
+        trace!("############## ENDING TRACE THROUGH ######################");
+    }
     fn new() -> Self {
         let start = Box::into_raw(Box::new(PRQ::new()));
         LPRQueue {
@@ -61,7 +64,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
             trace!("Enqueue failed. PRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(PRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
-            // trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
+            trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
             let _ = new_tail.enqueue(inner_item, thread_id);
             if prq.next.compare_exchange(null_mut(), new_tail_ptr, SeqCst, SeqCst).is_ok() {
                 
@@ -79,25 +82,26 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     fn dequeue(&self) -> Option<E> {
         let thread_id = self.get_thread_id();
         loop {
-            trace!("starting lprqueue dequeue");
+            trace!("Thread {thread_id}: starting lprqueue dequeue");
             let prq_ptr = self.head.load(SeqCst);
             let prq = unsafe { prq_ptr.as_ref().unwrap() };
-            trace!("Starting inner dequeue now");
+            trace!("Thread {thread_id}: Starting inner dequeue now");
             let mut res = prq.dequeue(thread_id);
             if res.is_some() {
-                trace!("Dequeue was a success");
+                trace!("Thread {thread_id}: Dequeue was a success");
                 return res;
             }
-            trace!("Dequeue failed");
+            trace!("Thread {thread_id}: Dequeue failed");
             if prq.next.load(SeqCst).is_null() {
-
+                // self.trace_through();
+                trace!("Thread: {thread_id}: Returning none");
                 return None;
             }
             res = prq.dequeue(thread_id);
             if res.is_some() {
                 return res;
             }
-            trace!("prq is empty, update HEAD and restart");
+            trace!("Thread {thread_id}: prq is empty, update HEAD and restart");
             // NOTE: Drop old one here?
             // self.trace_through();
             let _ = self.head.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
@@ -118,11 +122,19 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     }
 }
 
-#[derive(std::fmt::Debug)]
 enum CellValue<E> {
     Empty,
     ThreadToken(usize),
     Value(MaybeUninit<E>),
+}
+impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CellValue::Empty => write!(f, "Empty"),
+            CellValue::ThreadToken(val) => write!(f, "ThreadToken: {val}"),
+            CellValue::Value(val) => write!(f, "Value: {:?}", unsafe { val.assume_init_ref() }),
+        }
+    }
 }
 
 
@@ -348,14 +360,14 @@ impl<E: std::fmt::Debug> PRQ<E> {
             }
             if self.tail.load(SeqCst) <= h + 1 { 
                 trace!("Thread {thread_id}: queue empty");
-                trace!("Thread {thread_id}: {:?}", self.A);
-                for cell in &self.A {
-                    if cell.value.load(SeqCst).is_null() {
-                        trace!("null");
-                    } else {
-                        unsafe {trace!("Thread {thread_id}: {:?}", *cell.value.load(SeqCst))}
-                    }
-                }
+                // trace!("Thread {thread_id}: {:?}", self.A);
+                // for cell in &self.A {
+                //     if cell.value.load(SeqCst).is_null() {
+                //         trace!("null");
+                //     } else {
+                //         unsafe {trace!("Thread {thread_id}: {:?}", *cell.value.load(SeqCst))}
+                //     }
+                // }
                 return None;
             }
         }

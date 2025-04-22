@@ -44,5 +44,7 @@ pub mod tsigas_zhang_queue;
 pub mod tsigas_zhang_queue_hp;
 #[cfg(feature = "wfqueue")]
 pub mod wfqueue;
-#[cfg(feature = "rust_lprq")]
+#[cfg(feature = "lprq_rust")]
 pub mod rust_lprq;
+#[cfg(feature = "lcrq_rust")]
+pub mod lcrq_rust;
