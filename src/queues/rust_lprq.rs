@@ -1,7 +1,7 @@
 use std::{mem::MaybeUninit, ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
 use std::sync::atomic::Ordering::SeqCst as SeqCst;
 // use haphazard::{raw::Pointer, AtomicPtr as HpAtomicPtr, HazardPointer};
-use log::{error, trace};
+use log::{debug, error, trace};
 
 use crate::traits::{ConcurrentQueue, Handle};
 
@@ -19,7 +19,7 @@ pub struct LPRQueue<E> {
     next_thread_id: AtomicUsize,
 }
 
-impl<E> LPRQueue<E> {
+impl<E: std::fmt::Debug> LPRQueue<E> {
     // fn trace_through(&self) {
     //     let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
     //     loop {
@@ -49,11 +49,12 @@ impl<E> LPRQueue<E> {
     fn enqueue(&self, item: E) {
         trace!("Starting LPRQ enqueue");
         let mut inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(item))));
+        let thread_id = self.get_thread_id();
         loop {
             let prq_ptr = self.tail.load(SeqCst);
             let prq = unsafe { prq_ptr.as_ref().unwrap() };
             trace!("Enqueueing item now");
-            match prq.enqueue(inner_item, self.get_thread_id()) {
+            match prq.enqueue(inner_item, thread_id) {
                 Ok(()) => return,
                 Err(val) => inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(val)))),
             }
@@ -61,7 +62,7 @@ impl<E> LPRQueue<E> {
             let new_tail_ptr = Box::into_raw(Box::new(PRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
             // trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
-            let _ = new_tail.enqueue(inner_item, self.get_thread_id());
+            let _ = new_tail.enqueue(inner_item, thread_id);
             if prq.next.compare_exchange(null_mut(), new_tail_ptr, SeqCst, SeqCst).is_ok() {
                 
                 trace!("switched next pointer to new tail");
@@ -76,12 +77,13 @@ impl<E> LPRQueue<E> {
         }
     }
     fn dequeue(&self) -> Option<E> {
+        let thread_id = self.get_thread_id();
         loop {
             trace!("starting lprqueue dequeue");
             let prq_ptr = self.head.load(SeqCst);
             let prq = unsafe { prq_ptr.as_ref().unwrap() };
             trace!("Starting inner dequeue now");
-            let mut res = prq.dequeue();
+            let mut res = prq.dequeue(thread_id);
             if res.is_some() {
                 trace!("Dequeue was a success");
                 return res;
@@ -91,7 +93,7 @@ impl<E> LPRQueue<E> {
 
                 return None;
             }
-            res = prq.dequeue();
+            res = prq.dequeue(thread_id);
             if res.is_some() {
                 return res;
             }
@@ -104,17 +106,19 @@ impl<E> LPRQueue<E> {
     fn get_thread_id(&self) -> usize {
         THREAD_ID.with(|id| {
             if let Some(tid) = id.get() {
+                // debug!("Got id {tid}");
                 tid
             } else {
                 let new_id = self.next_thread_id.fetch_add(1, Ordering::Relaxed);
                 id.set(Some(new_id));
+                debug!("Got id {new_id}");
                 new_id
             }
         })
     }
 }
 
-// #[derive(std::fmt::Debug)]
+#[derive(std::fmt::Debug)]
 enum CellValue<E> {
     Empty,
     ThreadToken(usize),
@@ -122,7 +126,7 @@ enum CellValue<E> {
 }
 
 
-// #[derive(std::fmt::Debug)]
+#[derive(std::fmt::Debug)]
 struct Cell<E> {
     safe_and_epoch: AtomicU64,
     value: RawAtomicPtr<CellValue<E>>,
@@ -151,7 +155,7 @@ struct PRQ<E> {
     tail: AtomicU64,
 }
 
-impl<E> PRQ<E> {
+impl<E: std::fmt::Debug> PRQ<E> {
     fn new() -> Self {
         let mut a = Vec::with_capacity(RING_SIZE as usize);
         for _ in 0..RING_SIZE {
@@ -179,8 +183,8 @@ impl<E> PRQ<E> {
             
             let (whole, safe, epoch) = self.A[i].safe_and_epoch();
             let mut value = self.A[i].value.load(Ordering::SeqCst);
-            trace!("{safe}, {epoch}");
-            trace!("Checking if is_empty");
+            trace!("Thread {thread_id}: {safe}, {epoch}");
+            trace!("Thread {thread_id}: Checking if is_empty");
             let is_empty = unsafe {
                 if value.is_null() {
                     true
@@ -188,7 +192,7 @@ impl<E> PRQ<E> {
                     matches!(*value, CellValue::Empty)
                 }
             };
-            trace!("Checking if is_t");
+            trace!("Thread {thread_id}: Checking if is_t");
             let is_t = unsafe {
                 if is_empty { 
                     false
@@ -198,7 +202,7 @@ impl<E> PRQ<E> {
             if (is_empty || is_t) &&
                 epoch < cycle && (safe || self.head.load(Ordering::SeqCst) <= t)
             {
-                trace!("not occupied not overtaken");
+                trace!("Thread {thread_id}: not occupied not overtaken");
                 let new_val = Box::into_raw(Box::new(CellValue::ThreadToken(thread_id)));
                 let cas_1 = self.A[i]
                     .value
@@ -209,7 +213,7 @@ impl<E> PRQ<E> {
                         Ordering::SeqCst 
                         );
                 if cas_1.is_err() {
-                    trace!("Failed CAS 1");
+                    trace!("Thread {thread_id}: Failed CAS 1");
                     if check_overflow(t, self.head.load(SeqCst), &self.closed) {
                         continue;
                     } else {
@@ -230,10 +234,10 @@ impl<E> PRQ<E> {
                         Ordering::SeqCst
                         ).is_err() {
                     // NOTE: Verify that this is allowed.
-                    trace!("Failed CAS 2");
+                    trace!("Thread {thread_id}: Failed CAS 2");
                     unsafe {
                         if !value.is_null() {
-                            trace!("value is not null");
+                            trace!("Thread {thread_id}: value is not null");
                             if let CellValue::ThreadToken(token) = *value {
                                 if token == thread_id {
                                     let new_val = Box::into_raw(Box::new(CellValue::Empty));
@@ -241,9 +245,6 @@ impl<E> PRQ<E> {
                                 } 
                             }
                         }
-                    }
-                    if unsafe {matches!(*value, CellValue::ThreadToken(_))} {
-                        let _ = self.A[i].value.compare_exchange(value, new_val, SeqCst, SeqCst);
                     }
                     if check_overflow(t, self.head.load(SeqCst), &self.closed) {
                         continue;
@@ -254,55 +255,49 @@ impl<E> PRQ<E> {
                         }
                     }
                 }
-                trace!("Attempting to return item");
+                trace!("Thread {thread_id}: Attempting to return item");
                 unsafe {
                     if !value.is_null() {
-                        trace!("Value was not null");
+                        trace!("Thread {thread_id}: Value was not null");
                         // trace!("{:?}", *value);
                         if let CellValue::ThreadToken(token) = *value {
-                            trace!("Managed to deref val");
-                            trace!("token: {token}, thread_id: {thread_id}");
-                            trace!("value: {:?}, self.value: {:?}", value, self.A[i].value);
+                            trace!("Thread {thread_id}: Managed to deref val");
+                            trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
+                            trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
                             if token == thread_id 
                                 && self.A[i].value.compare_exchange(value, item_ptr, SeqCst, SeqCst).is_ok() 
                             {
-                                trace!("Managed to enqueue");
+                                trace!("Thread {thread_id}: Managed to enqueue");
                                 return Ok(());
                             } 
                         }
                     }
                 }
-                trace!("Failed to return item");
+                trace!("Thread {thread_id}: Failed to return item");
             }
             if !check_overflow(t, self.head.load(SeqCst), &self.closed) {
-                trace!("PRQ full now");
+                trace!("Thread {thread_id}: PRQ full now");
                 #[allow(clippy::collapsible_if)]
                 if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
-                    trace!("item_ptr is still a value");
+                    trace!("Thread {thread_id}: item_ptr is still a value");
                     return Err(unsafe{val.assume_init()});
                 }
             }
         }
     } 
-    fn dequeue(&self) -> Option<E> {
+    fn dequeue(&self, thread_id: usize) -> Option<E> {
         loop {
-            // trace!("{:?}", self.A);
-            // for cell in &self.A {
-            //     if cell.value.load(SeqCst).is_null() {
-            //         trace!("null");
-            //     } else {
-            //         unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-            //     }
-            // }
             let h = self.head.fetch_add(1, SeqCst);
             let cycle = h / RING_SIZE;
             let i = (h % RING_SIZE) as usize;
             loop {
                 let (whole, safe, epoch) = self.A[i].safe_and_epoch();
                 let value = self.A[i].value.load(SeqCst);
+                // Check if incosisten view of the cell
                 if (whole, safe, epoch) != self.A[i].safe_and_epoch() {
                     continue;
                 }
+                // Is cell empty?
                 let is_empty = unsafe {
                     if value.is_null() {
                         true
@@ -310,12 +305,14 @@ impl<E> PRQ<E> {
                         matches!(*value, CellValue::Empty)
                     }
                 };
+                // Is cell thread_id?
                 let is_t = unsafe {
                     if is_empty { false }
                     else {matches!(*value, CellValue::ThreadToken(_))}
                 };
+
                 if epoch == cycle && (!is_empty && !is_t) {
-                    trace!("In case 1");
+                    trace!("Thread {thread_id}: In case 1");
                     let boxs = unsafe {
                         Box::from_raw(value)
                     };
@@ -328,7 +325,7 @@ impl<E> PRQ<E> {
                         error!("Cell contained no value.");
                     }
                 } else if epoch <= cycle && (is_empty || is_t) {
-                    trace!("In case 2");
+                    trace!("Thread {thread_id}: In case 2");
                     if is_t 
                         && self.A[i].value.compare_exchange(value, to_raw(CellValue::Empty), SeqCst, SeqCst).is_err()
                     {
@@ -338,24 +335,35 @@ impl<E> PRQ<E> {
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
-                } else if epoch < cycle && (!is_empty && !is_t) {
-                    trace!("In case 3");
+                } else if epoch < cycle && !(is_empty || is_t) {
+                    trace!("Thread {thread_id}: In case 3");
                     let new_safe_and_epoch = (cycle << 1) | (false as u64);
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
                 } else {
-                    trace!("In case 4");
+                    trace!("Thread {thread_id}: In case 4");
                     break;
                 }
             }
-            if self.tail.load(SeqCst) <= h + 1 { return None }
+            if self.tail.load(SeqCst) <= h + 1 { 
+                trace!("Thread {thread_id}: queue empty");
+                trace!("Thread {thread_id}: {:?}", self.A);
+                for cell in &self.A {
+                    if cell.value.load(SeqCst).is_null() {
+                        trace!("null");
+                    } else {
+                        unsafe {trace!("Thread {thread_id}: {:?}", *cell.value.load(SeqCst))}
+                    }
+                }
+                return None;
+            }
         }
     } 
 }
 
 
-impl<T> ConcurrentQueue<T> for LPRQueue<T> {
+impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
     fn get_id(&self) -> String {
         "lprq_rust".to_string()
     }
@@ -373,7 +381,7 @@ struct LPRQueueHandle<'a, T> {
     queue: &'a LPRQueue<T>,
 }
 
-impl<T> Handle<T> for LPRQueueHandle<'_, T> {
+impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.queue.dequeue()
     }
