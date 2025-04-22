@@ -11,11 +11,33 @@ use log::{debug, error, trace};
 use crate::traits::{ConcurrentQueue, Handle};
 
 static RING_SIZE: usize = 1024;
+static MAX_THREADS: usize = 256;
 
 pub struct LCRQueue<T> {
     tail: RawAtomicPtr<CRQ<T>>,
     head: RawAtomicPtr<CRQ<T>>,
 }
+
+impl<T> Drop for LCRQueue<T> {
+    fn drop(&mut self) {
+        trace!("Starting drop LCRQueue");
+        let head = unsafe {
+            Box::from_raw(self.head.load(SeqCst))
+        };
+        let mut next = head.next;
+
+
+        while !next.load(SeqCst).is_null(){
+            let node = unsafe {
+                Box::from_raw(next.load(SeqCst))
+            };
+            
+            next = node.next;
+        }
+        trace!("Done dropping");
+    }
+}
+
 impl<T: std::fmt::Debug> LCRQueue<T> {
     fn new() -> Self {
         let ptr = Box::into_raw(Box::new(CRQ::new()));
@@ -24,6 +46,7 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
             head: RawAtomicPtr::new(ptr),
         }
     }
+    #[allow(dead_code)]
     fn trace_through(&self) {
         trace!("############ STARTING TRACE THROUGH ######################");
         let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
@@ -104,7 +127,7 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
                 Ok(()) => return,
                 Err(val) => inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(val)))),
             }
-            trace!("Enqueue failed. PRQ is full.");
+            trace!("Enqueue failed. CRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(CRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
             trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
@@ -122,27 +145,6 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
             }
         }
     }
-    // fn dequeue(&self) -> Option<T> {
-    //     loop {
-    //         let prq_ptr = self.head.load(SeqCst);
-    //         let prq = unsafe { prq_ptr.as_ref().unwrap() };
-    //         let mut res = prq.dequeue();
-    //         if res.is_some() {
-    //             return res;
-    //         }
-    //         if prq.next.load(SeqCst).is_null() {
-    //             // self.trace_through();
-    //             return None;
-    //         }
-    //         res = prq.dequeue();
-    //         if res.is_some() {
-    //             return res;
-    //         }
-    //         // NOTE: Drop old one here?
-    //         // self.trace_through();
-    //         let _ = self.head.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
-    //     }
-    // }
 }
 
 #[derive(std::fmt::Debug)]
@@ -165,10 +167,31 @@ impl<E> Cell<E> {
     }
 }
 
+impl<E> Drop for Cell<E> {
+    fn drop(&mut self) {
+        unsafe {
+            let ptr = self.value.load(Ordering::SeqCst);
+            drop(Box::from_raw(ptr));
+        }
+    }
+}
+
 enum CellValue<E> {
     Empty,
     Value(MaybeUninit<E>),
 }
+
+impl<E> Drop for CellValue<E> {
+    fn drop(&mut self) {
+        if let CellValue::Value(val) = self {
+            unsafe {
+                // Take ownership of the value and drop it
+                std::ptr::drop_in_place(val.as_mut_ptr());
+            }
+        }
+    }
+}
+
 impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -178,6 +201,7 @@ impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 struct CRQ<T> {
     head: AtomicU64,
     tail: AtomicU64,
@@ -185,6 +209,12 @@ struct CRQ<T> {
     next: RawAtomicPtr<CRQ<T>>,
     ring: Vec<Cell<T>>,
 }
+
+// impl<T> Drop for CRQ<T> {
+//     fn drop(&mut self) {
+//         let reclaimed_next = self.next.into_inner()
+//     }
+// }
 
 impl<T> CRQ<T> {
     fn new() -> Self {
@@ -223,9 +253,9 @@ impl<T> CRQ<T> {
                         if cas2_w(node, create_safe_idx(safe, h), val, create_safe_idx(false, h + RING_SIZE as u64), new_val) {
                             unsafe {
                                 let boxs = Box::from_raw(val);
-                                if let CellValue::Value(r_val) = *boxs {
+                                if let CellValue::Value(ref r_val) = *boxs {
                                     trace!("Inner dequeue: dequeue was a success");
-                                    return Some(r_val.assume_init());
+                                    return Some(std::ptr::read(r_val.assume_init_ref() as *const _));
                                 }
                             }
                         } 
@@ -268,8 +298,10 @@ impl<T> CRQ<T> {
             let closed = self.closed.load(SeqCst);
             if closed {
                 trace!("Inner enqueue: CRQ closed.");
-                if let CellValue::Value(val) = *unsafe{Box::from_raw(item)} {
-                    return Err(unsafe{val.assume_init()});
+                unsafe {
+                    if let CellValue::Value(ref val) = *Box::from_raw(item) {
+                        return Err(std::ptr::read(val.assume_init_ref() as *const _));
+                    }
                 }
             }
             let index = t as usize % RING_SIZE;
@@ -291,8 +323,10 @@ impl<T> CRQ<T> {
             let h = self.head.load(SeqCst);
             if t >= h && t - h >= RING_SIZE as u64 {
                 self.closed.store(true, SeqCst);
-                if let CellValue::Value(val) = *unsafe{Box::from_raw(item)} {
-                    return Err(unsafe{val.assume_init()});
+                unsafe {
+                    if let CellValue::Value(ref val) = *Box::from_raw(item) {
+                        return Err(std::ptr::read(val.assume_init_ref() as *const _));
+                    }
                 }
             }
         } 

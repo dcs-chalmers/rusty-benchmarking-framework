@@ -20,6 +20,7 @@ pub struct LPRQueue<E> {
 }
 
 impl<E: std::fmt::Debug> LPRQueue<E> {
+    #[allow(dead_code)]
     fn trace_through(&self) {
         trace!("############ STARTING TRACE THROUGH ######################");
         let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
