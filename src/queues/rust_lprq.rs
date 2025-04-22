@@ -19,25 +19,25 @@ pub struct LPRQueue<E> {
     next_thread_id: AtomicUsize,
 }
 
-impl<E: std::fmt::Debug> LPRQueue<E> {
-    fn trace_through(&self) {
-        let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
-        loop {
-            for cell in &curr.A {
-                if cell.value.load(SeqCst).is_null() {
-                    trace!("null");
-                } else {
-                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-                }
-            }
-            let tmp  = unsafe { curr.next.load(SeqCst).as_ref() };
-            curr = if let Some(val) = tmp {
-                val 
-            } else {
-                break;
-            }
-        }
-    }
+impl<E> LPRQueue<E> {
+    // fn trace_through(&self) {
+    //     let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
+    //     loop {
+    //         for cell in &curr.A {
+    //             if cell.value.load(SeqCst).is_null() {
+    //                 trace!("null");
+    //             } else {
+    //                 unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
+    //             }
+    //         }
+    //         let tmp  = unsafe { curr.next.load(SeqCst).as_ref() };
+    //         curr = if let Some(val) = tmp {
+    //             val 
+    //         } else {
+    //             break;
+    //         }
+    //     }
+    // }
     fn new() -> Self {
         let start = Box::into_raw(Box::new(PRQ::new()));
         LPRQueue {
@@ -60,7 +60,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
             trace!("Enqueue failed. PRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(PRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
-            trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
+            // trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
             let _ = new_tail.enqueue(inner_item, self.get_thread_id());
             if prq.next.compare_exchange(null_mut(), new_tail_ptr, SeqCst, SeqCst).is_ok() {
                 
@@ -114,7 +114,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     }
 }
 
-#[derive(std::fmt::Debug)]
+// #[derive(std::fmt::Debug)]
 enum CellValue<E> {
     Empty,
     ThreadToken(usize),
@@ -122,7 +122,7 @@ enum CellValue<E> {
 }
 
 
-#[derive(std::fmt::Debug)]
+// #[derive(std::fmt::Debug)]
 struct Cell<E> {
     safe_and_epoch: AtomicU64,
     value: RawAtomicPtr<CellValue<E>>,
@@ -151,7 +151,7 @@ struct PRQ<E> {
     tail: AtomicU64,
 }
 
-impl<E: std::fmt::Debug> PRQ<E> {
+impl<E> PRQ<E> {
     fn new() -> Self {
         let mut a = Vec::with_capacity(RING_SIZE as usize);
         for _ in 0..RING_SIZE {
@@ -168,13 +168,6 @@ impl<E: std::fmt::Debug> PRQ<E> {
     fn enqueue(&self, item: *mut CellValue<E>, thread_id: usize) -> Result<(), E>{
         let item_ptr = item;
         loop {
-            // for cell in &self.A {
-            //     if cell.value.load(SeqCst).is_null() {
-            //         trace!("null");
-            //     } else {
-            //         unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-            //     }
-            // }
             let t = self.tail.fetch_add(1, Ordering::SeqCst);
             if self.closed.load(Ordering::SeqCst) { 
                 if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
@@ -265,7 +258,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
                 unsafe {
                     if !value.is_null() {
                         trace!("Value was not null");
-                        trace!("{:?}", *value);
+                        // trace!("{:?}", *value);
                         if let CellValue::ThreadToken(token) = *value {
                             trace!("Managed to deref val");
                             trace!("token: {token}, thread_id: {thread_id}");
@@ -326,10 +319,9 @@ impl<E: std::fmt::Debug> PRQ<E> {
                     let boxs = unsafe {
                         Box::from_raw(value)
                     };
-                    trace!("{:?}", *boxs);
                     if let CellValue::Value(val) = *boxs{
                         let r_val = Some(unsafe {std::ptr::read(val.assume_init_ref())});
-                        trace!("{:?}", r_val);
+                        // trace!("{:?}", r_val);
                         self.A[i].value.store(to_raw(CellValue::Empty), SeqCst);
                         return r_val;
                     } else {
@@ -363,7 +355,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
 }
 
 
-impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
+impl<T> ConcurrentQueue<T> for LPRQueue<T> {
     fn get_id(&self) -> String {
         "lprq_rust".to_string()
     }
@@ -381,7 +373,7 @@ struct LPRQueueHandle<'a, T> {
     queue: &'a LPRQueue<T>,
 }
 
-impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
+impl<T> Handle<T> for LPRQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.queue.dequeue()
     }
