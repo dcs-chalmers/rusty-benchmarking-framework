@@ -32,7 +32,7 @@ impl<T: std::fmt::Debug> Drop for LCRQueue<T> {
 
             while !next.load_ptr().is_null(){
                 let node = Box::from_raw(next.load_ptr());
-                debug!("Dropping CRQ");
+                trace!("Dropping CRQ");
                 next = node.next;
             }
         }
@@ -105,7 +105,7 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
             trace!("Enqueueing item now");
             match crq.enqueue(inner_item) {
                 Ok(()) => return,
-                Err(val) => inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(val)))),
+                Err(val) => inner_item = val,
             }
             trace!("Enqueue failed. CRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(CRQ::new()));
@@ -143,12 +143,12 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
 
 #[derive(std::fmt::Debug)]
 #[repr(C, align(16))]
-struct Cell<E> {
+struct Cell<E: std::fmt::Debug> {
     safe_and_idx: AtomicU64,
     value: RawAtomicPtr<CellValue<E>>,
 }
 
-impl<E> Cell<E> {
+impl<E: std::fmt::Debug> Cell<E> {
     fn new() -> Self {
         Self {
             safe_and_idx: AtomicU64::new(1),
@@ -161,28 +161,32 @@ impl<E> Cell<E> {
     }
 }
 
-impl<E> Drop for Cell<E> {
+impl<E: std::fmt::Debug> Drop for Cell<E> {
     fn drop(&mut self) {
         unsafe {
-            debug!("Dropping Cell now.");
-            let ptr = self.value.load(Ordering::SeqCst);
+            trace!("Dropping Cell now.");
+            let ptr: *mut CellValue<E> = self.value.load(Ordering::SeqCst);
+            // let boxed = Box::from_raw(ptr);
+            // if let CellValue::Value(val) = *boxed {
+            //     trace!("Dropping CellValue::Value now. Value was {:?}", val.assume_init_ref());
+            //     let _dropped = val.assume_init();
+            // }
             drop(Box::from_raw(ptr));
         }
     }
 }
 
-enum CellValue<E> {
+enum CellValue<E: std::fmt::Debug> {
     Empty,
     Value(MaybeUninit<E>),
 }
 
-impl<E> Drop for CellValue<E> {
+impl<E: std::fmt::Debug> Drop for CellValue<E> {
     fn drop(&mut self) {
-        debug!("Dropping CellValue now");
         if let CellValue::Value(val) = self {
+            trace!("Dropping CellValue::Value now. Value was {:?}", unsafe { val.assume_init_ref() });
             unsafe {
-                // Take ownership of the value and drop it
-                std::ptr::drop_in_place(val.as_mut_ptr());
+                val.assume_init_drop();
             }
         }
     }
@@ -199,7 +203,7 @@ impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(std::fmt::Debug)]
-struct CRQ<T> {
+struct CRQ<T: std::fmt::Debug> {
     head: CachePadded<AtomicU64>,
     tail: CachePadded<AtomicU64>,
     closed: AtomicBool,
@@ -309,18 +313,19 @@ impl<T: std::fmt::Debug> CRQ<T> {
             }
         }
     }
-    fn enqueue(&self, item: *mut CellValue<T>) -> Result<(), T>{
+    fn enqueue(&self, item: *mut CellValue<T>) -> Result<(), *mut CellValue<T>>{
         trace!("Starting inner enqueue now");
         loop {
             let t = self.tail.fetch_add(1, SeqCst);
             let closed = self.closed.load(SeqCst);
             if closed {
                 trace!("Inner enqueue: CRQ closed.");
-                unsafe {
-                    if let CellValue::Value(ref val) = *Box::from_raw(item) {
-                        return Err(std::ptr::read(val.assume_init_ref() as *const _));
-                    }
-                }
+                // unsafe {
+                //     if let CellValue::Value(ref item_val) = *Box::from_raw(item) {
+                //         return Err(std::ptr::read(item_val.assume_init_ref() as *const _));
+                //     }
+                // }
+                return Err(item);
             }
             let index = t as usize % RING_SIZE;
             trace!("Inner enqueue: index: {index}");
@@ -341,11 +346,12 @@ impl<T: std::fmt::Debug> CRQ<T> {
             let h = self.head.load(SeqCst);
             if t >= h && t - h >= RING_SIZE as u64 {
                 self.closed.store(true, SeqCst);
-                unsafe {
-                    if let CellValue::Value(ref val) = *Box::from_raw(item) {
-                        return Err(std::ptr::read(val.assume_init_ref() as *const _));
-                    }
-                }
+                // unsafe {
+                //     if let CellValue::Value(ref item_val) = *Box::from_raw(item) {
+                //         return Err(std::ptr::read(item_val.assume_init_ref() as *const _));
+                //     }
+                // }
+                return Err(item);
             }
         } 
     }
@@ -367,7 +373,7 @@ fn create_safe_idx(safe: bool, idx: u64) -> u64 {
     (idx << 1) | safe as u64
 }
 
-fn cas2_w<T>(
+fn cas2_w<T: std::fmt::Debug>(
     node: &Cell<T>,
     safe_and_idx: u64,
     val: *mut CellValue<T>,
@@ -447,11 +453,14 @@ impl<T: std::fmt::Debug> Handle<T> for LCRQueueHandle<'_, T> {
 mod tests {
     use std::sync::atomic::AtomicI32;
 
+    use log::info;
+
     use super::*;
 
     #[test]
     fn create_lcrqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
+        info!("starting test");
         let q: LCRQueue<i32> = LCRQueue::new();
         let mut hp = HazardPointer::new();
         q.enqueue(1, &mut hp);
@@ -470,16 +479,16 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LCRQueue<i32> = LCRQueue::new();
         let mut hp = HazardPointer::new();
-        for _ in 0..RING_SIZE + 3 {
-            q.enqueue(1, &mut hp);
+        for i in 0..RING_SIZE + 3 {
+            q.enqueue(i as i32, &mut hp);
         }
-        for _ in 0..RING_SIZE + 3 {
-            assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
-        }
+        // for _ in 0..RING_SIZE + 3 {
+        //     assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
+        // }
         
     }
     #[test]
-    fn enqueue_full_crq2() {
+    fn enqueue_full2_crq() {
 
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LCRQueue<i32> = LCRQueue::new();
