@@ -9,13 +9,14 @@ use haphazard::{raw::Pointer, AtomicPtr as HpAtomicPtr, HazardPointer};
 use log::{debug, error, trace};
 #[allow(unused_imports)]
 use crate::traits::{ConcurrentQueue, Handle};
+use crossbeam::utils::CachePadded;
 
-static RING_SIZE: usize = 4;
-static MAX_THREADS: usize = 256;
+static RING_SIZE: usize = 1024;
+// static MAX_THREADS: usize = 256;
 
 pub struct LCRQueue<T: std::fmt::Debug> {
-    tail: HpAtomicPtr<CRQ<T>>,
-    head: HpAtomicPtr<CRQ<T>>,
+    tail: CachePadded<HpAtomicPtr<CRQ<T>>>,
+    head: CachePadded<HpAtomicPtr<CRQ<T>>>,
     // crq_count: AtomicU64,
 }
 
@@ -46,8 +47,8 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
     fn new() -> Self {
         let ptr = Box::into_raw(Box::new(CRQ::new()));
         LCRQueue {
-            tail: unsafe { HpAtomicPtr::new(ptr) },
-            head: unsafe { HpAtomicPtr::new(ptr) },
+            tail: unsafe { CachePadded::new(HpAtomicPtr::new(ptr)) },
+            head: unsafe { CachePadded::new(HpAtomicPtr::new(ptr)) },
             // crq_count: AtomicU64::new(1),
         }
     }
@@ -199,8 +200,8 @@ impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(std::fmt::Debug)]
 struct CRQ<T> {
-    head: AtomicU64,
-    tail: AtomicU64,
+    head: CachePadded<AtomicU64>,
+    tail: CachePadded<AtomicU64>,
     closed: AtomicBool,
     next: HpAtomicPtr<CRQ<T>>,
     ring: Vec<Cell<T>>,
@@ -219,8 +220,8 @@ impl<T: std::fmt::Debug> CRQ<T> {
             ring.push(Cell::new());
         }
         CRQ {
-            head: AtomicU64::new(0),
-            tail: AtomicU64::new(0),
+            head: CachePadded::new(AtomicU64::new(0)),
+            tail: CachePadded::new(AtomicU64::new(0)),
             closed: AtomicBool::new(false),
             next: unsafe { HpAtomicPtr::new(null_mut()) },
             ring,
@@ -422,7 +423,7 @@ impl<T: std::fmt::Debug> ConcurrentQueue<T> for LCRQueue<T> {
         LCRQueueHandle {
             queue: self,
             hp1: HazardPointer::new(),
-            hp2: HazardPointer::new(),
+            // hp2: HazardPointer::new(),
         } 
     }
 }
@@ -430,7 +431,7 @@ impl<T: std::fmt::Debug> ConcurrentQueue<T> for LCRQueue<T> {
 struct LCRQueueHandle<'a, T: std::fmt::Debug> {
     queue: &'a LCRQueue<T>,
     hp1: HazardPointer<'static>,
-    hp2: HazardPointer<'static>, 
+    // hp2: HazardPointer<'static>, 
 }
 
 impl<T: std::fmt::Debug> Handle<T> for LCRQueueHandle<'_, T> {
