@@ -37,6 +37,13 @@ impl<T: std::fmt::Debug> Drop for LCRQueue<T> {
             }
         }
         trace!("Done dropping");
+        // let mut hp = HazardPointer::new();
+        // while self.dequeue(&mut hp).is_some() {
+        //
+        // }
+        // unsafe {
+        //     drop(Box::from_raw(self.head.load_ptr()));
+        // }
     }
 }
 
@@ -85,7 +92,10 @@ impl<T: std::fmt::Debug> LCRQueue<T> {
                 return v;
             }
             let crq_next = crq.next.load_ptr();
-            if crq_next.is_null() {return None;}
+            if crq_next.is_null() {
+                hp.reset_protection();
+                return None;
+            }
             if let Ok(curr) = unsafe { self.head.compare_exchange_ptr(to_mut_ptr(crq), crq_next) } {
                 let old_ptr = curr.unwrap();
                 // self.crq_count.fetch_sub(1, Ordering::Relaxed);
@@ -166,12 +176,12 @@ impl<E: std::fmt::Debug> Drop for Cell<E> {
         unsafe {
             trace!("Dropping Cell now.");
             let ptr: *mut CellValue<E> = self.value.load(Ordering::SeqCst);
-            // let boxed = Box::from_raw(ptr);
-            // if let CellValue::Value(val) = *boxed {
-            //     trace!("Dropping CellValue::Value now. Value was {:?}", val.assume_init_ref());
-            //     let _dropped = val.assume_init();
-            // }
-            drop(Box::from_raw(ptr));
+            let boxed = Box::from_raw(ptr);
+            if let CellValue::Value(val) = *boxed {
+                trace!("Dropping CellValue::Value now. Value was {:?}", val.assume_init_ref());
+                let _dropped = val.assume_init();
+            }
+            // drop(Box::from_raw(ptr));
         }
     }
 }
@@ -181,16 +191,16 @@ enum CellValue<E: std::fmt::Debug> {
     Value(MaybeUninit<E>),
 }
 
-impl<E: std::fmt::Debug> Drop for CellValue<E> {
-    fn drop(&mut self) {
-        if let CellValue::Value(val) = self {
-            trace!("Dropping CellValue::Value now. Value was {:?}", unsafe { val.assume_init_ref() });
-            unsafe {
-                val.assume_init_drop();
-            }
-        }
-    }
-}
+// impl<E: std::fmt::Debug> Drop for CellValue<E> {
+//     fn drop(&mut self) {
+//         if let CellValue::Value(val) = self {
+//             trace!("Dropping CellValue::Value now. Value was {:?}", unsafe { val.assume_init_ref() });
+//             unsafe {
+//                 val.assume_init_drop();
+//             }
+//         }
+//     }
+// }
 
 impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -206,8 +216,8 @@ impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
 struct CRQ<T: std::fmt::Debug> {
     head: CachePadded<AtomicU64>,
     tail: CachePadded<AtomicU64>,
-    closed: AtomicBool,
-    next: HpAtomicPtr<CRQ<T>>,
+    closed: CachePadded<AtomicBool>,
+    next: CachePadded<HpAtomicPtr<CRQ<T>>>,
     ring: Vec<Cell<T>>,
 }
 
@@ -226,8 +236,8 @@ impl<T: std::fmt::Debug> CRQ<T> {
         CRQ {
             head: CachePadded::new(AtomicU64::new(0)),
             tail: CachePadded::new(AtomicU64::new(0)),
-            closed: AtomicBool::new(false),
-            next: unsafe { HpAtomicPtr::new(null_mut()) },
+            closed: CachePadded::new(AtomicBool::new(false)),
+            next: unsafe { CachePadded::new(HpAtomicPtr::new(null_mut())) },
             ring,
         }
     }
@@ -261,10 +271,11 @@ impl<T: std::fmt::Debug> CRQ<T> {
                         if cas2_w(node, create_safe_idx(safe, h), val, create_safe_idx(false, h + RING_SIZE as u64), new_val) {
                             unsafe {
                                 let boxs = Box::from_raw(val);
-                                if let CellValue::Value(ref r_val) = *boxs {
+                                if let CellValue::Value(r_val) = *boxs {
                                     trace!("Inner dequeue: dequeue was a success");
+                                    // let result = r_val.assume_init_read
                                     // trace!("{:?}: derefing and returning item", std::thread::current().id());
-                                    return Some(std::ptr::read(r_val.assume_init_ref() as *const _));
+                                    return Some(r_val.assume_init());
                                 }
                             }
                         } else { unsafe { drop(Box::from_raw(new_val)); } }
@@ -291,15 +302,13 @@ impl<T: std::fmt::Debug> CRQ<T> {
                     //     println!("skipping");
                     // }
 
-                    // if let CellValue::Empty = *val {
                     let new_val = Box::into_raw(Box::new(CellValue::Empty));
                     if cas2_w(node, create_safe_idx(safe, idx), val, create_safe_idx(safe, h + RING_SIZE as u64), new_val) {
                         // // Line 52
                         // println!("{:?}: cas2 success", std::thread::current().id());
+                        drop(Box::from_raw(val));
                         break;
                     } else {/* println!("{:?}: cas2 failure", std::thread::current().id());  */drop(Box::from_raw(new_val)) }
-
-                    // }
                 } }
 
             }
@@ -340,6 +349,10 @@ impl<T: std::fmt::Debug> CRQ<T> {
                    (safe || self.head.load(SeqCst) <= t) &&
                    cas2_w(node, create_safe_idx(safe, idx), val_ptr, create_safe_idx(true, t), item) {
                     trace!("Inner enqueue: Enqueue success");
+                    unsafe { 
+                        let old_val = Box::from_raw(val_ptr);
+                        drop(old_val);
+                    }
                     return Ok(());
                 }
             }
@@ -479,13 +492,30 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LCRQueue<i32> = LCRQueue::new();
         let mut hp = HazardPointer::new();
-        for i in 0..RING_SIZE + 3 {
+        for _ in 0..RING_SIZE + 3 {
+            q.enqueue(1, &mut hp);
+        }
+        for _ in 0..RING_SIZE + 3 {
+            assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
+        }
+        
+    }
+    #[test]
+    fn drop_test() {
+
+        let _ = env_logger::builder().is_test(true).try_init();
+        let q: LCRQueue<i32> = LCRQueue::new();
+        let mut hp = HazardPointer::new();
+        info!("Starting enqueues");
+        for i in 0..RING_SIZE * 2 {
             q.enqueue(i as i32, &mut hp);
         }
-        // for _ in 0..RING_SIZE + 3 {
-        //     assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
-        // }
-        
+        info!("Starting dequeues");
+        for _ in 0..RING_SIZE + 1 {
+            let val = q.dequeue(&mut hp).unwrap();
+            debug!("Value was {val}");
+        }
+        info!("Test done");
     }
     #[test]
     fn enqueue_full2_crq() {
