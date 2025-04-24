@@ -48,3 +48,5 @@ pub mod wfqueue;
 pub mod rust_lprq;
 #[cfg(feature = "lcrq_rust")]
 pub mod lcrq_rust;
+#[cfg(feature = "faaa_queue")]
+pub mod faaa_queue;

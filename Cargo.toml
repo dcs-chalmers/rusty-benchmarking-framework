@@ -61,7 +61,8 @@ lcrq = ["dep:bindgen", "dep:cc"]
 lprq = ["dep:bindgen", "dep:cc"]
 tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
-faa_array_queue = ["dep:haphazard"]
+faa_array_queue = ["dep:haphazard", "dep:crossbeam"]
+faaa_queue = ["dep:haphazard", "dep:crossbeam"]
 benchmark_order = []
 bbq = ["dep:bbq-rs"]
 tests_benchmark = ["basic_queue"]
@@ -94,6 +95,7 @@ all_queues = [
     "faa_array_queue",
     "lprq_rust",
     "lcrq_rust",
+    "faaa_queue",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
