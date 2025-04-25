@@ -18,10 +18,9 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install Boost
       run: sudo apt-get install -y libboost-all-dev
-    - name: Pull concurrentqueue
-      run: git clone https://github.com/cameron314/concurrentqueue.git ./src/cpp_queues/moodycamel/concurrentqueue
-    - name: Pull concurrencyfreaks 
-      run: git clone https://github.com/pramalhe/ConcurrencyFreaks ./src/cpp_queues/faaaqueue/ConcurrencyFreaks
+    - name: Get submodules 
+      run: git submodule init
+      run: git submodule update
     - name: Build
       run: cargo build --verbose --features all_queues
     - name: Run queue tests
