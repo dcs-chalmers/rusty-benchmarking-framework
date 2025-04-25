@@ -1,6 +1,6 @@
 [submodule "src/cpp_queues/moodycamel/concurrentqueue"]
 	path = src/cpp_queues/moodycamel/concurrentqueue
-	url = git@github.com:cameron314/concurrentqueue.git
+	url = https://github.com/cameron314/concurrentqueue
 [submodule "src/cpp_queues/faaaqueue/ConcurrencyFreaks"]
 	path = src/cpp_queues/faaaqueue/ConcurrencyFreaks
 	url = https://github.com/pramalhe/ConcurrencyFreaks
