@@ -69,6 +69,8 @@ Implemented queues are:
 * `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). **Experimental**.
 * `lcrq` - [An unbounded C++ queue](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/CPP/queues/LCRQueue.hpp). **Experimental**.
 * `lprq` - [An unbounded C++ queue](https://zenodo.org/records/7337237). **Experimental**.
+* `faaa_queue_cpp` - [An unbounded C++ queue](https://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html). **Experimental**.
+* `faaa_queue_rust` - Our implementation of a Rust version of the FAAArrayQueue from [this](https://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html) blog post. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/faaa_queue.rs)
 * `tz_queue_hp` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation uses hazard pointers for memory reclamation. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue_hp.rs)
 * `tz_queue` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation has no memory reclamation scheme. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue.rs)
 * `bbq` - A Block Based Bounded Queue based on [this paper](https://www.usenix.org/conference/atc22/presentation/wang-jiawei) from the crate[`bbq-rs`](https://crates.io/crates/bbq-rs). This queue implements a blocking mechanism and thus does not work for `ping-pong`.
@@ -269,6 +271,16 @@ int your_queue_pop(YourQueue queue, void** item) {
 After that, create a feature in `Cargo.toml` just as in the guide for regular queues. Then, build instructions have to be added to `build.rs`.
 
 ```rust
+        // Add your feature name to the top of fn main() 
+        #[cfg(any(
+                feature = "boost", 
+                feature = "moodycamel", 
+                feature = "lcrq", 
+                feature = "lprq", 
+                feature = "faaa_queue_cpp",
+                feature = "your_queue"
+                ))]
+
         // [...]
         // Configure for your queue
         #[cfg(feature = "your_queue")]

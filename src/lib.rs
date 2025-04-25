@@ -189,8 +189,13 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         &bench_conf
     );
     implement_benchmark!(
-        "faaa_queue",
+        "faaa_queue_rust",
         crate::queues::faaa_queue::FAAAQueue<usize>,
+        &bench_conf
+    );
+    implement_benchmark!(
+        "faaa_queue_cpp",
+        crate::queues::faaa_queue_cpp::FAAAQueue<usize>,
         &bench_conf
     );
 

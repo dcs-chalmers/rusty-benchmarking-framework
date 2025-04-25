@@ -61,7 +61,7 @@ def process_data(df, group_by):
     return grouped
 
 def plot_thread_count_results(df, queues):
-    """Create plots for each metric with all Queuetypes and Subfolders as
+    """Create separate plot windows for each metric with all Queuetypes and Subfolders as
     separate lines."""
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
     titles = [
@@ -70,44 +70,34 @@ def plot_thread_count_results(df, queues):
         "Number of Enqueues vs. Thread Count",
         "Number of Dequeues vs. Thread Count"
     ]
-
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
     marker_styles = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'x', '+']
-
     # Use a different color for each subfolder
     subfolders = df['Subfolder'].unique()
     queue_types = df['Queuetype'].unique()
-
-    # Create a single figure with 4 subplots (one for each metric)
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-    fig.suptitle('Performance Metrics by Queuetype and Subfolder', fontsize=16)
-
-    # Flatten the axes array for easier indexing
-    axes = axes.flatten()
-
-    # Plot all combinations of Queuetypes and Subfolders
+    
+    # Create a separate figure for each metric
     for i, (metric, title) in enumerate(zip(metrics, titles)):
+        plt.figure(figsize=(8, 6))
+        plt.title(title, fontsize=14)
+        
         line_count = 0
         for subfolder in subfolders:
             subfolder_data = df[df['Subfolder'] == subfolder]
-
             for qtype in queue_types:
                 if queues and qtype not in queues:
                     continue
                 queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                 if queue_data.empty:
                     continue
-
                 queue_data = queue_data.sort_values('Thread Count')
-
                 # Cycle through line styles and marker styles
                 line_style = line_styles[line_count % len(line_styles)]
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
-
                 label = f"{qtype}"
-                axes[i].plot(
+                plt.plot(
                     queue_data['Thread Count'],
                     queue_data[metric],
                     marker=marker_style,
@@ -115,18 +105,15 @@ def plot_thread_count_results(df, queues):
                     label=label,
                     markevery=1,
                 )
-
-        axes[i].set_title(title)
-        axes[i].set_xlabel('Thread Count')
-        axes[i].set_ylabel(metric)
-        axes[i].set_yscale('log')
-        axes[i].grid(True)
-
-        # Create a more compact legend with smaller font
-        axes[i].legend(fontsize='small', loc='best')
-
-    plt.tight_layout()
-    plt.savefig('thread_count_benchmark.png', dpi=300)
+        plt.xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
+        plt.xlabel('Thread Count')
+        plt.ylabel(metric)
+        plt.yscale('log')
+        plt.grid(True)
+        plt.legend(fontsize='small', loc='best')
+        plt.tight_layout()
+        
+    # Show all plots (will display in separate windows)
     plt.show()
 
 def plot_mpsc_results(df, queues):

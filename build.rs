@@ -1,5 +1,11 @@
 fn main() {
-    #[cfg(any(feature = "boost", feature = "moodycamel", feature = "lcrq", feature = "lprq"))]
+    #[cfg(any(
+            feature = "boost", 
+            feature = "moodycamel", 
+            feature = "lcrq", 
+            feature = "lprq", 
+            feature = "faaa_queue_cpp"
+            ))]
     {
         use std::env;
         use std::path::PathBuf;
@@ -42,10 +48,11 @@ fn main() {
             println!("cargo:rerun-if-changed={}/lcrq_wrapper.hpp", my_queue_location);
             println!("cargo:rerun-if-changed={}/lcrq_wrapper.cpp", my_queue_location);
             println!("cargo:rerun-if-changed={}/LCRQueue.hpp", my_queue_location);
-            println!("cargo:rerun-if-changed={}/HazardPointers.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/../HazardPointers.hpp", my_queue_location);
             
             build.file(format!("{}/lcrq_wrapper.cpp", my_queue_location))
-                .define("USE_LCRQUEUE", None);
+                .define("USE_LCRQUEUE", None)
+                .include(format!("{}/../", my_queue_location));
                 
             bindgen = bindgen
                 .header(format!("{}/lcrq_wrapper.hpp", my_queue_location))
@@ -88,6 +95,27 @@ fn main() {
                 .allowlist_function("moody_camel_.*")
                 .allowlist_type("MoodyCamelConcurrentQueue.*")
                 .opaque_type("MoodyCamelConcurrentQueueImpl");
+        }
+        // Configure for FAAAQueue 
+        #[cfg(feature = "faaa_queue_cpp")]
+        {
+            let my_queue_location = format!("{queue_location}/faaaqueue");
+
+            println!("cargo:rerun-if-changed={}/faaa_queue_wrapper.hpp", my_queue_location);
+            println!("cargo:rerun-if-changed={}/faaa_queue_wrapper.cpp", my_queue_location);
+            
+            build.file(format!("{}/faaa_queue_wrapper.cpp", my_queue_location))
+                .define("USE_MOODYCAMEL_QUEUE", None)
+                .include(format!("{}/../", my_queue_location))
+                .include(format!("{}/ConcurrencyFreaks/CPP/queues/array", my_queue_location));
+                
+            bindgen = bindgen
+                .header(format!("{}/faaa_queue_wrapper.hpp", my_queue_location))
+                .clang_arg(format!("-I{}/ConcurrencyFreaks/CPP/queues", my_queue_location))
+                .clang_arg(format!("-I{}/ConcurrencyFreaks/CPP/queues/array", my_queue_location))
+                .allowlist_function("faaaq_.*")
+                .allowlist_type("FAAAQ.*")
+                .opaque_type("FAAAQImpl");
         }
         
         // Compile the C++ code

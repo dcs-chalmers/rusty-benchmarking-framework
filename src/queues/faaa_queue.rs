@@ -140,7 +140,7 @@ impl<T: Sync + Send> ConcurrentQueue<T> for FAAAQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        String::from("faaa_queue")
+        String::from("faaa_queue_rust")
     }
     fn new(_size: usize) -> Self {
         let start_node = Box::into_raw(Box::new(Node::empty()));
