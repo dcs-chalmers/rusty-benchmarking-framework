@@ -23,3 +23,4 @@ src/cpp-ring-queues-research/include/AdditionalWork.hpp
 *.data
 *.old
 *.edges
+misc/*
