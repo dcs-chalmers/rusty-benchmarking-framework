@@ -1,5 +1,5 @@
 use core_affinity::CoreId;
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use rand::Rng;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -192,6 +192,7 @@ where
             });
         }
         // TODO: Make it quit after it finds that it is unordered
+        debug!("Starting dequeue thread");
         s.spawn(move || {
             let mut handle = queue.register();
             barrier.wait();

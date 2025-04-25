@@ -44,7 +44,11 @@ pub mod tsigas_zhang_queue;
 pub mod tsigas_zhang_queue_hp;
 #[cfg(feature = "wfqueue")]
 pub mod wfqueue;
-// #[cfg(feature = "delay_queue")]
-// pub mod delay_queue;
-// #[cfg(feature = "chute_queue")]
-// pub mod chute_queue;
+#[cfg(feature = "lprq_rust")]
+pub mod rust_lprq;
+#[cfg(feature = "lcrq_rust")]
+pub mod lcrq_rust;
+#[cfg(feature = "faaa_queue_rust")]
+pub mod faaa_queue;
+#[cfg(feature = "faaa_queue_cpp")]
+pub mod faaa_queue_cpp;

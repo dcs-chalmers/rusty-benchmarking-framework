@@ -3,9 +3,11 @@ use jemalloc_ctl::{epoch, stats};
 use log::{debug, error, trace};
 #[allow(unused_imports)]
 use crate::arguments::{Args, Benchmarks};
+#[allow(unused_imports)]
 use crate::traits::ConcurrentQueue;
 use std::fs::OpenOptions;
 use std::io::Write;
+#[allow(unused_imports)]
 use std::sync::atomic::AtomicBool;
 use sysinfo::System;
 

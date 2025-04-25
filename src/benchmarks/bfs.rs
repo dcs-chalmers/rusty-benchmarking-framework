@@ -79,7 +79,7 @@ C: ConcurrentQueue<usize>,
     let (dur_par, par_ret_vec) = parallell_bfs(&cqueue, graph, start_node, thread_count, bench_conf);
     debug!("Graph traversal done. Took {:?}.", dur_par);
 
-    if args.no_verify {
+    if !args.no_verify {
         debug!("Comparing results to the sequential solution");
         for (i, node) in par_ret_vec.iter().enumerate() {
             trace!("Pos: {} Parallell: {} Sequential: {}", i, *node, seq_ret_vec[i]);
