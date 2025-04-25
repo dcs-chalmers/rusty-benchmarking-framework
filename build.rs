@@ -1,9 +1,9 @@
 fn main() {
     #[cfg(any(
-            feature = "boost", 
-            feature = "moodycamel", 
-            feature = "lcrq", 
-            feature = "lprq", 
+            feature = "boost_cpp", 
+            feature = "moodycamel_cpp", 
+            feature = "lcrq_cpp", 
+            feature = "lprq_cpp", 
             feature = "faaa_queue_cpp"
             ))]
     {
@@ -20,7 +20,7 @@ fn main() {
             .clang_arg("-I/usr/include");
         
         // Configure for LPRQ
-        #[cfg(feature = "lprq")]
+        #[cfg(feature = "lprq_cpp")]
         {
             let my_queue_location = format!("{queue_location}/lprq");
             println!("cargo:rerun-if-changed={}/lprq_wrapper.hpp", my_queue_location);
@@ -42,7 +42,7 @@ fn main() {
         }
         
         // Configure for LCRQ
-        #[cfg(feature = "lcrq")]
+        #[cfg(feature = "lcrq_cpp")]
         {
             let my_queue_location = format!("{queue_location}/lcrq");
             println!("cargo:rerun-if-changed={}/lcrq_wrapper.hpp", my_queue_location);
@@ -62,7 +62,7 @@ fn main() {
         }
         
         // Configure for Boost
-        #[cfg(feature = "boost")]
+        #[cfg(feature = "boost_cpp")]
         {
             let my_queue_location = format!("{queue_location}/boost");
 
@@ -80,7 +80,7 @@ fn main() {
         }
         
         // Configure for MoodyCamel
-        #[cfg(feature = "moodycamel")]
+        #[cfg(feature = "moodycamel_cpp")]
         {
             let my_queue_location = format!("{queue_location}/moodycamel");
 

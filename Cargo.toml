@@ -55,10 +55,10 @@ scc_stack = ["dep:scc"]
 scc2_stack = ["dep:scc2"]
 lockfree_stack = ["dep:lockfree"]
 ms_queue = ["dep:haphazard"]
-boost = ["dep:bindgen", "dep:cc"]
-moodycamel = ["dep:bindgen", "dep:cc"]
-lcrq = ["dep:bindgen", "dep:cc"]
-lprq = ["dep:bindgen", "dep:cc"]
+boost_cpp = ["dep:bindgen", "dep:cc"]
+moodycamel_cpp = ["dep:bindgen", "dep:cc"]
+lcrq_cpp = ["dep:bindgen", "dep:cc"]
+lprq_cpp = ["dep:bindgen", "dep:cc"]
 tz_queue = []
 tz_queue_hp = ["dep:haphazard"]
 faa_array_queue = ["dep:haphazard", "dep:crossbeam"]
@@ -87,10 +87,10 @@ all_queues = [
     "scc2_stack",
     "lockfree_stack",
     "ms_queue",
-    "boost",
-    "moodycamel",
-    "lcrq",
-    "lprq",
+    "boost_cpp",
+    "moodycamel_cpp",
+    "lcrq_cpp",
+    "lprq_cpp",
     "seg_queue",
     "tz_queue_hp",
     "faa_array_queue",
