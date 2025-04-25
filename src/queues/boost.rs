@@ -75,7 +75,7 @@ impl<T> ConcurrentQueue<T> for BoostCppQueue<T> {
     }
 
     fn get_id(&self) -> String {
-        String::from("boost")
+        String::from("boost_cpp")
     }
 
     fn new(capacity: usize) -> Self {

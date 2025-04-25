@@ -6,7 +6,7 @@ pub mod atomic_queue;
 pub mod basic_queue;
 #[cfg(feature = "bbq")]
 pub mod bbq;
-#[cfg(feature = "boost")]
+#[cfg(feature = "boost_cpp")]
 pub mod boost;
 #[cfg(feature = "bounded_concurrent_queue")]
 pub mod bounded_concurrent_queue;
@@ -14,7 +14,7 @@ pub mod bounded_concurrent_queue;
 pub mod bounded_ringbuffer;
 #[cfg(feature = "faa_array_queue")]
 pub mod faa_array_queue;
-#[cfg(feature = "lcrq")]
+#[cfg(feature = "lcrq_cpp")]
 pub mod lcrq;
 #[cfg(feature = "lf_queue")]
 pub mod lf_queue;
@@ -22,9 +22,9 @@ pub mod lf_queue;
 pub mod lockfree_queue;
 #[cfg(feature = "lockfree_stack")]
 pub mod lockfree_stack;
-#[cfg(feature = "lprq")]
+#[cfg(feature = "lprq_cpp")]
 pub mod lprq;
-#[cfg(feature = "moodycamel")]
+#[cfg(feature = "moodycamel_cpp")]
 pub mod moodycamel;
 #[cfg(feature = "ms_queue")]
 pub mod ms_queue;

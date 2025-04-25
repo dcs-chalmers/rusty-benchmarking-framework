@@ -65,10 +65,12 @@ Implemented queues are:
 * `scc_stack` - An unbounded lock-free stack from the crate [`scc`](https://crates.io/crates/scc).
 * `seg_queue` - An unbounded queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
 * `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) by William to be able to be compiled.
-* `boost` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
-* `moodycamel` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). **Experimental**.
-* `lcrq` - [An unbounded C++ queue](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/CPP/queues/LCRQueue.hpp). **Experimental**.
-* `lprq` - [An unbounded C++ queue](https://zenodo.org/records/7337237). **Experimental**.
+* `boost_cpp` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
+* `moodycamel_cpp` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). **Experimental**.
+* `lcrq_cpp` - [An unbounded C++ queue](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/CPP/queues/LCRQueue.hpp). **Experimental**.
+* `lcrq_rust` - Our implementation of a Rust version of the LCRQ from [this paper](https://dl.acm.org/doi/10.1145/2517327.2442527). [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/lcrq_rust.rs)
+* `lprq_cpp` - [An unbounded C++ queue](https://zenodo.org/records/7337237). **Experimental**.
+* `lprq_rust` - Our implementation of a Rust version of the LPRQ from [this paper](https://dl.acm.org/doi/abs/10.1145/3572848.3577485). [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/lprq_rust.rs)
 * `faaa_queue_cpp` - [An unbounded C++ queue](https://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html). **Experimental**.
 * `faaa_queue_rust` - Our implementation of a Rust version of the FAAArrayQueue from [this](https://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html) blog post. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/faaa_queue.rs)
 * `tz_queue_hp` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation uses hazard pointers for memory reclamation. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue_hp.rs)

@@ -138,22 +138,22 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         &bench_conf
     );
     implement_benchmark!(
-        "boost",
+        "boost_cpp",
         crate::queues::boost::BoostCppQueue<usize>,
         &bench_conf
     );
     implement_benchmark!(
-        "moodycamel",
+        "moodycamel_cpp",
         crate::queues::moodycamel::MoodyCamelCppQueue<usize>,
         &bench_conf
     );
     implement_benchmark!(
-        "lcrq",
+        "lcrq_cpp",
         crate::queues::lcrq::LCRQueue<usize>,
         &bench_conf
     );
     implement_benchmark!(
-        "lprq",
+        "lprq_cpp",
         crate::queues::lprq::LPRQueue<usize>,
         &bench_conf
     );
