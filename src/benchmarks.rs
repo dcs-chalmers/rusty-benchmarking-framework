@@ -248,7 +248,7 @@ mod tests {
         throughput::benchmark_throughput,
         ping_pong::benchmark_ping_pong
     };
-    use crate::traits::{ConcurrentQueue, Handle};
+    use crate::traits::ConcurrentQueue;
 
     use super::*;
     
