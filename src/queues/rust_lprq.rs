@@ -30,24 +30,24 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
         }
     }
     fn enqueue(&self, item: E, hp: &mut HazardPointer) {
-        trace!("Starting LPRQ enqueue");
+        // trace!("Starting LPRQ enqueue");
         let mut inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(item))));
         let thread_id = self.get_thread_id();
         loop {
             let prq = self.tail.safe_load(hp).unwrap();
-            trace!("Enqueueing item now");
+            // trace!("Enqueueing item now");
             match prq.enqueue(inner_item, thread_id) {
                 Ok(()) => return,
                 Err(val) => inner_item = val,
             }
-            trace!("Enqueue failed. PRQ is full.");
+            // trace!("Enqueue failed. PRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(PRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
-            trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
+            // trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
             let _ = new_tail.enqueue(inner_item, thread_id);
             if unsafe { prq.next.compare_exchange_ptr(null_mut(), new_tail_ptr).is_ok() } {
                 
-                trace!("switched next pointer to new tail");
+                // trace!("switched next pointer to new tail");
                 match unsafe { self.tail.compare_exchange_ptr(prq as *const _ as *mut _, new_tail_ptr) } {
                     Ok(_) => trace!("tail swap success"),
                     Err(_) => trace!("tail swap failure"),
@@ -61,25 +61,25 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     fn dequeue(&self, hp: &mut HazardPointer) -> Option<E> {
         let thread_id = self.get_thread_id();
         loop {
-            trace!("Thread {thread_id}: starting lprqueue dequeue");
+            // trace!("Thread {thread_id}: starting lprqueue dequeue");
             let prq = self.head.safe_load(hp).unwrap();
-            trace!("Thread {thread_id}: Starting inner dequeue now");
+            // trace!("Thread {thread_id}: Starting inner dequeue now");
             let mut res = prq.dequeue(thread_id);
             if res.is_some() {
-                trace!("Thread {thread_id}: Dequeue was a success");
+                // trace!("Thread {thread_id}: Dequeue was a success");
                 return res;
             }
-            trace!("Thread {thread_id}: Dequeue failed");
+            // trace!("Thread {thread_id}: Dequeue failed");
             if prq.next.load_ptr().is_null() {
                 // self.trace_through();
-                trace!("Thread: {thread_id}: Returning none");
+                // trace!("Thread: {thread_id}: Returning none");
                 return None;
             }
             res = prq.dequeue(thread_id);
             if res.is_some() {
                 return res;
             }
-            trace!("Thread {thread_id}: prq is empty, update HEAD and restart");
+            // trace!("Thread {thread_id}: prq is empty, update HEAD and restart");
             if let Ok(curr) = unsafe { self.head.compare_exchange_ptr(prq as *const _ as *mut _, prq.next.load_ptr()) } {
                 let old_ptr = curr.unwrap();
                 // self.crq_count.fetch_sub(1, Ordering::Relaxed);
@@ -176,15 +176,15 @@ impl<E: std::fmt::Debug> PRQ<E> {
             
             let (whole, safe, epoch) = self.A[i].safe_and_epoch();
             let mut value = unsafe { self.A[i].value.load(Ordering::SeqCst).as_ref().unwrap() };
-            trace!("Thread {thread_id}: {safe}, {epoch}");
-            trace!("Thread {thread_id}: Checking if is_empty");
+            // trace!("Thread {thread_id}: {safe}, {epoch}");
+            // trace!("Thread {thread_id}: Checking if is_empty");
             let is_empty = matches!(value, CellValue::Empty);
-            trace!("Thread {thread_id}: Checking if is_t");
+            // trace!("Thread {thread_id}: Checking if is_t");
             let is_t = !is_empty && matches!(*value, CellValue::ThreadToken(_));
             if (is_empty || is_t) &&
                 epoch < cycle && (safe || self.head.load(Ordering::SeqCst) <= t)
             {
-                trace!("Thread {thread_id}: not occupied not overtaken");
+                // trace!("Thread {thread_id}: not occupied not overtaken");
                 let new_val = Box::into_raw(Box::new(CellValue::ThreadToken(thread_id)));
                 let cas_1 = self.A[i]
                     .value
@@ -195,7 +195,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         Ordering::SeqCst 
                         );
                 if cas_1.is_err() {
-                    trace!("Thread {thread_id}: Failed CAS 1");
+                    // trace!("Thread {thread_id}: Failed CAS 1");
                     unsafe { drop(Box::from_raw(new_val)); }
 
                     // NOTE: CheckOverflow:
@@ -215,8 +215,8 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         Ordering::SeqCst
                         ).is_err() {
                     // NOTE: Verify that this is allowed.
-                    trace!("Thread {thread_id}: Failed CAS 2");
-                    trace!("Thread {thread_id}: value is not null");
+                    // trace!("Thread {thread_id}: Failed CAS 2");
+                    // trace!("Thread {thread_id}: value is not null");
                     if let CellValue::ThreadToken(token) = *value {
                         if token == thread_id {
                             let new_val = Box::into_raw(Box::new(CellValue::Empty));
@@ -233,12 +233,12 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         return Err(item);
                     } else {continue;}
                 }
-                trace!("Thread {thread_id}: Attempting to return item");
+                // trace!("Thread {thread_id}: Attempting to return item");
                 // trace!("{:?}", *value);
                 if let CellValue::ThreadToken(token) = value {
-                    trace!("Thread {thread_id}: Managed to deref val");
-                    trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
-                    trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
+                    // trace!("Thread {thread_id}: Managed to deref val");
+                    // trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
+                    // trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
                     if *token == thread_id 
                         && self.A[i].value.compare_exchange(
                             value as *const _ as *mut _, 
@@ -246,11 +246,11 @@ impl<E: std::fmt::Debug> PRQ<E> {
                             SeqCst,
                             SeqCst).is_ok() 
                     {
-                        trace!("Thread {thread_id}: Managed to enqueue");
+                        // trace!("Thread {thread_id}: Managed to enqueue");
                         return Ok(());
                     } 
                 }
-                trace!("Thread {thread_id}: Failed to return item");
+                // trace!("Thread {thread_id}: Failed to return item");
             }
             // NOTE: CheckOverflow:
             if t - self.head.load(SeqCst) >= RING_SIZE {
@@ -280,7 +280,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
                 } else {matches!(value, CellValue::ThreadToken(_))};
 
                 if epoch == cycle && (!is_empty && !is_t) {
-                    trace!("Thread {thread_id}: In case 1");
+                    // trace!("Thread {thread_id}: In case 1");
                     let boxs = unsafe {
                         Box::from_raw(value_ptr)
                     };
@@ -293,7 +293,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         error!("Cell contained no value.");
                     }
                 } else if epoch <= cycle && (is_empty || is_t) {
-                    trace!("Thread {thread_id}: In case 2");
+                    // trace!("Thread {thread_id}: In case 2");
                     let new_val = to_raw(CellValue::Empty);
                     if is_t 
                         && self.A[i].value.compare_exchange(value_ptr, new_val, SeqCst, SeqCst).is_err()
@@ -306,24 +306,58 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         break;
                     }
                 } else if epoch < cycle && !(is_empty || is_t) {
-                    trace!("Thread {thread_id}: In case 3");
+                    // trace!("Thread {thread_id}: In case 3");
                     let new_safe_and_epoch = (cycle << 1) | (false as u64);
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
                 } else {
-                    trace!("Thread {thread_id}: In case 4");
+                    // trace!("Thread {thread_id}: In case 4");
                     break;
                 }
             }
             if self.tail.load(SeqCst) <= h + 1 { 
-                trace!("Thread {thread_id}: queue empty");
+                // trace!("Thread {thread_id}: queue empty");
                 return None;
             }
         }
     } 
 }
 
+
+impl<E> Drop for Cell<E> {
+    fn drop(&mut self) {
+        unsafe {
+            trace!("Dropping Cell now.");
+            let ptr: *mut CellValue<E> = self.value.load(Ordering::SeqCst);
+            let boxed = Box::from_raw(ptr);
+            if let CellValue::Value(val) = *boxed {
+                // trace!("Dropping CellValue::Value now. Value was {:?}", val.assume_init_ref());
+                let _dropped = val.assume_init();
+            }
+            // drop(Box::from_raw(ptr));
+        }
+    }
+}
+
+impl<T> Drop for LPRQueue<T> {
+    fn drop(&mut self) {
+        trace!("Starting drop LCRQueue");
+        let head = unsafe {
+            Box::from_raw(self.head.load_ptr())
+        };
+        let mut next = head.next;
+        unsafe {
+
+            while !next.load_ptr().is_null(){
+                let node = Box::from_raw(next.load_ptr());
+                trace!("Dropping CRQ");
+                next = node.next;
+            }
+        }
+        trace!("Done dropping");
+    }
+}
 
 impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
     fn get_id(&self) -> String {
