@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
+use std::{ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
 use std::sync::atomic::Ordering::SeqCst as SeqCst;
 use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
 use log::{debug, error, trace};
@@ -31,7 +31,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     }
     fn enqueue(&self, item: E, hp: &mut HazardPointer) {
         // trace!("Starting LPRQ enqueue");
-        let mut inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(item))));
+        let mut inner_item = Box::into_raw(Box::new(CellValue::Value(item)));
         let thread_id = self.get_thread_id();
         loop {
             let prq = self.tail.safe_load(hp).unwrap();
@@ -54,6 +54,7 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
                 }
                 return;
             } else {
+                unsafe { drop(Box::from_raw(new_tail_ptr)); }
                 let _ = unsafe { self.tail.compare_exchange_ptr(prq as *const _ as *mut _, prq.next.load_ptr()) };
             }
         }
@@ -106,16 +107,14 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
 }
 
 enum CellValue<E> {
-    Empty,
     ThreadToken(usize),
-    Value(MaybeUninit<E>),
+    Value(E),
 }
 impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CellValue::Empty => write!(f, "Empty"),
             CellValue::ThreadToken(val) => write!(f, "ThreadToken: {val}"),
-            CellValue::Value(val) => write!(f, "Value: {:?}", unsafe { val.assume_init_ref() }),
+            CellValue::Value(val) => write!(f, "Value: {:?}", val),
         }
     }
 }
@@ -131,7 +130,7 @@ impl<E> Cell<E> {
     fn new() -> Self {
         Self {
             safe_and_epoch: AtomicU64::new(1),
-            value: RawAtomicPtr::new(Box::into_raw(Box::new(CellValue::Empty))),
+            value: RawAtomicPtr::new(null_mut()),
         }
     }
     fn safe_and_epoch(&self) -> (u64, bool, u64) {
@@ -175,12 +174,12 @@ impl<E: std::fmt::Debug> PRQ<E> {
             let i: usize = (t % RING_SIZE) as usize;
             
             let (whole, safe, epoch) = self.A[i].safe_and_epoch();
-            let mut value = unsafe { self.A[i].value.load(Ordering::SeqCst).as_ref().unwrap() };
+            let mut value = self.A[i].value.load(Ordering::SeqCst);
             // trace!("Thread {thread_id}: {safe}, {epoch}");
             // trace!("Thread {thread_id}: Checking if is_empty");
-            let is_empty = matches!(value, CellValue::Empty);
+            let is_empty = value.is_null();
             // trace!("Thread {thread_id}: Checking if is_t");
-            let is_t = !is_empty && matches!(*value, CellValue::ThreadToken(_));
+            let is_t = !is_empty && matches!(unsafe {&*value}, CellValue::ThreadToken(_));
             if (is_empty || is_t) &&
                 epoch < cycle && (safe || self.head.load(Ordering::SeqCst) <= t)
             {
@@ -204,7 +203,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         return Err(item);
                     } else {continue;}
                 } else {
-                    value = unsafe { self.A[i].value.load(Ordering::SeqCst).as_ref().unwrap() };
+                    value = self.A[i].value.load(Ordering::SeqCst);
                 }
                 let new_safe_and_epoch = (cycle << 1) | 1;
                 if self.A[i].safe_and_epoch
@@ -217,38 +216,41 @@ impl<E: std::fmt::Debug> PRQ<E> {
                     // NOTE: Verify that this is allowed.
                     // trace!("Thread {thread_id}: Failed CAS 2");
                     // trace!("Thread {thread_id}: value is not null");
-                    if let CellValue::ThreadToken(token) = *value {
-                        if token == thread_id {
-                            let new_val = Box::into_raw(Box::new(CellValue::Empty));
-                            let _ =  self.A[i].value.compare_exchange(
-                                value as *const _ as *mut _,
-                                new_val,
-                                SeqCst,
-                                SeqCst);
-                        } 
+                    if !value.is_null() {
+                        if let CellValue::ThreadToken(token) = unsafe {&*value} {
+                            if *token == thread_id {
+                                let _ =  self.A[i].value.compare_exchange(
+                                    value as *const _ as *mut _,
+                                    null_mut(),
+                                    SeqCst,
+                                    SeqCst);
+                            } 
+                        }
+                        // NOTE: CheckOverflow:
+                        if t - self.head.load(SeqCst) >= RING_SIZE {
+                            self.closed.store(true, SeqCst);
+                            return Err(item);
+                        } else {continue;}
                     }
-                    // NOTE: CheckOverflow:
-                    if t - self.head.load(SeqCst) >= RING_SIZE {
-                        self.closed.store(true, SeqCst);
-                        return Err(item);
-                    } else {continue;}
                 }
                 // trace!("Thread {thread_id}: Attempting to return item");
                 // trace!("{:?}", *value);
-                if let CellValue::ThreadToken(token) = value {
-                    // trace!("Thread {thread_id}: Managed to deref val");
-                    // trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
-                    // trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
-                    if *token == thread_id 
-                        && self.A[i].value.compare_exchange(
-                            value as *const _ as *mut _, 
-                            item_ptr,
-                            SeqCst,
-                            SeqCst).is_ok() 
-                    {
-                        // trace!("Thread {thread_id}: Managed to enqueue");
-                        return Ok(());
-                    } 
+                if !value.is_null() {
+
+                    if let CellValue::ThreadToken(token) = unsafe { &*value } {
+                        // trace!("Thread {thread_id}: Managed to deref val");
+                        // trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
+                        // trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
+                        if *token == thread_id 
+                            && self.A[i].value.compare_exchange(
+                                value as *const _ as *mut _, 
+                                item_ptr,
+                                SeqCst,
+                                SeqCst).is_ok() 
+                        {
+                            return Ok(());
+                        } 
+                    }
                 }
                 // trace!("Thread {thread_id}: Failed to return item");
             }
@@ -259,7 +261,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
             } else {continue;}
         }
     } 
-    fn dequeue(&self, thread_id: usize) -> Option<E> {
+    fn dequeue(&self, _thread_id: usize) -> Option<E> {
         loop {
             let h = self.head.fetch_add(1, SeqCst);
             let cycle = h / RING_SIZE;
@@ -267,17 +269,17 @@ impl<E: std::fmt::Debug> PRQ<E> {
             loop {
                 let (whole, safe, epoch) = self.A[i].safe_and_epoch();
                 let value_ptr = self.A[i].value.load(SeqCst);
-                let value = unsafe { value_ptr.as_ref().unwrap() };
+                let value = value_ptr;
                 // Check if incosisten view of the cell
                 if (whole, safe, epoch) != self.A[i].safe_and_epoch() {
                     continue;
                 }
                 // Is cell empty?
-                let is_empty = matches!(value, CellValue::Empty);
+                let is_empty = value.is_null();
                 // Is cell thread_id?
                 let is_t = if is_empty { 
                     false 
-                } else {matches!(value, CellValue::ThreadToken(_))};
+                } else {matches!(unsafe { &*value }, CellValue::ThreadToken(_))};
 
                 if epoch == cycle && (!is_empty && !is_t) {
                     // trace!("Thread {thread_id}: In case 1");
@@ -285,20 +287,18 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         Box::from_raw(value_ptr)
                     };
                     if let CellValue::Value(val) = *boxs{
-                        let r_val = Some(unsafe {val.assume_init()});
+                        let r_val = Some(val);
                         // trace!("{:?}", r_val);
-                        self.A[i].value.store(to_raw(CellValue::Empty), SeqCst);
+                        self.A[i].value.store(null_mut(), SeqCst);
                         return r_val;
                     } else {
                         error!("Cell contained no value.");
                     }
                 } else if epoch <= cycle && (is_empty || is_t) {
                     // trace!("Thread {thread_id}: In case 2");
-                    let new_val = to_raw(CellValue::Empty);
                     if is_t 
-                        && self.A[i].value.compare_exchange(value_ptr, new_val, SeqCst, SeqCst).is_err()
+                        && self.A[i].value.compare_exchange(value_ptr, null_mut(), SeqCst, SeqCst).is_err()
                     {
-                        unsafe { drop(Box::from_raw(new_val)); }
                         continue;
                     }
                     let new_safe_and_epoch = (cycle << 1) | (safe as u64);
@@ -330,12 +330,11 @@ impl<E> Drop for Cell<E> {
         unsafe {
             trace!("Dropping Cell now.");
             let ptr: *mut CellValue<E> = self.value.load(Ordering::SeqCst);
-            let boxed = Box::from_raw(ptr);
-            if let CellValue::Value(val) = *boxed {
-                // trace!("Dropping CellValue::Value now. Value was {:?}", val.assume_init_ref());
-                let _dropped = val.assume_init();
+            // let boxed = Box::from_raw(ptr);
+            if !ptr.is_null() {
+
+                drop(Box::from_raw(ptr));
             }
-            // drop(Box::from_raw(ptr));
         }
     }
 }
@@ -389,19 +388,6 @@ impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
     }
 }
 
-fn to_raw<T>(item: T) -> *mut T {
-    Box::into_raw(Box::new(item))
-}
-
-
-fn check_overflow(t: u64, head: u64, closed: &AtomicBool) -> bool {
-    // HACK: Check the t >= head part
-    if t - head >= RING_SIZE {
-        closed.store(true, Ordering::SeqCst);
-        return false;
-    }
-    true
-}
 
 #[cfg(test)]
 mod tests {
