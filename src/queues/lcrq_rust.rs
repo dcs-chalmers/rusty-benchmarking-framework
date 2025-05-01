@@ -275,15 +275,12 @@ impl<T: std::fmt::Debug> CRQ<T> {
                     trace!("Inner dequeue: Trying empty transition");
                     // NOTE: This is optimisation 1 from the paper.
                     // Unsure if this is how they meant.
-                    // let tail = self.tail.load(SeqCst);
-                    // if tail > h {
-                    //     for _ in 0..1000 {
-                    //         std::hint::spin_loop();
-                    //     }
-                    //     println!("done spinning");
-                    // } else {
-                    //     println!("skipping");
-                    // }
+                    let tail = self.tail.load(SeqCst);
+                    if tail > h {
+                        for _ in 0..10 {
+                            std::hint::spin_loop();
+                        }
+                    }
 
                     if cas2_w(node, create_safe_idx(safe, idx), val, create_safe_idx(safe, h + RING_SIZE as u64), null_mut()) {
                         // // Line 52
