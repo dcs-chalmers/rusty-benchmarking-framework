@@ -183,31 +183,6 @@ impl<E: std::fmt::Debug> Drop for Cell<E> {
     }
 }
 
-enum CellValue<E: std::fmt::Debug> {
-    Empty,
-    Value(MaybeUninit<E>),
-}
-
-// impl<E: std::fmt::Debug> Drop for CellValue<E> {
-//     fn drop(&mut self) {
-//         if let CellValue::Value(val) = self {
-//             trace!("Dropping CellValue::Value now. Value was {:?}", unsafe { val.assume_init_ref() });
-//             unsafe {
-//                 val.assume_init_drop();
-//             }
-//         }
-//     }
-// }
-
-impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CellValue::Empty => write!(f, "Empty"),
-            CellValue::Value(val) => write!(f, "Value: {:?}", unsafe { val.assume_init_ref() }),
-        }
-    }
-}
-
 #[allow(clippy::upper_case_acronyms)]
 #[derive(std::fmt::Debug)]
 struct CRQ<T: std::fmt::Debug> {
@@ -217,12 +192,6 @@ struct CRQ<T: std::fmt::Debug> {
     next: CachePadded<HpAtomicPtr<CRQ<T>>>,
     ring: Vec<Cell<T>>,
 }
-
-// impl<T> Drop for CRQ<T> {
-//     fn drop(&mut self) {
-//         debug!("Dropping CRQ now")
-//     }
-// }
 
 impl<T: std::fmt::Debug> CRQ<T> {
     fn new() -> Self {
@@ -274,13 +243,14 @@ impl<T: std::fmt::Debug> CRQ<T> {
                     // idx <= h and val == empty; try empty transition
                     trace!("Inner dequeue: Trying empty transition");
                     // NOTE: This is optimisation 1 from the paper.
-                    // Unsure if this is how they meant.
-                    let tail = self.tail.load(SeqCst);
-                    if tail > h {
-                        for _ in 0..10 {
-                            std::hint::spin_loop();
-                        }
-                    }
+                    // Unsure if this is how they meant. Could not get this
+                    // to perform better than without.
+                    // let tail = self.tail.load(SeqCst);
+                    // if tail > h {
+                    //     for _ in 0..10 {
+                    //         std::hint::spin_loop();
+                    //     }
+                    // }
 
                     if cas2_w(node, create_safe_idx(safe, idx), val, create_safe_idx(safe, h + RING_SIZE as u64), null_mut()) {
                         // // Line 52
