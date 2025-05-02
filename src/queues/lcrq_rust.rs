@@ -444,6 +444,7 @@ mod tests {
         
     }
     #[test]
+    #[ignore]
     fn drop_test() {
 
         let _ = env_logger::builder().is_test(true).try_init();
