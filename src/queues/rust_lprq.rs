@@ -169,17 +169,17 @@ impl<E: std::fmt::Debug> PRQ<E> {
             let i: usize = (t % RING_SIZE) as usize;
             
             let (whole, safe, epoch) = self.A[i].safe_and_epoch();
-            let mut value = self.A[i].value.load(Ordering::SeqCst);
+            let value = self.A[i].value.load(Ordering::SeqCst);
             // trace!("Thread {thread_id}: {safe}, {epoch}");
             // trace!("Thread {thread_id}: Checking if is_empty");
             let is_empty = value.is_null();
             // trace!("Thread {thread_id}: Checking if is_t");
             let is_t = !is_empty && is_bottom(value);
+            let new_val = thread_local_bottom(thread_id);
             if (is_empty || is_t) &&
                 epoch < cycle && (safe || self.head.load(Ordering::SeqCst) <= t)
             {
                 // trace!("Thread {thread_id}: not occupied not overtaken");
-                let new_val = thread_local_bottom(thread_id);
                 let cas_1 = self.A[i]
                     .value
                     .compare_exchange(
@@ -189,17 +189,15 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         Ordering::SeqCst 
                         );
                 if cas_1.is_err() {
-                    // trace!("Thread {thread_id}: Failed CAS 1");
-                    unsafe { drop(Box::from_raw(new_val)); }
 
                     // NOTE: CheckOverflow:
-                    if t - self.head.load(SeqCst) >= RING_SIZE {
+                    if t.wrapping_sub(self.head.load(SeqCst)) >= RING_SIZE {
                         self.closed.store(true, SeqCst);
                         return Err(item);
-                    } else {continue;}
-                } else {
-                    value = self.A[i].value.load(Ordering::SeqCst);
-                }
+                    } else {
+                        continue;
+                    }
+                } 
                 let new_safe_and_epoch = (cycle << 1) | 1;
                 if self.A[i].safe_and_epoch
                     .compare_exchange(
@@ -211,42 +209,41 @@ impl<E: std::fmt::Debug> PRQ<E> {
                     // NOTE: Verify that this is allowed.
                     // trace!("Thread {thread_id}: Failed CAS 2");
                     // trace!("Thread {thread_id}: value is not null");
-                    if !value.is_null() && is_bottom(value) {
-                            let _ =  self.A[i].value.compare_exchange(
-                                value as *const _ as *mut _,
-                                null_mut(),
-                                SeqCst,
-                                SeqCst);
-                        // NOTE: CheckOverflow:
-                        if t - self.head.load(SeqCst) >= RING_SIZE {
-                            self.closed.store(true, SeqCst);
-                            return Err(item);
-                        } else {continue;}
+                    let _ =  self.A[i].value.compare_exchange(
+                        new_val,
+                        null_mut(),
+                        SeqCst,
+                        SeqCst);
+                    // NOTE: CheckOverflow:
+                    if t.wrapping_sub(self.head.load(SeqCst)) >= RING_SIZE {
+                        self.closed.store(true, SeqCst);
+                        return Err(item);
+                    } else {
+                        continue;
                     }
                 }
                 // trace!("Thread {thread_id}: Attempting to return item");
                 // trace!("{:?}", *value);
-                if !value.is_null() && is_bottom(value){
-
                         // trace!("Thread {thread_id}: Managed to deref val");
                         // trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
                         // trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
-                        if self.A[i].value.compare_exchange(
-                                value as *const _ as *mut _, 
-                                item_ptr,
-                                SeqCst,
-                                SeqCst).is_ok() 
-                        {
-                            return Ok(());
-                        } 
-                }
+                if self.A[i].value.compare_exchange(
+                        new_val, 
+                        item_ptr,
+                        SeqCst,
+                        SeqCst).is_ok() 
+                {
+                    return Ok(());
+                } 
                 // trace!("Thread {thread_id}: Failed to return item");
             }
             // NOTE: CheckOverflow:
-            if t - self.head.load(SeqCst) >= RING_SIZE {
+            if t.wrapping_sub(self.head.load(SeqCst)) >= RING_SIZE {
                 self.closed.store(true, SeqCst);
                 return Err(item);
-            } else {continue;}
+            } else {
+                continue;
+            }
         }
     } 
     fn dequeue(&self, _thread_id: usize) -> Option<E> {
@@ -286,7 +283,7 @@ impl<E: std::fmt::Debug> PRQ<E> {
                     }
                 } else if epoch < cycle && !(is_empty || is_t) {
                     // trace!("Thread {thread_id}: In case 3");
-                    let new_safe_and_epoch = (cycle << 1) | (false as u64);
+                    let new_safe_and_epoch = (epoch << 1) | (false as u64); // BUG: Was cycle here
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
