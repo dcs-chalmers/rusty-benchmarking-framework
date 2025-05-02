@@ -29,7 +29,6 @@ impl<T: std::fmt::Debug> Drop for LCRQueue<T> {
         let mut next = head.next;
         // debug!("{:?}", self.crq_count);
         unsafe {
-
             while !next.load_ptr().is_null(){
                 let node = Box::from_raw(next.load_ptr());
                 trace!("Dropping CRQ");
@@ -239,7 +238,7 @@ impl<T: std::fmt::Debug> CRQ<T> {
                             break;
                         }
                     }
-                } else { unsafe {
+                } else {
                     // idx <= h and val == empty; try empty transition
                     trace!("Inner dequeue: Trying empty transition");
                     // NOTE: This is optimisation 1 from the paper.
@@ -255,10 +254,10 @@ impl<T: std::fmt::Debug> CRQ<T> {
                     if cas2_w(node, create_safe_idx(safe, idx), null_mut(), create_safe_idx(safe, h + RING_SIZE as u64), null_mut()) { // BUG: first null was val
                         // // Line 52
                         // println!("{:?}: cas2 success", std::thread::current().id());
-                        drop(Box::from_raw(val));
+                        // drop(Box::from_raw(val));// BUG: This obviously dangerous
                         break;
                     }
-                } }
+                }
 
             }
             // Line 52
@@ -406,7 +405,6 @@ impl<T: std::fmt::Debug> Handle<T> for LCRQueueHandle<'_, T> {
     }
 }
 
-#[cfg(feature = "lcrq_tests")]
 #[cfg(target_arch = "x86_64")]
 #[cfg(test)]
 mod tests {
