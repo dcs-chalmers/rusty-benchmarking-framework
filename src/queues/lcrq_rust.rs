@@ -405,6 +405,7 @@ impl<T: std::fmt::Debug> Handle<T> for LCRQueueHandle<'_, T> {
         Ok(())
     }
 }
+#[cfg(target_arch = "x86_64")]
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::AtomicI32;
@@ -444,7 +445,6 @@ mod tests {
         
     }
     #[test]
-    #[ignore]
     fn drop_test() {
 
         let _ = env_logger::builder().is_test(true).try_init();
