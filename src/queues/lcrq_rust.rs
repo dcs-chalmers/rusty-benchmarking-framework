@@ -252,7 +252,7 @@ impl<T: std::fmt::Debug> CRQ<T> {
                     //     }
                     // }
 
-                    if cas2_w(node, create_safe_idx(safe, idx), val, create_safe_idx(safe, h + RING_SIZE as u64), null_mut()) {
+                    if cas2_w(node, create_safe_idx(safe, idx), null_mut(), create_safe_idx(safe, h + RING_SIZE as u64), null_mut()) { // BUG: first null was val
                         // // Line 52
                         // println!("{:?}: cas2 success", std::thread::current().id());
                         drop(Box::from_raw(val));
@@ -295,12 +295,12 @@ impl<T: std::fmt::Debug> CRQ<T> {
                 trace!("Inner enqueue: idx:{idx} t:{t}");
                 if idx <= t &&
                    (safe || self.head.load(SeqCst) <= t) &&
-                   cas2_w(node, create_safe_idx(safe, idx), val, create_safe_idx(true, t), item) {
+                   cas2_w(node, create_safe_idx(safe, idx), null_mut(), create_safe_idx(true, t), item) { // BUG: Nullptr was val before
                     return Ok(());
                 }
             }
             let h = self.head.load(SeqCst);
-            if t >= h && t - h >= RING_SIZE as u64 {
+            if t.wrapping_sub(h) >= RING_SIZE as u64 { // BUG: Potentially was bug here.
                 self.closed.store(true, SeqCst);
                 // unsafe {
                 //     if let CellValue::Value(ref item_val) = *Box::from_raw(item) {
