@@ -69,6 +69,7 @@ tests_benchmark = ["basic_queue"]
 lprq_rust = ["dep:haphazard"]
 lcrq_rust = ["dep:haphazard", "dep:crossbeam"]
 faaa_queue_cpp = ["dep:bindgen", "dep:cc"]
+lcrq_tests = []
 
 all_queues = [
     "lockfree_queue",

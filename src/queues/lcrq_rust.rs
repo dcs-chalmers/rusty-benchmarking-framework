@@ -405,6 +405,8 @@ impl<T: std::fmt::Debug> Handle<T> for LCRQueueHandle<'_, T> {
         Ok(())
     }
 }
+
+#[cfg(feature = "lcrq_tests")]
 #[cfg(target_arch = "x86_64")]
 #[cfg(test)]
 mod tests {
