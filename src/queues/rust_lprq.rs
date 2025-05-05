@@ -1,7 +1,7 @@
 use std::{ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
 use std::sync::atomic::Ordering::SeqCst as SeqCst;
 use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
-use log::{debug, error, trace};
+use log::{debug, trace};
 
 use crate::traits::{ConcurrentQueue, Handle};
 use crossbeam::utils::CachePadded;
@@ -353,8 +353,6 @@ impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicI32;
-
     use super::*;
 
     #[test]
