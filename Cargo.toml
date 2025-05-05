@@ -66,7 +66,7 @@ faaa_queue_rust = ["dep:haphazard", "dep:crossbeam"]
 benchmark_order = []
 bbq = ["dep:bbq-rs"]
 tests_benchmark = ["basic_queue"]
-lprq_rust = ["dep:haphazard"]
+lprq_rust = ["dep:haphazard", "dep:crossbeam"]
 lcrq_rust = ["dep:haphazard", "dep:crossbeam"]
 faaa_queue_cpp = ["dep:bindgen", "dep:cc"]
 

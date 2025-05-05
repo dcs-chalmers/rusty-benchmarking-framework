@@ -46,10 +46,7 @@ impl<T> Handle<T> for BoundedCQueueHandle<'_, T> {
     }
     
     fn pop(&mut self) -> Option<T> {
-        match self.queue.cq.pop() {
-            Ok(val) => Some(val),
-            Err(_) => None
-        }
+        self.queue.cq.pop().ok()
     }
 }
 

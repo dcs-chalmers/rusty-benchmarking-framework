@@ -1,9 +1,10 @@
-use std::{mem::MaybeUninit, ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
+use std::{ptr::null_mut, sync::atomic::{AtomicBool, AtomicPtr as RawAtomicPtr, AtomicU64, AtomicUsize, Ordering}};
 use std::sync::atomic::Ordering::SeqCst as SeqCst;
-// use haphazard::{raw::Pointer, AtomicPtr as HpAtomicPtr, HazardPointer};
-use log::{debug, error, trace};
+use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
+use log::{debug, trace};
 
 use crate::traits::{ConcurrentQueue, Handle};
+use crossbeam::utils::CachePadded;
 
 static RING_SIZE: u64 = 1024;
 // static MAX_THREADS: usize = 256;
@@ -14,98 +15,88 @@ thread_local! {
 
 
 pub struct LPRQueue<E> {
-    head: RawAtomicPtr<PRQ<E>>,
-    tail: RawAtomicPtr<PRQ<E>>,
+    head: CachePadded<HpAtomicPtr<PRQ<E>>>,
+    tail: CachePadded<HpAtomicPtr<PRQ<E>>>,
     next_thread_id: AtomicUsize,
 }
 
+fn is_bottom<T>(value: *const T) -> bool {
+    (value as usize & 1) != 0
+}
+
+fn thread_local_bottom<T>(tid: usize) -> *mut T {
+    ((tid << 1) | 1) as *mut T
+}    
+
 impl<E: std::fmt::Debug> LPRQueue<E> {
-    #[allow(dead_code)]
-    fn trace_through(&self) {
-        trace!("############ STARTING TRACE THROUGH ######################");
-        let mut curr = unsafe { self.head.load(SeqCst).as_ref().unwrap() };
-        loop {
-            for cell in &curr.A {
-                if cell.value.load(SeqCst).is_null() {
-                    trace!("null");
-                } else {
-                    unsafe {trace!("{:?}", *cell.value.load(SeqCst))}
-                }
-            }
-            trace!("##### NEW PRQ #####");
-            let tmp  = unsafe { curr.next.load(SeqCst).as_ref() };
-            curr = if let Some(val) = tmp {
-                val 
-            } else {
-                break;
-            }
-        }
-        trace!("############## ENDING TRACE THROUGH ######################");
-    }
     fn new() -> Self {
         let start = Box::into_raw(Box::new(PRQ::new()));
         LPRQueue {
-            head: RawAtomicPtr::new(start),
-            tail: RawAtomicPtr::new(start), 
+            head: unsafe { CachePadded::new(HpAtomicPtr::new(start)) },
+            tail: unsafe { CachePadded::new(HpAtomicPtr::new(start)) },
             next_thread_id: AtomicUsize::new(1),
         }
     }
-    fn enqueue(&self, item: E) {
-        trace!("Starting LPRQ enqueue");
-        let mut inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(item))));
+    fn enqueue(&self, item: E, hp: &mut HazardPointer) {
+        // trace!("Starting LPRQ enqueue");
+        let mut inner_item = Box::into_raw(Box::new(item));
         let thread_id = self.get_thread_id();
         loop {
-            let prq_ptr = self.tail.load(SeqCst);
-            let prq = unsafe { prq_ptr.as_ref().unwrap() };
-            trace!("Enqueueing item now");
+            let prq = self.tail.safe_load(hp).unwrap();
+            // trace!("Enqueueing item now");
             match prq.enqueue(inner_item, thread_id) {
                 Ok(()) => return,
-                Err(val) => inner_item = Box::into_raw(Box::new(CellValue::Value(MaybeUninit::new(val)))),
+                Err(val) => inner_item = val,
             }
-            trace!("Enqueue failed. PRQ is full.");
+            // trace!("Enqueue failed. PRQ is full.");
             let new_tail_ptr = Box::into_raw(Box::new(PRQ::new()));
             let new_tail = unsafe { new_tail_ptr.as_ref().unwrap() }; 
-            trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
+            // trace!("trying new enqueue, value of item is: {:?}", unsafe { inner_item.as_ref() });
             let _ = new_tail.enqueue(inner_item, thread_id);
-            if prq.next.compare_exchange(null_mut(), new_tail_ptr, SeqCst, SeqCst).is_ok() {
+            if unsafe { prq.next.compare_exchange_ptr(null_mut(), new_tail_ptr).is_ok() } {
                 
-                trace!("switched next pointer to new tail");
-                match self.tail.compare_exchange(prq_ptr, new_tail_ptr, SeqCst, SeqCst) {
+                // trace!("switched next pointer to new tail");
+                match unsafe { self.tail.compare_exchange_ptr(prq as *const _ as *mut _, new_tail_ptr) } {
                     Ok(_) => trace!("tail swap success"),
                     Err(_) => trace!("tail swap failure"),
                 }
                 return;
             } else {
-                let _ = self.tail.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
+                unsafe { drop(Box::from_raw(new_tail_ptr)); }
+                let _ = unsafe { self.tail.compare_exchange_ptr(prq as *const _ as *mut _, prq.next.load_ptr()) };
             }
         }
     }
-    fn dequeue(&self) -> Option<E> {
+    fn dequeue(&self, hp: &mut HazardPointer) -> Option<E> {
         let thread_id = self.get_thread_id();
         loop {
-            trace!("Thread {thread_id}: starting lprqueue dequeue");
-            let prq_ptr = self.head.load(SeqCst);
-            let prq = unsafe { prq_ptr.as_ref().unwrap() };
-            trace!("Thread {thread_id}: Starting inner dequeue now");
+            // trace!("Thread {thread_id}: starting lprqueue dequeue");
+            let prq = self.head.safe_load(hp).unwrap();
+            // trace!("Thread {thread_id}: Starting inner dequeue now");
             let mut res = prq.dequeue(thread_id);
             if res.is_some() {
-                trace!("Thread {thread_id}: Dequeue was a success");
+                // trace!("Thread {thread_id}: Dequeue was a success");
                 return res;
             }
-            trace!("Thread {thread_id}: Dequeue failed");
-            if prq.next.load(SeqCst).is_null() {
+            // trace!("Thread {thread_id}: Dequeue failed");
+            if prq.next.load_ptr().is_null() {
                 // self.trace_through();
-                trace!("Thread: {thread_id}: Returning none");
+                // trace!("Thread: {thread_id}: Returning none");
                 return None;
             }
             res = prq.dequeue(thread_id);
             if res.is_some() {
                 return res;
             }
-            trace!("Thread {thread_id}: prq is empty, update HEAD and restart");
-            // NOTE: Drop old one here?
-            // self.trace_through();
-            let _ = self.head.compare_exchange(prq_ptr, prq.next.load(SeqCst), SeqCst, SeqCst);
+            // trace!("Thread {thread_id}: prq is empty, update HEAD and restart");
+            if let Ok(curr) = unsafe { self.head.compare_exchange_ptr(prq as *const _ as *mut _, prq.next.load_ptr()) } {
+                let old_ptr = curr.unwrap();
+                // self.crq_count.fetch_sub(1, Ordering::Relaxed);
+                unsafe {
+                    old_ptr.retire(); 
+                }
+            }
+            hp.reset_protection();
         }
     }
     fn get_thread_id(&self) -> usize {
@@ -123,33 +114,18 @@ impl<E: std::fmt::Debug> LPRQueue<E> {
     }
 }
 
-enum CellValue<E> {
-    Empty,
-    ThreadToken(usize),
-    Value(MaybeUninit<E>),
-}
-impl<E: std::fmt::Debug> std::fmt::Debug for CellValue<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CellValue::Empty => write!(f, "Empty"),
-            CellValue::ThreadToken(val) => write!(f, "ThreadToken: {val}"),
-            CellValue::Value(val) => write!(f, "Value: {:?}", unsafe { val.assume_init_ref() }),
-        }
-    }
-}
-
 
 #[derive(std::fmt::Debug)]
 struct Cell<E> {
     safe_and_epoch: AtomicU64,
-    value: RawAtomicPtr<CellValue<E>>,
+    value: RawAtomicPtr<E>,
 }
 
 impl<E> Cell<E> {
     fn new() -> Self {
         Self {
             safe_and_epoch: AtomicU64::new(1),
-            value: RawAtomicPtr::new(Box::into_raw(Box::new(CellValue::Empty))),
+            value: RawAtomicPtr::new(null_mut()),
         }
     }
     fn safe_and_epoch(&self) -> (u64, bool, u64) {
@@ -161,11 +137,11 @@ impl<E> Cell<E> {
 #[allow(non_snake_case)]
 #[allow(clippy::upper_case_acronyms)]
 struct PRQ<E> {
-    next: RawAtomicPtr<PRQ<E>>,
-    closed: AtomicBool,
+    next:CachePadded<HpAtomicPtr<PRQ<E>>>,
+    closed:CachePadded<AtomicBool>,
+    head:CachePadded<AtomicU64>,
+    tail:CachePadded<AtomicU64>,
     A: Vec<Cell<E>>,
-    head: AtomicU64,
-    tail: AtomicU64,
 }
 
 impl<E: std::fmt::Debug> PRQ<E> {
@@ -175,69 +151,53 @@ impl<E: std::fmt::Debug> PRQ<E> {
             a.push(Cell::new()); 
         }
         PRQ {
-            head: AtomicU64::new(RING_SIZE),
-            tail: AtomicU64::new(RING_SIZE),
-            closed: AtomicBool::new(false),
+            head: CachePadded::new(AtomicU64::new(RING_SIZE)),
+            tail: CachePadded::new(AtomicU64::new(RING_SIZE)),
+            closed: CachePadded::new(AtomicBool::new(false)),
+            next: CachePadded::new(unsafe { HpAtomicPtr::new(null_mut()) }),
             A: a,
-            next: RawAtomicPtr::new(null_mut()),
         }
     }
-    fn enqueue(&self, item: *mut CellValue<E>, thread_id: usize) -> Result<(), E>{
+    fn enqueue(&self, item: *mut E, thread_id: usize) -> Result<(), *mut E>{
         let item_ptr = item;
         loop {
             let t = self.tail.fetch_add(1, Ordering::SeqCst);
             if self.closed.load(Ordering::SeqCst) { 
-                if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
-                    return Err(unsafe{val.assume_init()});
-                }
+                return Err(item);
             }
             let cycle: u64 = t / RING_SIZE;
             let i: usize = (t % RING_SIZE) as usize;
             
             let (whole, safe, epoch) = self.A[i].safe_and_epoch();
-            let mut value = self.A[i].value.load(Ordering::SeqCst);
-            trace!("Thread {thread_id}: {safe}, {epoch}");
-            trace!("Thread {thread_id}: Checking if is_empty");
-            let is_empty = unsafe {
-                if value.is_null() {
-                    true
-                } else {
-                    matches!(*value, CellValue::Empty)
-                }
-            };
-            trace!("Thread {thread_id}: Checking if is_t");
-            let is_t = unsafe {
-                if is_empty { 
-                    false
-                }
-                else {matches!(*value, CellValue::ThreadToken(_))}
-            };
+            let value = self.A[i].value.load(Ordering::SeqCst);
+            // trace!("Thread {thread_id}: {safe}, {epoch}");
+            // trace!("Thread {thread_id}: Checking if is_empty");
+            let is_empty = value.is_null();
+            // trace!("Thread {thread_id}: Checking if is_t");
+            let is_t = !is_empty && is_bottom(value);
+            let new_val = thread_local_bottom(thread_id);
             if (is_empty || is_t) &&
                 epoch < cycle && (safe || self.head.load(Ordering::SeqCst) <= t)
             {
-                trace!("Thread {thread_id}: not occupied not overtaken");
-                let new_val = Box::into_raw(Box::new(CellValue::ThreadToken(thread_id)));
+                // trace!("Thread {thread_id}: not occupied not overtaken");
                 let cas_1 = self.A[i]
                     .value
                     .compare_exchange(
-                        value,
+                        value as *const _ as *mut _,
                         new_val,
                         Ordering::SeqCst,
                         Ordering::SeqCst 
                         );
                 if cas_1.is_err() {
-                    trace!("Thread {thread_id}: Failed CAS 1");
-                    if check_overflow(t, self.head.load(SeqCst), &self.closed) {
-                        continue;
+
+                    // NOTE: CheckOverflow:
+                    if t.wrapping_sub(self.head.load(SeqCst)) >= RING_SIZE {
+                        self.closed.store(true, SeqCst);
+                        return Err(item);
                     } else {
-                        #[allow(clippy::collapsible_if)]
-                        if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
-                            return Err(unsafe{val.assume_init()});
-                        }
+                        continue;
                     }
-                } else {
-                    value = new_val;
-                }
+                } 
                 let new_safe_and_epoch = (cycle << 1) | 1;
                 if self.A[i].safe_and_epoch
                     .compare_exchange(
@@ -247,100 +207,73 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         Ordering::SeqCst
                         ).is_err() {
                     // NOTE: Verify that this is allowed.
-                    trace!("Thread {thread_id}: Failed CAS 2");
-                    unsafe {
-                        if !value.is_null() {
-                            trace!("Thread {thread_id}: value is not null");
-                            if let CellValue::ThreadToken(token) = *value {
-                                if token == thread_id {
-                                    let new_val = Box::into_raw(Box::new(CellValue::Empty));
-                                    let _ =  self.A[i].value.compare_exchange(value, new_val, SeqCst, SeqCst);
-                                } 
-                            }
-                        }
-                    }
-                    if check_overflow(t, self.head.load(SeqCst), &self.closed) {
-                        continue;
+                    // trace!("Thread {thread_id}: Failed CAS 2");
+                    // trace!("Thread {thread_id}: value is not null");
+                    let _ =  self.A[i].value.compare_exchange(
+                        new_val,
+                        null_mut(),
+                        SeqCst,
+                        SeqCst);
+                    // NOTE: CheckOverflow:
+                    if t.wrapping_sub(self.head.load(SeqCst)) >= RING_SIZE {
+                        self.closed.store(true, SeqCst);
+                        return Err(item);
                     } else {
-                        #[allow(clippy::collapsible_if)]
-                        if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
-                            return Err(unsafe{val.assume_init()});
-                        }
+                        continue;
                     }
                 }
-                trace!("Thread {thread_id}: Attempting to return item");
-                unsafe {
-                    if !value.is_null() {
-                        trace!("Thread {thread_id}: Value was not null");
-                        // trace!("{:?}", *value);
-                        if let CellValue::ThreadToken(token) = *value {
-                            trace!("Thread {thread_id}: Managed to deref val");
-                            trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
-                            trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
-                            if token == thread_id 
-                                && self.A[i].value.compare_exchange(value, item_ptr, SeqCst, SeqCst).is_ok() 
-                            {
-                                trace!("Thread {thread_id}: Managed to enqueue");
-                                return Ok(());
-                            } 
-                        }
-                    }
-                }
-                trace!("Thread {thread_id}: Failed to return item");
+                // trace!("Thread {thread_id}: Attempting to return item");
+                // trace!("{:?}", *value);
+                        // trace!("Thread {thread_id}: Managed to deref val");
+                        // trace!("Thread {thread_id}: token: {token}, thread_id: {thread_id}");
+                        // trace!("Thread {thread_id}: value: {:?}, self.value: {:?}", value, self.A[i].value);
+                if self.A[i].value.compare_exchange(
+                        new_val, 
+                        item_ptr,
+                        SeqCst,
+                        SeqCst).is_ok() 
+                {
+                    return Ok(());
+                } 
+                // trace!("Thread {thread_id}: Failed to return item");
             }
-            if !check_overflow(t, self.head.load(SeqCst), &self.closed) {
-                trace!("Thread {thread_id}: PRQ full now");
-                #[allow(clippy::collapsible_if)]
-                if let CellValue::Value(val) = *unsafe{Box::from_raw(item_ptr)} {
-                    trace!("Thread {thread_id}: item_ptr is still a value");
-                    return Err(unsafe{val.assume_init()});
-                }
+            // NOTE: CheckOverflow:
+            if t.wrapping_sub(self.head.load(SeqCst)) >= RING_SIZE {
+                self.closed.store(true, SeqCst);
+                return Err(item);
+            } else {
+                continue;
             }
         }
     } 
-    fn dequeue(&self, thread_id: usize) -> Option<E> {
+    fn dequeue(&self, _thread_id: usize) -> Option<E> {
         loop {
             let h = self.head.fetch_add(1, SeqCst);
             let cycle = h / RING_SIZE;
             let i = (h % RING_SIZE) as usize;
             loop {
                 let (whole, safe, epoch) = self.A[i].safe_and_epoch();
-                let value = self.A[i].value.load(SeqCst);
+                let value_ptr = self.A[i].value.load(SeqCst);
+                let value = value_ptr;
                 // Check if incosisten view of the cell
                 if (whole, safe, epoch) != self.A[i].safe_and_epoch() {
                     continue;
                 }
                 // Is cell empty?
-                let is_empty = unsafe {
-                    if value.is_null() {
-                        true
-                    } else {
-                        matches!(*value, CellValue::Empty)
-                    }
-                };
+                let is_empty = value.is_null();
                 // Is cell thread_id?
-                let is_t = unsafe {
-                    if is_empty { false }
-                    else {matches!(*value, CellValue::ThreadToken(_))}
-                };
+                let is_t = !is_empty && is_bottom(value);
 
                 if epoch == cycle && (!is_empty && !is_t) {
-                    trace!("Thread {thread_id}: In case 1");
                     let boxs = unsafe {
-                        Box::from_raw(value)
+                        Box::from_raw(value_ptr)
                     };
-                    if let CellValue::Value(val) = *boxs{
-                        let r_val = Some(unsafe {std::ptr::read(val.assume_init_ref())});
-                        // trace!("{:?}", r_val);
-                        self.A[i].value.store(to_raw(CellValue::Empty), SeqCst);
-                        return r_val;
-                    } else {
-                        error!("Cell contained no value.");
-                    }
+                    let r_val = Some(*boxs);
+                    self.A[i].value.store(null_mut(), SeqCst);
+                    return r_val;
                 } else if epoch <= cycle && (is_empty || is_t) {
-                    trace!("Thread {thread_id}: In case 2");
                     if is_t 
-                        && self.A[i].value.compare_exchange(value, to_raw(CellValue::Empty), SeqCst, SeqCst).is_err()
+                        && self.A[i].value.compare_exchange(value_ptr, null_mut(), SeqCst, SeqCst).is_err()
                     {
                         continue;
                     }
@@ -349,32 +282,43 @@ impl<E: std::fmt::Debug> PRQ<E> {
                         break;
                     }
                 } else if epoch < cycle && !(is_empty || is_t) {
-                    trace!("Thread {thread_id}: In case 3");
-                    let new_safe_and_epoch = (cycle << 1) | (false as u64);
+                    // trace!("Thread {thread_id}: In case 3");
+                    let new_safe_and_epoch = (epoch << 1) | (false as u64); // BUG: Was cycle here
                     if self.A[i].safe_and_epoch.compare_exchange(whole, new_safe_and_epoch, SeqCst, SeqCst).is_ok() {
                         break;
                     }
                 } else {
-                    trace!("Thread {thread_id}: In case 4");
+                    // trace!("Thread {thread_id}: In case 4");
                     break;
                 }
             }
             if self.tail.load(SeqCst) <= h + 1 { 
-                trace!("Thread {thread_id}: queue empty");
-                // trace!("Thread {thread_id}: {:?}", self.A);
-                // for cell in &self.A {
-                //     if cell.value.load(SeqCst).is_null() {
-                //         trace!("null");
-                //     } else {
-                //         unsafe {trace!("Thread {thread_id}: {:?}", *cell.value.load(SeqCst))}
-                //     }
-                // }
+                // trace!("Thread {thread_id}: queue empty");
                 return None;
             }
         }
     } 
 }
 
+
+impl<T> Drop for LPRQueue<T> {
+    fn drop(&mut self) {
+        trace!("Starting drop LCRQueue");
+        let head = unsafe {
+            Box::from_raw(self.head.load_ptr())
+        };
+        let mut next = head.next;
+        unsafe {
+
+            while !next.load_ptr().is_null(){
+                let node = Box::from_raw(next.load_ptr());
+                trace!("Dropping CRQ");
+                next = node.next;
+            }
+        }
+        trace!("Done dropping");
+    }
+}
 
 impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
     fn get_id(&self) -> String {
@@ -386,50 +330,38 @@ impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
     fn register(&self) -> impl Handle<T> {
         LPRQueueHandle {
             queue: self,
+            hp: HazardPointer::new(),
         } 
     }
 }
 
 struct LPRQueueHandle<'a, T> {
     queue: &'a LPRQueue<T>,
+    hp: HazardPointer<'static>,
 }
 
 impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
-        self.queue.dequeue()
+        self.queue.dequeue(&mut self.hp)
     }
     fn push(&mut self, item: T) -> Result<(), T> {
-        self.queue.enqueue(item);
+        self.queue.enqueue(item, &mut self.hp);
         Ok(())
     }
 }
 
-fn to_raw<T>(item: T) -> *mut T {
-    Box::into_raw(Box::new(item))
-}
-
-
-fn check_overflow(t: u64, head: u64, closed: &AtomicBool) -> bool {
-    // HACK: Check the t >= head part
-    if t >= head && t - head >= RING_SIZE {
-        closed.store(true, Ordering::SeqCst);
-        return false;
-    }
-    true
-}
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::AtomicI32;
-
     use super::*;
 
     #[test]
     fn create_lprqueue() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LPRQueue<i32> = LPRQueue::new();
-        q.enqueue(1);
-        assert_eq!(q.dequeue().unwrap(), 1);
+        let mut hp = HazardPointer::new();
+        q.enqueue(1, &mut hp);
+        assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
     }
     #[test]
     fn register_lprqueue() {
@@ -443,11 +375,12 @@ mod tests {
     fn enqueue_full_prq() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LPRQueue<i32> = LPRQueue::new();
+        let mut hp = HazardPointer::new();
         for _ in 0..RING_SIZE + 3 {
-            q.enqueue(1);
+            q.enqueue(1, &mut hp);
         }
         for _ in 0..RING_SIZE + 3 {
-            assert_eq!(q.dequeue().unwrap(), 1);
+            assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
         }
         
     }
@@ -456,33 +389,31 @@ mod tests {
 
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LPRQueue<i32> = LPRQueue::new();
-        let mut curr = 0;
+        let mut hp = HazardPointer::new();
         for _ in 0..RING_SIZE + 3 {
-            q.enqueue(curr);
-            curr += 1;
+            q.enqueue(1, &mut hp);
         }
-        curr = 0;
         for _ in 0..RING_SIZE + 3 {
-            assert_eq!(q.dequeue().unwrap(), curr);
-            curr += 1;
+            assert_eq!(q.dequeue(&mut hp).unwrap(), 1);
         }
     }
     #[test]
     fn multi_thread() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: LPRQueue<i32> = LPRQueue::new();
-        let barrier = std::sync::Barrier::new(10);
-        let sum = AtomicI32::new(0);
+        let q: LPRQueue<usize> = LPRQueue::new();
+        let thread_count = 50;
+        let barrier = std::sync::Barrier::new(thread_count);
+        let sum = AtomicUsize::new(0);
         std::thread::scope(|s| {
             let q = &q;      
             let barrier = &barrier;
             let sum = &sum;
-            for _ in 0..10 {
+            for _ in 0..thread_count {
                 s.spawn(move|| {
                     let mut handle = q.register();
                     barrier.wait();
                     let mut local = 0;
-                    for i in 0..10 {
+                    for i in 0..thread_count * 10 {
                         let _ = handle.push(i + 1);
                         local += i + 1;
                     } 
@@ -490,8 +421,9 @@ mod tests {
                 });
             }
         });
-        let mut thesum: i32 = 0;
-        while let Some(val) = q.dequeue() {
+        let mut thesum = 0;
+        let mut h = q.register();
+        while let Some(val) = h.pop() {
             thesum += val;
         }
         assert_eq!(thesum, sum.into_inner());
@@ -500,7 +432,7 @@ mod tests {
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LPRQueue<i32> = LPRQueue::new();
-        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+        if crate::order::benchmark_order_i32(q, 50, 10, true, 10).is_err() {
             panic!();
         }
     }
