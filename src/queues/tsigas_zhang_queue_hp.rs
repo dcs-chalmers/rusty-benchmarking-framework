@@ -65,7 +65,7 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             trace!("starting enqueue");
             // self.print_queue();
             // Read the tail
-            let te = self.tail.load(Ordering::Relaxed);
+            let te = self.tail.load(Ordering::SeqCst);
             let mut ate = te;
             // Get reference to node
             let mut tt = self.nodes[ate].val.safe_load(hp1).unwrap();
@@ -77,17 +77,17 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
             while let TempVal::Val(_) = *tt {
                 // check tails consistency 
                 trace!("trying to find actual tail");
-                if te != self.tail.load(Ordering::Relaxed) { break; }
-                if temp == self.head.load(Ordering::Relaxed) { break; }
+                if te != self.tail.load(Ordering::SeqCst) { break; }
+                if temp == self.head.load(Ordering::SeqCst) { break; }
                 hp1.reset_protection();
                 tt = self.nodes[temp].val.safe_load(hp1).unwrap();
                 ate = temp;
                 temp = (ate + 1) % (self.max_num + 1);
             }
             // check tails consistency 
-            if te != self.tail.load(Ordering::Relaxed) { continue; }
+            if te != self.tail.load(Ordering::SeqCst) { continue; }
             // Check wether queue is full
-            if temp == self.head.load(Ordering::Relaxed) {
+            if temp == self.head.load(Ordering::SeqCst) {
                 ate = (temp + 1) % (self.max_num + 1);
                 hp1.reset_protection();
                 tt = self.nodes[ate].val.safe_load(hp1).unwrap();
@@ -102,17 +102,17 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
                     // Safety: Safe since we have swapped the value atomically.
                     unsafe { old_val.retire(); }
                 }
-                let _ = self.head.compare_exchange_weak(temp, ate, Ordering::Relaxed, Ordering::Relaxed);
+                let _ = self.head.compare_exchange_weak(temp, ate, Ordering::SeqCst, Ordering::SeqCst);
                 continue;
             }
             // check tails consistency 
-            if te != self.tail.load(Ordering::Relaxed) { continue; }
+            if te != self.tail.load(Ordering::SeqCst) { continue; }
             let new_node_ptr = Box::into_raw(Box::new(TempVal::Val(newnode)));
             if let Ok(old_val) = unsafe { 
                 self.nodes[ate].val.compare_exchange_ptr(tt as *const TempVal<T> as *mut TempVal<T>, new_node_ptr) 
             }{
                     if (temp % 2) == 0 {
-                        let _ = self.tail.compare_exchange_weak(te, temp, Ordering::Relaxed, Ordering::Relaxed);
+                        let _ = self.tail.compare_exchange_weak(te, temp, Ordering::SeqCst, Ordering::SeqCst);
                     }
                 unsafe { old_val.expect("CAS passed").retire(); } //BUG WAS HERE
                 return Ok(());
@@ -129,21 +129,21 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
         loop {
             trace!("starting dequeue");
             // self.print_queue();
-            let th = self.head.load(Ordering::Relaxed);
+            let th = self.head.load(Ordering::SeqCst);
             // temp is the index we want to dequeue
             let mut temp: usize = (th + 1) % (self.max_num + 1);
             let mut tt = self.nodes[temp].val.safe_load(hp1).unwrap();
             // Find the actual head 
             while let TempVal::Null(_) = *tt {
-                if th != self.head.load(Ordering::Relaxed) { break; }
-                if temp == self.tail.load(Ordering::Relaxed) { return None;}
+                if th != self.head.load(Ordering::SeqCst) { break; }
+                if temp == self.tail.load(Ordering::SeqCst) { return None;}
                 temp = (temp + 1) % (self.max_num + 1);
                 hp1.reset_protection();
                 tt = self.nodes[temp].val.safe_load(hp1).unwrap();
             }
-            if th != self.head.load(Ordering::Relaxed) { continue; }
-            if temp == self.tail.load(Ordering::Relaxed){
-                let _ = self.tail.compare_exchange_weak(temp, (temp + 1) % (self.max_num + 1), Ordering::Relaxed, Ordering::Relaxed);
+            if th != self.head.load(Ordering::SeqCst) { continue; }
+            if temp == self.tail.load(Ordering::SeqCst){
+                let _ = self.tail.compare_exchange_weak(temp, (temp + 1) % (self.max_num + 1), Ordering::SeqCst, Ordering::SeqCst);
                 continue;
             }
             let tnull: TempVal<T>;
@@ -162,7 +162,7 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
                     TempVal::Val(v) => TempVal::Val(v),
                 }
             }
-            if th != self.head.load(Ordering::Relaxed){ continue; }
+            if th != self.head.load(Ordering::SeqCst){ continue; }
             let tnull_ptr = Box::into_raw(Box::new(tnull));
             if let Ok(old_val) = unsafe {self.nodes[temp].val.compare_exchange_ptr(tt as *const TempVal<T> as *mut TempVal<T>, tnull_ptr) }
             {
@@ -172,7 +172,7 @@ impl<T:Sync + Send + Copy + Display> TZQueue<T> {
                     unsafe { old_val.retire(); }
                 }
                 if (temp % 2) == 0 {
-                    let _ = self.head.compare_exchange_weak(th, temp, Ordering::Relaxed, Ordering::Relaxed);
+                    let _ = self.head.compare_exchange_weak(th, temp, Ordering::SeqCst, Ordering::SeqCst);
                 }
                 // Safety: old_val is never null.
                 let r_val = unsafe { *old_val.unwrap().as_ptr() };
