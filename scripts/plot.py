@@ -7,6 +7,18 @@ import argparse
 
 should_pad_data = False
 
+name_translator = {
+        "faaaq_rust_optimised" : "FAAAQueue Optimised",
+        "faaaq_rust_unoptimised" : "FAAAQueue Unoptimised",
+        "faaa_queue_cpp" : "C++ FAAAQueue",
+        "lprq_rust_correct" : "Rust LPRQ Optimised",
+        "lcrq_rust_correct" : "Rust LCRQ Optimised",
+        "lcrq_cpp" : "C++ LCRQ",
+        "lprq_rust_unoptimised" : "Rust LPRQ Unoptimised",
+        "lcrq_rust_unoptimised" : "Rust LCRQ Unoptimised",
+        "lprq_cpp" : "C++ LPRQ",
+        }
+
 def load_csv_files_by_subfolder(folder_path):
     """Load CSV files from the given folder path, organized by subfolder."""
     # Get all immediate subfolders
@@ -63,12 +75,16 @@ def process_data(df, group_by):
 def plot_thread_count_results(df, queues):
     """Create separate plot windows for each metric with all Queuetypes and Subfolders as
     separate lines."""
-    metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
+    metrics = ["Throughput",
+               # "Fairness", 
+               # "Enqueues", 
+               # "Dequeues"
+               ]
     titles = [
         "Throughput vs. Thread Count",
-        "Fairness vs. Thread Count",
-        "Number of Enqueues vs. Thread Count",
-        "Number of Dequeues vs. Thread Count"
+        # "Fairness vs. Thread Count",
+        # "Number of Enqueues vs. Thread Count",
+        # "Number of Dequeues vs. Thread Count"
     ]
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
@@ -79,8 +95,10 @@ def plot_thread_count_results(df, queues):
     
     # Create a separate figure for each metric
     for i, (metric, title) in enumerate(zip(metrics, titles)):
-        plt.figure(figsize=(8, 6))
-        plt.title(title, fontsize=14)
+        # Set a fixed figure size that will be maintained in the saved PDF
+        fig = plt.figure(figsize=(8, 6))
+        ax = fig.add_subplot(111)
+        ax.set_title(title, fontsize=14)
         
         line_count = 0
         for subfolder in subfolders:
@@ -96,8 +114,11 @@ def plot_thread_count_results(df, queues):
                 line_style = line_styles[line_count % len(line_styles)]
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
-                label = f"{qtype}"
-                plt.plot(
+                if qtype in name_translator:
+                    label = f"{name_translator[qtype]}"
+                else:
+                    label = f"{qtype}"
+                ax.plot(
                     queue_data['Thread Count'],
                     queue_data[metric],
                     marker=marker_style,
@@ -105,16 +126,33 @@ def plot_thread_count_results(df, queues):
                     label=label,
                     markevery=1,
                 )
-        plt.xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
-        plt.xlabel('Thread Count')
-        plt.ylabel(metric)
-        plt.yscale('log')
-        plt.grid(True)
-        plt.legend(fontsize='small', loc='best')
-        plt.tight_layout()
+        ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
+        ax.set_xlabel('Thread Count')
+        ax.set_ylabel(metric)
+        ax.set_yscale('log')
+        ax.grid(True)
         
-    # Show all plots (will display in separate windows)
-    plt.show()
+        # Place legend at the bottom of the plot
+        ax.legend(
+            fontsize='medium',
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.15),  # Positioned below the plot
+            ncol=4,  # Arrange legend items in multiple columns for better use of space
+            frameon=True,
+            fancybox=True,
+            shadow=True
+        )
+        
+        # Adjust layout to make room for the legend
+        plt.tight_layout()
+        plt.subplots_adjust(bottom=0.2)  # Adjust the bottom margin to make space for the legend
+        
+        # Save the figure with fixed dimensions
+        filename = f"{title.replace(' ', '_')}.png"
+        fig.savefig(filename, format='png', bbox_inches='tight', dpi=300)
+        
+        # Display the plot
+        plt.show()
 
 def plot_mpsc_results(df, queues):
     """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
