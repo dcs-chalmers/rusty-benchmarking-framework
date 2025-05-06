@@ -132,10 +132,16 @@ T: Default,
 
     // If a thread crashed, pad the results with zero-values
     let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!("0,0,0,-1,-1,{},{},{},{},0", thread_count, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)
+        format!("0,0,0,-1,-1,{},{},{},{},0,{}",
+            thread_count, 
+            cqueue.get_id(),
+            bench_conf.args.benchmark,
+            bench_conf.benchmark_id,
+            args.spread
+            )
     }
     else {
-        format!("{},{},{},{},{},{},{},{},{},{}",
+        format!("{},{},{},{},{},{},{},{},{},{},{}",
         (pushes + pops) as f64 / time_limit as f64,
         pushes,
         pops,
@@ -145,7 +151,8 @@ T: Default,
         cqueue.get_id(),
         bench_conf.args.benchmark,
         bench_conf.benchmark_id,
-        fairness)
+        fairness,
+        args.spread)
     };
     // Write to file or stdout depending on flag
     if !bench_conf.args.write_to_stdout {

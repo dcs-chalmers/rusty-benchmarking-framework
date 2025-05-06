@@ -57,7 +57,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
             "Milliseconds,Queuetype,Thread Count,Test ID"
         },
         _ => {
-            "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness"
+            "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness,Spread"
         }
     };
     if bench_conf.args.write_to_stdout {
