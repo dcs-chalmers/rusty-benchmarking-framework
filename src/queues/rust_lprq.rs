@@ -294,10 +294,21 @@ impl<E: std::fmt::Debug> PRQ<E> {
             }
             if self.tail.load(SeqCst) <= h + 1 { 
                 // trace!("Thread {thread_id}: queue empty");
+                self.fix_state();
                 return None;
             }
         }
     } 
+    fn fix_state(&self) {
+        loop {
+            let h = self.head.fetch_add(0, SeqCst);
+            let t = self.tail.fetch_add(0, SeqCst);
+
+            if self.tail.load(SeqCst) != t {continue;}
+            if h < t {return}
+            if self.tail.compare_exchange(t, h, SeqCst, SeqCst).is_ok() {return}
+        }
+    }
 }
 
 
