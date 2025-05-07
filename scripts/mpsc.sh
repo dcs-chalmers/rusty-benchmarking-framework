@@ -1,5 +1,6 @@
 #!/bin/bash
 # Run me from project root pls.
+# I am outdated.
 # Show usage if no arguments provided
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <feature1,feature2,...> <producers-start> <producers-end> <step> <path>"
@@ -11,8 +12,13 @@ FEATURES=$1
 PRODUCERS_START=$2
 PRODUCERS_END=$3
 STEP=$4
-OUTPUT=$5
 
+if [ -z "$5" ]; then
+    OUTPUT="./prodcon_${PRODUCERS_START}_${PRODUCERS_END}_${STEP}"
+    echo "Saving output files to $OUTPUT"
+else
+    OUTPUT=$5
+fi
 mkdir -p $OUTPUT
 
 # Validate numeric inputs
@@ -31,7 +37,7 @@ for FEATURE in "${FEATURE_ARRAY[@]}"; do
     # Loop through thread counts and run cargo command
     for ((i = PRODUCERS_START; i <= PRODUCERS_END; i += STEP)); do
         echo "Running with producer count: $i"
-        time ./target/release/lockfree-benchmark -t 1 -i 10 --path $OUTPUT/$FEATURE basic -p $i -c 1
+        time ./target/release/lockfree-benchmark -t 1 -i 10 --path $OUTPUT/$FEATURE prod-con -p $i -c 1
     done
 done
 

@@ -15,14 +15,14 @@ use std::sync::{mpsc, Arc};
 /// * -p        Set specified amount of producers
 /// * -c        Set specified amount of consumers
 #[allow(dead_code)]
-pub fn benchmark_throughput<C, T>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_prod_con<C, T>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where 
     C: ConcurrentQueue<T>,
     T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::Benchmarks::Basic(a) => a,
+        crate::arguments::Benchmarks::ProdCon(a) => a,
         _ => panic!(),
     };
     {

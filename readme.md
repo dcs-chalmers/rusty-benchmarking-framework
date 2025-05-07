@@ -29,11 +29,11 @@ cargo build --release --features <Queue type>,<Optional feature>
 To run for a basic lock-based queue:
 ```bash
 # Basic queue, benchmark measures throughput
-cargo run --features basic_queue --release -- basic
+cargo run --features basic_queue --release -- prod-con 
 # Basic queue, benchmark measures throughput and memory allocation
-cargo run --features basic_queue,memory_tracking --release -- basic
+cargo run --features basic_queue,memory_tracking --release -- prod-con 
 ```
-This will compile and run the benchmarking framework. It will run the `basic` benchmark on the `basic_queue` implementation and produce a file in the `./output` with output from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
+This will compile and run the benchmarking framework. It will run the `prod-con` benchmark on the `basic_queue` implementation and produce a file in the `./output` with output from the benchmark, as well as a file with a name starting with `mem` containing information about total memory allocated during the running.
 
 There are several useful scripts located inside the `scripts` folder, as well
 as a README which describes how to use them.
@@ -45,8 +45,8 @@ cargo run -F basic_queue,bfs -- bfs --graph-file example.mtx
 ```
 ## Benchmark types
 You have to choose which type of benchmark you want to run on your queue. They have sub-commands specific to themselves. Use the `--help` flag after specifying the queue type to print a help text about the sub commands.
-* `basic` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
-* `ping-pong` - Measures throughput and fairness. Threads alternate between producers and consumers randomly. You can choose the spread of producers/consumers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the test.
+* `prod-con` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
+* `enq-deq` - Measures throughput and fairness. Threads alternate between enqueueing and dequeueing randomly. You can choose the spread of enqueuers/dequeuers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the benchmark.
 * `bfs` - Performs a parallell breadth first search on a graph of your choosing. Measures the amount of milliseconds it takes to perform the BFS. After performing the parallell BFS, the benchmark will also do it sequentially and then verify the parallell solution using the sequential solution. This can be turned off by passing the `--no-verify` flag. Choose graph file by passing the `--graph-file` flag and specifying the path. The benchmark supports `.mtx` files, but any files that follow the same structure will work as well. You can run several iterations of BFS by passing the `-i` flag, just as in the other benchmarks. The graph file will still only be loaded once, and the sequential solution will also only be generated once.
 ## Queue implementations and features
 Implemented queues are:
@@ -96,10 +96,10 @@ To use specific values you can add different flags to the run command:
     * `-V` `--version` to print the version of the benchmark.
     * `--path` to change where the output of the benchmark is put.
     * `--print-info` - To create a file with hardware info and benchmark info
-* `basic` benchmark type sub commands:
+* `prod-con` benchmark type sub commands:
     * `-p`, `--producers` for specified amount of producers.
     * `-c`, `--consumers` for specified amount of consumers.
-- `ping-pong` benchmark type sub commands:
+- `enq-deq` benchmark type sub commands:
     * `--spread` - To specify the spread for the `ping-pong` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
 

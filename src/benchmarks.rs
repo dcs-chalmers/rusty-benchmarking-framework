@@ -11,8 +11,8 @@ use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use sysinfo::System;
 
-pub mod throughput;
-pub mod ping_pong;
+pub mod prod_con;
+pub mod enq_deq;
 #[cfg(feature = "bfs")]
 pub mod bfs;
 
@@ -57,8 +57,8 @@ macro_rules! implement_benchmark {
 ////////////////////////////////////////// MEMORY END //////////////////////////////
                 // Select which benchmark to use
                 match $bench_conf.args.benchmark {
-                    Benchmarks::Basic(_)     => $crate::benchmarks::throughput::benchmark_throughput(test_q, $bench_conf)?,
-                    Benchmarks::PingPong(_)  => $crate::benchmarks::ping_pong::benchmark_ping_pong(test_q, $bench_conf)?,
+                    Benchmarks::ProdCon(_)     => $crate::benchmarks::prod_con::benchmark_prod_con(test_q, $bench_conf)?,
+                    Benchmarks::EnqDeq(_)  => $crate::benchmarks::enq_deq::benchmark_enq_deq(test_q, $bench_conf)?,
                     #[cfg(feature = "bfs")]
                     Benchmarks::BFS(_)       => {
                         $crate::benchmarks::bfs::benchmark_bfs(
@@ -243,10 +243,10 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
 #[cfg(test)]
 mod tests {
     use crate::queues::basic_queue::{BQueue, BasicQueue};
-    use crate::arguments::PingPongArgs;
+    use crate::arguments::EnqDeqArgs;
     use crate::benchmarks::{
-        throughput::benchmark_throughput,
-        ping_pong::benchmark_ping_pong
+        prod_con::benchmark_prod_con,
+        enq_deq::benchmark_enq_deq
     };
     use crate::traits::ConcurrentQueue;
 
@@ -264,14 +264,14 @@ mod tests {
         let basic_queue: BasicQueue<i32> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_throughput(basic_queue, &bench_conf).is_err() {
+        if benchmark_prod_con(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
     #[test]
     fn run_pingpong() {
         let args = Args {
-            benchmark: Benchmarks::PingPong(PingPongArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {
@@ -283,7 +283,7 @@ mod tests {
         let basic_queue: BasicQueue<i32> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_ping_pong(basic_queue, &bench_conf).is_err() {
+        if benchmark_enq_deq(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
@@ -317,14 +317,14 @@ mod tests {
         let basic_queue: BasicQueue<String> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_throughput(basic_queue, &bench_conf).is_err() {
+        if benchmark_prod_con(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
     #[test]
     fn run_pingpong_with_string() {
         let args = Args {
-            benchmark: Benchmarks::PingPong(PingPongArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {
@@ -336,7 +336,7 @@ mod tests {
         let basic_queue: BasicQueue<String> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_ping_pong(basic_queue, &bench_conf).is_err() {
+        if benchmark_enq_deq(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
@@ -352,14 +352,14 @@ mod tests {
         let basic_queue: BasicQueue<Args> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_throughput(basic_queue, &bench_conf).is_err() {
+        if benchmark_prod_con(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }
     #[test]
     fn run_pingpong_with_struct() {
         let args = Args {
-            benchmark: Benchmarks::PingPong(PingPongArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {
@@ -371,7 +371,7 @@ mod tests {
         let basic_queue: BasicQueue<Args> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_ping_pong(basic_queue, &bench_conf).is_err() {
+        if benchmark_enq_deq(basic_queue, &bench_conf).is_err() {
             panic!();
         }
     }

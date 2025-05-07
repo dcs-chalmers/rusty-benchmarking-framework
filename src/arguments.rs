@@ -46,17 +46,17 @@ pub struct Args {
 /// Possible benchmark types.
 #[derive(Subcommand, Debug)]
 pub enum Benchmarks {
-    /// Basic throughput test. Decide amount of producers and consumers using flags.
-    Basic(BasicArgs),
+    /// ProdCon throughput test. Decide amount of producers and consumers using flags.
+    ProdCon(ProdConArgs),
     /// A test where each thread performs both consume and produce based on a random floating point
     /// value. Spread is decided using the `--spread` flag.
-    PingPong(PingPongArgs),
+    EnqDeq(EnqDeqArgs),
     #[cfg(feature = "bfs")]
     BFS(BFSArgs),
 }
 
 #[derive(ClapArgs, Debug)]
-pub struct BasicArgs {
+pub struct ProdConArgs {
     /// Amount of producers to be used for basic throughput test.
     #[arg(short, long, default_value_t = 20)]
     pub producers: usize,
@@ -65,7 +65,7 @@ pub struct BasicArgs {
     pub consumers: usize,
 }
 #[derive(ClapArgs, Debug)]
-pub struct PingPongArgs {
+pub struct EnqDeqArgs {
     /// Set the thread count for the pingpong benchmark.
     #[arg(long = "thread-count", default_value_t = 20)]
     pub thread_count: usize,
@@ -88,8 +88,8 @@ pub struct BFSArgs {
 impl Display for Benchmarks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Benchmarks::Basic(_) => write!(f, "Basic"),
-            Benchmarks::PingPong(_) => write!(f, "PingPong"),
+            Benchmarks::ProdCon(_) => write!(f, "ProdCon"),
+            Benchmarks::EnqDeq(_) => write!(f, "EnqDeq"),
             #[cfg(feature = "bfs")]
             Benchmarks::BFS(_) => write!(f, "BFS"),
         }
@@ -123,7 +123,7 @@ impl Default for Args {
             queue_size: 10000,
             delay: 10,
             path_output: "".to_string(),
-            benchmark: Benchmarks::Basic(BasicArgs {
+            benchmark: Benchmarks::ProdCon(ProdConArgs {
                 producers: 5,
                 consumers: 5,
             }),

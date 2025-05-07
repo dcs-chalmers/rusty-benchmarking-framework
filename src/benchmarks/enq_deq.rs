@@ -14,14 +14,14 @@ use std::sync::{mpsc, Arc};
 /// * --spread              Set the spread of consumers/producers, value between 0 - 1.        Ex. --spread 0.3,  gives 30% consume, 70% produce        
 /// * --thread-count        Set the amount of threads to run in the benchmark
 #[allow(dead_code)]
-pub fn benchmark_ping_pong<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_enq_deq<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
 where
 C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::Benchmarks::PingPong(a) => a,
+        crate::arguments::Benchmarks::EnqDeq(a) => a,
         _ => panic!(),
     };
     {

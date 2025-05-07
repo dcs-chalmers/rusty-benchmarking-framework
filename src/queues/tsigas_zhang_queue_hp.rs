@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: TZQueue<i32> = TZQueue::new(10);
+        let q: TZQueue<i32> = TZQueue::new(1000000);
         if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
