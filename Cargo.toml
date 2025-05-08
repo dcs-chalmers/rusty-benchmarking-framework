@@ -22,7 +22,8 @@ log = { version = "0.4.25" }
 env_logger = { version = "0.11.6", optional = true }
 haphazard = { version = "0.1.8", optional = true }
 sysinfo = "0.33"
-bbq-rs = { version = "0.1.1", optional = true }
+# bbq-rs = { version = "0.1.1", optional = true }
+bbq-rs = { git = "https://github.com/WilleBerg/bbq", branch = "main", optional = true }
 dashmap = { version = "6.1.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -98,6 +99,7 @@ all_queues = [
     "lcrq_rust",
     "faaa_queue_rust",
     "faaa_queue_cpp",
+    "bbq",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
