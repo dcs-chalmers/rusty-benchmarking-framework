@@ -40,6 +40,7 @@ bfs = ["dep:dashmap"]
 lockfree_queue = ["dep:lockfree"]
 basic_queue = []
 bounded_concurrent_queue = ["dep:concurrent-queue"]
+unbounded_concurrent_queue = ["dep:concurrent-queue"]
 array_queue = ["dep:crossbeam"]
 seg_queue = ["dep:crossbeam"]
 memory_tracking = []
@@ -74,6 +75,7 @@ all_queues = [
     "lockfree_queue",
     "basic_queue",
     "bounded_concurrent_queue",
+    "unbounded_concurrent_queue",
     "array_queue",
     "memory_tracking",
     "bounded_ringbuffer",

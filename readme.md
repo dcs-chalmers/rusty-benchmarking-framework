@@ -55,6 +55,7 @@ Implemented queues are:
 * `basic_queue` - A `VecDeque` with a mutex lock.  [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/basic_queue.rs) 
 * `bounded_ringbuffer` -A simple ringbuffer. [Implementation](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/bounded_ringbuffer.rs)
 * `bounded_concurrent_queue` - A bounded queue from the crate [`concurrent-queue`](https://crates.io/crates/concurrent-queue).
+* `unbounded_concurrent_queue` - An unbounded queue from the crate [`concurrent-queue`](https://crates.io/crates/concurrent-queue).
 * `lf_queue` - An unbounded lock-free queue from the crate [`lf-queue`](https://crates.io/crates/lf-queue)
 * `lockfree_queue` - A lock-free unbounded queue from the crate [`lockfree`](https://crates.io/crates/lockfree).
 * `lockfree_stack` - A lock-free unbounded stack from the crate [`lockfree`](https://crates.io/crates/lockfree).
