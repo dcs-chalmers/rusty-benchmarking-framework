@@ -43,7 +43,7 @@ mod tests {
     #[test]
     fn create_bbq() {
         let q: BBQueue<i32> = BBQueue::new(100);
-        q.queue.push(1);
+        let _ = q.queue.push(1);
         assert_eq!(q.queue.pop().unwrap(), 1);
     }
     #[test]

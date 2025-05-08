@@ -99,9 +99,10 @@ all_queues = [
     "lcrq_rust",
     "faaa_queue_rust",
     "faaa_queue_cpp",
+]
+nightly_queues = [
     "bbq",
 ]
 
 verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
 silent-release = ["log/release_max_level_off"]
-bbq-rs = ["dep:bbq-rs"]
