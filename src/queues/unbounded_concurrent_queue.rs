@@ -14,7 +14,7 @@ impl<T> ConcurrentQueue<T> for concurrent_queue::ConcurrentQueue<T> {
         }
     }
     fn get_id(&self) -> String {
-        String::from("bounded_concurrent_queue")
+        String::from("unbounded_concurrent_queue")
     }
     fn new(_size: usize) -> Self {
             concurrent_queue::ConcurrentQueue::unbounded()
