@@ -24,5 +24,7 @@ jobs:
       run: cargo build --verbose --features all_queues
     - name: Run queue tests
       run: cargo test --verbose --features all_queues
+    - name: Run nightly queues
+      run: cargo +nightly test --verbose -F nightly_queues
     - name: Run benchmarking suite tests
       run: cargo test --verbose --features tests_benchmark
