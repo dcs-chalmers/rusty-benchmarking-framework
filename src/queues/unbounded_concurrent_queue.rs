@@ -3,11 +3,15 @@ use log::warn;
 
 use crate::traits::{ConcurrentQueue, Handle};
 
-pub struct UnboundedCQueueHandle<'a, T> {
-    queue: &'a concurrent_queue::ConcurrentQueue<T> 
+pub struct UnboundedCQueue<T> {
+    q: concurrent_queue::ConcurrentQueue<T>,
 }
 
-impl<T> ConcurrentQueue<T> for concurrent_queue::ConcurrentQueue<T> {
+pub struct UnboundedCQueueHandle<'a, T> {
+    queue: &'a UnboundedCQueue<T>
+}
+
+impl<T> ConcurrentQueue<T> for UnboundedCQueue<T> {
     fn register(&self) -> impl Handle<T> {
         UnboundedCQueueHandle {
             queue: self,
@@ -17,13 +21,15 @@ impl<T> ConcurrentQueue<T> for concurrent_queue::ConcurrentQueue<T> {
         String::from("unbounded_concurrent_queue")
     }
     fn new(_size: usize) -> Self {
-            concurrent_queue::ConcurrentQueue::unbounded()
+        UnboundedCQueue {
+            q: concurrent_queue::ConcurrentQueue::unbounded()
+        }
     }
 }
 
 impl<T> Handle<T> for UnboundedCQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
-        if let Err(err) = self.queue.push(item) {
+        if let Err(err) = self.queue.q.push(item) {
             let i = match err {
                 PushError::Full(v) => {
                     warn!("Concurrentqueue was full.");
@@ -40,7 +46,7 @@ impl<T> Handle<T> for UnboundedCQueueHandle<'_, T> {
     }
     
     fn pop(&mut self) -> Option<T> {
-        self.queue.pop().ok()
+        self.queue.q.pop().ok()
     }
 }
 
@@ -56,7 +62,7 @@ mod tests {
     }
     #[test]
     fn test_handle() {
-        let q: concurrent_queue::ConcurrentQueue<i32> = concurrent_queue::ConcurrentQueue::unbounded();
+        let q: UnboundedCQueue<i32> = UnboundedCQueue::new(0);
         let mut handle = q.register();
         handle.push(1).unwrap();
         assert_eq!(handle.pop().unwrap(), 1);
@@ -64,7 +70,7 @@ mod tests {
     #[test]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
-        let q: concurrent_queue::ConcurrentQueue<i32> = concurrent_queue::ConcurrentQueue::unbounded();
+        let q: UnboundedCQueue<i32> = UnboundedCQueue::new(0);
         if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }

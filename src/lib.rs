@@ -83,6 +83,10 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
         crate::queues::bounded_concurrent_queue::BoundedCQueue<usize>,
         &bench_conf
     );
+    implement_benchmark!("unbounded_concurrent_queue",
+        crate::queues::unbounded_concurrent_queue::UnboundedCQueue<usize>,
+        &bench_conf
+    );
     implement_benchmark!("array_queue",
         crate::queues::array_queue::AQueue<usize>,
         &bench_conf
