@@ -76,7 +76,7 @@ Implemented queues are:
 * `faaa_queue_rust` - Our implementation of a Rust version of the FAAArrayQueue from [this](https://concurrencyfreaks.blogspot.com/2016/11/faaarrayqueue-mpmc-lock-free-queue-part.html) blog post. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/faaa_queue.rs)
 * `tz_queue_hp` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation uses hazard pointers for memory reclamation. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue_hp.rs)
 * `tz_queue` - A lock-free bounded queue based on [this paper](https://dl.acm.org/doi/abs/10.1145/378580.378611). This implementation has no memory reclamation scheme. [Implementation.](https://github.com/WilleBerg/lockfree-benchmark/blob/main/src/queues/tsigas_zhang_queue.rs)
-* `bbq` - A Block Based Bounded Queue based on [this paper](https://www.usenix.org/conference/atc22/presentation/wang-jiawei) from the crate[`bbq-rs`](https://crates.io/crates/bbq-rs). This queue implements a blocking mechanism and thus does not work for `ping-pong`.
+* `bbq` - A Block Based Bounded Queue based on [this paper](https://www.usenix.org/conference/atc22/presentation/wang-jiawei) from the crate[`bbq-rs`](https://crates.io/crates/bbq-rs). This queue implements a blocking mechanism and thus does not work for `enq-deq`. We fixed this issue and patched it [here](https://github.com/WilleBerg/bbq). The patched version is the one implemented in the framework. **Required nightly**.
 
 ### Optional extra feature:
 * `memory_tracking` - Writes to a file the memory allocated by the program
@@ -101,8 +101,8 @@ To use specific values you can add different flags to the run command:
     * `-p`, `--producers` for specified amount of producers.
     * `-c`, `--consumers` for specified amount of consumers.
 - `enq-deq` benchmark type sub commands:
-    * `--spread` - To specify the spread for the `ping-pong` benchmark type.
-    * `--thread-count` - To specify the amount of threads in the `ping-pong` benchmark type.
+    * `--spread` - To specify the spread for the `enq-deq` benchmark type.
+    * `--thread-count` - To specify the amount of threads in the `enq-deq` benchmark type.
 
 ## Add your own queues
 To add your own queues to the framework, you first create a new file in `src/queues` for the source code. You then have to add the queue to the `src/queues.rs` file as a feature in the following way:
