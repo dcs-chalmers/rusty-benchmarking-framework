@@ -52,3 +52,5 @@ pub mod lcrq_rust;
 pub mod faaa_queue;
 #[cfg(feature = "faaa_queue_cpp")]
 pub mod faaa_queue_cpp;
+#[cfg(feature = "unbounded_concurrent_queue")]
+pub mod unbounded_concurrent_queue;
