@@ -17,6 +17,28 @@ name_translator = {
         "lprq_rust_unoptimised" : "Rust LPRQ Unoptimised",
         "lcrq_rust_unoptimised" : "Rust LCRQ Unoptimised",
         "lprq_cpp" : "C++ LPRQ",
+        "lcrq_rust" : "Rust LCRQ",
+        "lprq_rust" : "Rust LPRQ",
+        "moodycamel_cpp" : "moodycamel (C++)",
+        "seg_queue" : "SegQueue",
+        "array_queue" : "ArrayQueue",
+        "atomic_queue" : "atomic-queue",
+        "basic_queue" : "BasicQueue",
+        "bounded_ringbuffer" : "Bounded Ringbuffer",
+        "bounded_concurrent_queue" : "concurrent_queue::bounded",
+        "unbounded_concurrent_queue" : "concurrent_queue::unbounded",
+        "lf_queue" : "lf-queue",
+        "lockfree_queue" : "lockfree::Queue",
+        "lockfree_stack" : "lockfree::Stack",
+        "scc2_queue" : "scc2::Queue",
+        "scc2_stack" : "scc2::Stack",
+        "scc_queue" : "scc::Queue",
+        "scc_stack" : "scc::Stack",
+        "boost_cpp" : "boost (C++)",
+        "faaa_queue_rust" : "Rust FAAAQueue",
+        "tz_queue_hp" : "TsigasZhang (HP)",
+        "bbq" : "BBQ",
+        "ms_queue" : "MSQueue",
         }
 
 def load_csv_files_by_subfolder(folder_path):
@@ -72,60 +94,147 @@ def process_data(df, group_by):
     }).reset_index()
     return grouped
 
-def plot_thread_count_results(df, queues):
-    """Create separate plot windows for each metric with all Queuetypes and Subfolders as
-    separate lines."""
-    metrics = ["Throughput",
-               # "Fairness", 
-               # "Enqueues", 
-               # "Dequeues"
-               ]
-    titles = [
-        "Throughput vs. Thread Count",
-        # "Fairness vs. Thread Count",
-        # "Number of Enqueues vs. Thread Count",
-        # "Number of Dequeues vs. Thread Count"
-    ]
+def plot_thread_count_results(df, queues=None, highlight_queues=None):
+    """Create plot windows for specified queues with optional highlighting.
+    
+    Args:
+        df: The dataframe containing the data
+        queues: List of queue types to plot. If None, all queues are plotted.
+        highlight_queues: List of queue types to highlight. If None or empty, all queues are displayed normally.
+    """
+    metrics = ["Throughput"]
+    titles = ["Throughput vs. Thread Count"]
+    
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
     marker_styles = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'x', '+']
+    
     # Use a different color for each subfolder
     subfolders = df['Subfolder'].unique()
     queue_types = df['Queuetype'].unique()
     
+    # Check if we're in highlight mode
+    highlight_mode = highlight_queues is not None and len(highlight_queues) > 0
+        
     # Create a separate figure for each metric
     for i, (metric, title) in enumerate(zip(metrics, titles)):
-        # Set a fixed figure size that will be maintained in the saved PDF
         fig = plt.figure(figsize=(8, 6))
         ax = fig.add_subplot(111)
         ax.set_title(title, fontsize=14)
         
-        line_count = 0
-        for subfolder in subfolders:
-            subfolder_data = df[df['Subfolder'] == subfolder]
-            for qtype in queue_types:
-                if queues and qtype not in queues:
-                    continue
-                queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
-                if queue_data.empty:
-                    continue
-                queue_data = queue_data.sort_values('Thread Count')
-                # Cycle through line styles and marker styles
-                line_style = line_styles[line_count % len(line_styles)]
-                marker_style = marker_styles[line_count % len(marker_styles)]
-                line_count += 1
-                if qtype in name_translator:
-                    label = f"{name_translator[qtype]}"
-                else:
-                    label = f"{qtype}"
-                ax.plot(
-                    queue_data['Thread Count'],
-                    queue_data[metric],
-                    marker=marker_style,
-                    linestyle=line_style,
-                    label=label,
-                    markevery=1,
-                )
+        # First plot non-highlighted queues if in highlight mode
+        if highlight_mode:
+            # Plot non-highlighted queues first (grayed out)
+            for subfolder in subfolders:
+                subfolder_data = df[df['Subfolder'] == subfolder]
+                line_count = 0
+                for qtype in queue_types:
+                    # Skip queue types not in the specified list
+                    if queues and qtype not in queues:
+                        continue
+                        
+                    # Skip highlighted queues for now
+                    if qtype in highlight_queues:
+                        continue
+                        
+                    queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
+                    if queue_data.empty:
+                        continue
+                        
+                    queue_data = queue_data.sort_values('Thread Count')
+                    line_style = line_styles[line_count % len(line_styles)]
+                    marker_style = marker_styles[line_count % len(marker_styles)]
+                    line_count += 1
+                    
+                    if qtype in name_translator:
+                        label = f"{name_translator[qtype]}"
+                    else:
+                        label = f"{qtype}"
+                        
+                    ax.plot(
+                        queue_data['Thread Count'],
+                        queue_data[metric],
+                        marker=marker_style,
+                        linestyle=line_style,
+                        label=label,
+                        markevery=1,
+                        alpha=0.3,  # Reduced opacity for non-highlighted queues
+                        color='gray',
+                        linewidth=1,
+                    )
+            
+            # Then plot highlighted queues
+            for subfolder in subfolders:
+                subfolder_data = df[df['Subfolder'] == subfolder]
+                highlight_count = 0
+                for qtype in highlight_queues:
+                    # Skip queue types not in the specified list
+                    if queues and qtype not in queues:
+                        continue
+                        
+                    queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
+                    if queue_data.empty:
+                        continue
+                        
+                    queue_data = queue_data.sort_values('Thread Count')
+                    line_style = line_styles[highlight_count % len(line_styles)]
+                    marker_style = marker_styles[highlight_count % len(marker_styles)]
+                    highlight_count += 1
+                    
+                    if qtype in name_translator:
+                        label = f"{name_translator[qtype]} ★"  # Add star to highlight in legend
+                    else:
+                        label = f"{qtype} ★"
+                        
+                    ax.plot(
+                        queue_data['Thread Count'],
+                        queue_data[metric],
+                        marker=marker_style,
+                        linestyle=line_style,
+                        label=label,
+                        markevery=1,
+                        linewidth=2.5,  # Thicker lines for highlighted queues
+                        zorder=10,  # Ensure highlighted queues are drawn on top
+                    )
+        else:
+            # Normal mode - plot all queues with full colors
+            line_count = 0
+            for subfolder in subfolders:
+                subfolder_data = df[df['Subfolder'] == subfolder]
+                for qtype in queue_types:
+                    # Skip queue types not in the specified list
+                    if queues and qtype not in queues:
+                        continue
+                        
+                    queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
+                    if queue_data.empty:
+                        continue
+                        
+                    queue_data = queue_data.sort_values('Thread Count')
+                    line_style = line_styles[line_count % len(line_styles)]
+                    marker_style = marker_styles[line_count % len(marker_styles)]
+                    line_count += 1
+                    
+                    if qtype in name_translator:
+                        label = f"{name_translator[qtype]}"
+                    else:
+                        label = f"{qtype}"
+                        
+                    ax.plot(
+                        queue_data['Thread Count'],
+                        queue_data[metric],
+                        marker=marker_style,
+                        linestyle=line_style,
+                        label=label,
+                        markevery=1,
+                    )
+        
+        # Check if anything was plotted
+        if len(ax.get_lines()) == 0:
+            print("Warning: No data to plot. Check if specified queues exist in the dataset.")
+            plt.close(fig)
+            continue
+            
         ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
         ax.set_xlabel('Thread Count')
         ax.set_ylabel(metric)
@@ -134,10 +243,10 @@ def plot_thread_count_results(df, queues):
         
         # Place legend at the bottom of the plot
         ax.legend(
-            fontsize='medium',
+            fontsize='large',
             loc='upper center',
-            bbox_to_anchor=(0.5, -0.15),  # Positioned below the plot
-            ncol=4,  # Arrange legend items in multiple columns for better use of space
+            bbox_to_anchor=(0.5, -0.15),
+            ncol=4,
             frameon=True,
             fancybox=True,
             shadow=True
@@ -145,10 +254,10 @@ def plot_thread_count_results(df, queues):
         
         # Adjust layout to make room for the legend
         plt.tight_layout()
-        plt.subplots_adjust(bottom=0.2)  # Adjust the bottom margin to make space for the legend
+        plt.subplots_adjust(bottom=0.2)
         
         # Save the figure with fixed dimensions
-        filename = f"{title.replace(' ', '_')}.png"
+        filename = f"{title.replace(' ', '_')}.pdf"
         fig.savefig(filename, format='png', bbox_inches='tight', dpi=300)
         
         # Display the plot
@@ -295,26 +404,27 @@ def main():
                         help='What type of benchmark to plot')
     parser.add_argument('--output', help='Output file path for saving the plot (optional)')
     parser.add_argument('--queues', nargs='+', help='Specific queues to plot (optional)')
+    parser.add_argument('--highlight', nargs='+', help='Queues to highlight among the plotted ones (optional)')
     args = parser.parse_args()
-
+    
     if not os.path.isdir(args.folder):
         print(f"Error: {args.folder} is not a valid directory")
         sys.exit(1)
-
+        
     df = load_csv_files_by_subfolder(args.folder)
     if df is None:
         print("No valid data was loaded.")
         sys.exit(1)
-
+        
     print(f"Loaded data from {len(df['Subfolder'].unique())} subfolders")
     print(f"Queue types found: {df['Queuetype'].unique()}")
-
+    
     if args.plot_type == 'spmc':
         processed_df = process_data(df, 'Consumers')
         plot_spmc_results(processed_df, args.queues)
     elif args.plot_type == 'thread_count':
         processed_df = process_data(df, 'Thread Count')
-        plot_thread_count_results(processed_df, args.queues)
+        plot_thread_count_results(processed_df, args.queues, args.highlight)
     elif args.plot_type == 'mpsc':
         processed_df = process_data(df, 'Producers')
         plot_mpsc_results(processed_df, args.queues)
