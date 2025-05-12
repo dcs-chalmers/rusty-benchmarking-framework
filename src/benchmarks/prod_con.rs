@@ -172,11 +172,11 @@ where
     };
     // If a thread crashed, pad the results with zero-values 
     let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!("0,0,0,{},{},-1,{},{},{},0,-1", producers, consumers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id)
+        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id, bench_conf.args.queue_size)
     }
     else {
         let fairness = crate::benchmarks::calc_fairness(ops_per_thread);
-        format!("{},{},{},{},{},{},{},{},{},{},{}",
+        format!("{},{},{},{},{},{},{},{},{},{},{},{}",
             (pushes + pops) as f64 / time_limit as f64,
             pushes,
             pops,
@@ -187,7 +187,8 @@ where
             bench_conf.args.benchmark,
             bench_conf.benchmark_id,
             fairness,
-            -1)
+            -1,
+            bench_conf.args.queue_size)
     };
     if !bench_conf.args.write_to_stdout {
         let mut file = OpenOptions::new()
