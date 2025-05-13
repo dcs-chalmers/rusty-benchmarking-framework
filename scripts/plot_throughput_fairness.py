@@ -94,8 +94,8 @@ def process_data(df, group_by):
     }).reset_index()
     return grouped
 
-def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_queues=None):
-    """Create plot windows for specified queues with optional highlighting and ignoring.
+def plot_combined_metrics(df, queues=None, highlight_queues=None, ignore_queues=None):
+    """Create a single plot window with both Throughput and Fairness metrics.
     
     Args:
         df: The dataframe containing the data
@@ -104,7 +104,7 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
         ignore_queues: List of queue types to ignore/exclude from the plot. Takes precedence over queues and highlight_queues.
     """
     metrics = ["Throughput", "Fairness"]
-    titles = ["Throughput vs. Thread Count", "Fairness vs. Thread Count"]
+    y_labels = ["Throughput", "Fairness"]
     
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
@@ -174,13 +174,14 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
         
     # Check if we're in highlight mode
     highlight_mode = highlight_queues is not None and len(highlight_queues) > 0
-        
-    # Create a separate figure for each metric
-    for i, (metric, title) in enumerate(zip(metrics, titles)):
-        fig = plt.figure(figsize=(8, 6))
-        ax = fig.add_subplot(111)
-        ax.set_title(title, fontsize=14)
-        
+    
+    # Create a single figure with two subplots (Throughput and Fairness)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 8))
+    
+    # Keep track of plotted queues for legend
+    plotted_queues = {}
+    
+    for i, (metric, y_label) in enumerate(zip(metrics, y_labels)):
         # First plot non-highlighted queues if in highlight mode
         if highlight_mode:
             # Plot non-highlighted queues first (grayed out)
@@ -213,13 +214,17 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
                         label = f"{name_translator[qtype]}"
                     else:
                         label = f"{qtype}"
+                    
+                    # Only add to legend once (for the first metric)
+                    if i == 0:
+                        plotted_queues[qtype] = {'label': label, 'highlighted': False}
                         
-                    ax.plot(
+                    axs[i].plot(
                         queue_data['Thread Count'],
                         queue_data[metric],
                         marker=marker_style,
                         linestyle=line_style,
-                        label=label,
+                        label=label if i == 0 else "_nolegend_",  # Only add to legend for the first subplot
                         markevery=1,
                         alpha=0.3,  # Reduced opacity for non-highlighted queues
                         color='gray',
@@ -252,13 +257,17 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
                         label = f"{name_translator[qtype]} ★"  # Add star to highlight in legend
                     else:
                         label = f"{qtype} ★"
+                    
+                    # Only add to legend once (for the first metric)
+                    if i == 0:
+                        plotted_queues[qtype] = {'label': label, 'highlighted': True}
                         
-                    ax.plot(
+                    axs[i].plot(
                         queue_data['Thread Count'],
                         queue_data[metric],
                         marker=marker_style,
                         linestyle=line_style,
-                        label=label,
+                        label=label if i == 0 else "_nolegend_",  # Only add to legend for the first subplot
                         markevery=1,
                         linewidth=2.5,  # Thicker lines for highlighted queues
                         zorder=10,  # Ensure highlighted queues are drawn on top
@@ -290,52 +299,70 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
                         label = f"{name_translator[qtype]}"
                     else:
                         label = f"{qtype}"
+                    
+                    # Only add to legend once (for the first metric)
+                    if i == 0:
+                        plotted_queues[qtype] = {'label': label, 'highlighted': False}
                         
-                    ax.plot(
+                    axs[i].plot(
                         queue_data['Thread Count'],
                         queue_data[metric],
                         marker=marker_style,
                         linestyle=line_style,
-                        label=label,
+                        label=label if i == 0 else "_nolegend_",  # Only add to legend for the first subplot
                         markevery=1,
                     )
         
-        # Check if anything was plotted
-        if len(ax.get_lines()) == 0:
-            print("Warning: No data to plot. Check if specified queues exist in the dataset.")
-            plt.close(fig)
-            continue
-            
-        ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
-        ax.set_xlabel('Thread Count')
-        ax.set_ylabel(metric)
-        ax.set_yscale('log')
-        ax.grid(True)
-        
-        # Place legend at the bottom of the plot
-        ax.legend(
-            fontsize='large',
-            loc='upper center',
-            bbox_to_anchor=(0.5, -0.15),
-            ncol=4,
-            frameon=True,
-            fancybox=True,
-            shadow=True
-        )
-        
-        # Adjust layout to make room for the legend
-        plt.tight_layout()
-        plt.subplots_adjust(bottom=0.2)
-        
-        # Save the figure with fixed dimensions
-        filename = f"{title.replace(' ', '_').replace('.','')}.pdf"
-        fig.savefig(filename, format='pdf', bbox_inches='tight', dpi=1200)
-        
-        # Display the plot
-        plt.show()
+        # Set subplot titles and axes
+        axs[i].set_title(f"{metric} vs. Thread Count", fontsize=14)
+        axs[i].set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
+        axs[i].set_xlabel('Thread Count')
+        axs[i].set_ylabel(metric)
+        # Only use log scale for Throughput, not for Fairness
+        if metric == "Throughput":
+            axs[i].set_yscale('log')
+        axs[i].grid(True)
+    
+    # Check if anything was plotted
+    if not plotted_queues:
+        print("Warning: No data to plot. Check if specified queues exist in the dataset.")
+        plt.close(fig)
+        return
+    
+    # Place the legend below both subplots as two rows
+    handles, labels = axs[0].get_legend_handles_labels()
+    
+    # Calculate columns needed for two rows
+    ncols = max(1, len(handles) // 2)
+    if len(handles) % 2 != 0:  # If odd number of handles, add one more column
+        ncols += 1
+    
+    fig.legend(
+        handles, 
+        labels,
+        # fontsize='large',  # Large font for better readability
+        fontsize=16,  # Explicit larger font size
+        loc='upper center',
+        bbox_to_anchor=(0.5, 0.08),
+        ncol=ncols,  # Set columns for two rows
+        frameon=True,
+        fancybox=True,
+        shadow=True,
+        columnspacing=1.5,  # More space between columns
+    )
+    
+    # Adjust layout to make room for the legend
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.15)  # More space for the two-row legend
+    
+    # Save the figure with fixed dimensions 
+    filename = "Combined_Performance_Metrics.pdf"
+    fig.savefig(filename, format='pdf', bbox_inches='tight', dpi=1200)
+    
+    # Display the plot
+    # plt.show()
 
-
-def plot_mpsc_results(df, queues):
+def plot_mpsc_results(df, queues=None, highlight_queues=None, ignore_queues=None):
     """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
     titles = [
@@ -369,6 +396,8 @@ def plot_mpsc_results(df, queues):
             for qtype in queue_types:
                 if queues and qtype not in queues:
                     continue
+                if ignore_queues and qtype in ignore_queues:
+                    continue
                 queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                 if queue_data.empty:
                     continue
@@ -380,7 +409,25 @@ def plot_mpsc_results(df, queues):
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
 
-                label = f"{qtype}"
+                if qtype in name_translator:
+                    label = f"{name_translator[qtype]}"
+                else:
+                    label = f"{qtype}"
+                
+                # Apply highlight styling if applicable
+                alpha = 1.0
+                linewidth = 1.5
+                color = None
+                zorder = 5
+                
+                if highlight_queues and qtype in highlight_queues:
+                    label += " ★"
+                    linewidth = 2.5
+                    zorder = 10
+                elif highlight_queues:
+                    alpha = 0.3
+                    color = 'gray'
+                
                 axes[i].plot(
                     queue_data['Producers'],
                     queue_data[metric],
@@ -388,6 +435,10 @@ def plot_mpsc_results(df, queues):
                     linestyle=line_style,
                     label=label,
                     markevery=5,
+                    alpha=alpha,
+                    color=color,
+                    linewidth=linewidth,
+                    zorder=zorder
                 )
 
         axes[i].set_title(title)
@@ -399,10 +450,10 @@ def plot_mpsc_results(df, queues):
         axes[i].legend(fontsize='small', loc='best')
 
     plt.tight_layout()
-    plt.savefig('mpsc_benchmark.png', dpi=300)
+    plt.savefig('mpsc_benchmark.pdf', format='pdf', dpi=1200)
     plt.show()
 
-def plot_spmc_results(df, queues):
+def plot_spmc_results(df, queues=None, highlight_queues=None, ignore_queues=None):
     """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
     metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
     titles = [
@@ -436,6 +487,8 @@ def plot_spmc_results(df, queues):
             for qtype in queue_types:
                 if queues and qtype not in queues:
                     continue
+                if ignore_queues and qtype in ignore_queues:
+                    continue
                 queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                 if queue_data.empty:
                     continue
@@ -446,7 +499,25 @@ def plot_spmc_results(df, queues):
                 marker_style = marker_styles[line_count % len(marker_styles)]
                 line_count += 1
 
-                label = f"{qtype}"
+                if qtype in name_translator:
+                    label = f"{name_translator[qtype]}"
+                else:
+                    label = f"{qtype}"
+                
+                # Apply highlight styling if applicable
+                alpha = 1.0
+                linewidth = 1.5
+                color = None
+                zorder = 5
+                
+                if highlight_queues and qtype in highlight_queues:
+                    label += " ★"
+                    linewidth = 2.5
+                    zorder = 10
+                elif highlight_queues:
+                    alpha = 0.3
+                    color = 'gray'
+                
                 axes[i].plot(
                     queue_data['Consumers'],
                     queue_data[metric],
@@ -454,6 +525,10 @@ def plot_spmc_results(df, queues):
                     linestyle=line_style,
                     label=label,
                     markevery=5,
+                    alpha=alpha,
+                    color=color,
+                    linewidth=linewidth,
+                    zorder=zorder
                 )
 
         axes[i].set_title(title)
@@ -466,7 +541,7 @@ def plot_spmc_results(df, queues):
         axes[i].legend(fontsize='small', loc='best')
 
     plt.tight_layout()
-    plt.savefig('spmc_benchmark.png', dpi=300)
+    plt.savefig('spmc_benchmark.pdf', format='pdf', dpi=1200)
     plt.show()
 
 def main():
@@ -497,7 +572,7 @@ def main():
         plot_spmc_results(processed_df, args.queues, args.highlight, args.ignore)
     elif args.plot_type == 'thread_count':
         processed_df = process_data(df, 'Thread Count')
-        plot_thread_count_results(processed_df, args.queues, args.highlight, args.ignore)
+        plot_combined_metrics(processed_df, args.queues, args.highlight, args.ignore)
     elif args.plot_type == 'mpsc':
         processed_df = process_data(df, 'Producers')
         plot_mpsc_results(processed_df, args.queues, args.highlight, args.ignore)

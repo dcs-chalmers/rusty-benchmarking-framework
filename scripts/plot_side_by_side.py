@@ -322,7 +322,7 @@ def plot_side_by_side_fairness(df, right_queues, highlight_queues=None, output=N
     # Adjust layout to make room for the legend and y-axis label
     plt.tight_layout()
     # Increase left margin to make room for y-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.1)
+    plt.subplots_adjust(bottom=0.3, left=0.1)
     
     # Save the figure if output is specified
     if output:
@@ -344,7 +344,7 @@ def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
         output: Output file path for saving the plot
     """
     metrics = ["Throughput"]
-    titles = ["Rust ecosystem and C++ queues", "Our queues"]
+    titles = ["", ""]
     
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
@@ -596,7 +596,7 @@ def main():
     processed_df = process_data(df, 'Thread Count')
     
     # Create side-by-side plots
-    plot_side_by_side_fairness(
+    plot_side_by_side(
         processed_df, 
         args.right, 
         args.highlight, 

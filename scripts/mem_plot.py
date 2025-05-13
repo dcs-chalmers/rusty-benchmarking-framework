@@ -6,6 +6,40 @@ import seaborn as sns
 import argparse
 from glob import glob
 
+name_translator = {
+        "faaaq_rust_optimised" : "FAAAQueue Optimised",
+        "faaaq_rust_unoptimised" : "FAAAQueue Unoptimised",
+        "faaa_queue_cpp" : "C++ FAAAQueue",
+        "lprq_rust_correct" : "Rust LPRQ Optimised",
+        "lcrq_rust_correct" : "Rust LCRQ Optimised",
+        "lcrq_cpp" : "C++ LCRQ",
+        "lprq_rust_unoptimised" : "Rust LPRQ Unoptimised",
+        "lcrq_rust_unoptimised" : "Rust LCRQ Unoptimised",
+        "lprq_cpp" : "C++ LPRQ",
+        "lcrq_rust" : "Rust LCRQ",
+        "lprq_rust" : "Rust LPRQ",
+        "moodycamel_cpp" : "moodycamel (C++)",
+        "seg_queue" : "SegQueue",
+        "array_queue" : "ArrayQueue",
+        "atomic_queue" : "atomic-queue",
+        "basic_queue" : "BasicQueue",
+        "bounded_ringbuffer" : "Bounded Ringbuffer",
+        "bounded_concurrent_queue" : "concurrent_queue::bounded",
+        "unbounded_concurrent_queue" : "concurrent_queue::unbounded",
+        "lf_queue" : "lf-queue",
+        "lockfree_queue" : "lockfree::Queue",
+        "lockfree_stack" : "lockfree::Stack",
+        "scc2_queue" : "scc2::Queue",
+        "scc2_stack" : "scc2::Stack",
+        "scc_queue" : "scc::Queue",
+        "scc_stack" : "scc::Stack",
+        "boost_cpp" : "boost (C++)",
+        "faaa_queue_rust" : "Rust FAAAQueue",
+        "tz_queue_hp" : "TsigasZhang (HP)",
+        "bbq" : "bbq-rs",
+        "ms_queue" : "MSQueue",
+        }
+
 def load_benchmark_file(file_path):
     """
     Load a benchmark file and return as DataFrame
@@ -13,79 +47,58 @@ def load_benchmark_file(file_path):
     df = pd.read_csv(file_path)
     return df
 
-def calculate_row_means_across_iterations(df):
+def find_peak_memory_in_file(file_path):
     """
-    Calculate the mean memory allocation for each row position across iterations
+    Find the peak memory allocation in a single file
     """
-    # Get unique row indices in each iteration
-    row_indices = df['Row ID'].unique() if 'Row ID' in df.columns else range(len(df[df['Iteration'] == 0]))
-    
-    # Initialize list to store results
-    result_rows = []
-    
-    # For each row index, calculate mean across iterations
-    for row_idx in row_indices:
-        if 'Row ID' in df.columns:
-            row_data = df[df['Row ID'] == row_idx]
+    try:
+        df = load_benchmark_file(file_path)
+        if 'Memory Allocated' in df.columns:
+            peak_memory = df['Memory Allocated'].max()
+            return peak_memory
         else:
-            # If no Row ID, group by position within each iteration
-            iterations = df['Iteration'].unique()
-            row_positions = [df[df['Iteration'] == it].iloc[row_idx:row_idx+1] for it in iterations if row_idx < len(df[df['Iteration'] == it])]
-            if not row_positions:
-                continue
-            row_data = pd.concat(row_positions)
-        
-        # Calculate mean for this row across iterations
-        # print(row_data['Memory Allocated'])
-        mean_value = row_data['Memory Allocated'].mean()
-        # print(f"mean val {mean_value}")
-        
-        # Get other metadata from first occurrence
-        first_row = row_data.iloc[0].copy()
-        first_row['Memory Allocated'] = mean_value
-        first_row['Row Position'] = row_idx
-        
-        result_rows.append(first_row)
-    
-    # Convert to DataFrame
-    if result_rows:
-        result_df = pd.DataFrame(result_rows)
-        return result_df
-    else:
-        return pd.DataFrame()
+            print(f"Warning: 'Memory Allocated' column not found in {file_path}")
+            return None
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return None
 
 def process_queue_folder(folder_path, queue_type=None):
     """
-    Process one representative CSV file for a specific queue type
+    Process all mem* files in a folder and return average peak memory
     """
-    # Get all CSV files in the folder
+    # Get all mem* files in the folder
     file_paths = glob(os.path.join(folder_path, "mem*"))
     
     if not file_paths:
         print(f"No memory files found in {folder_path}")
-        return pd.DataFrame()
+        return None
     
-    # Just use the first file found
-    file_path = file_paths[0]
-    print(f"Using file {file_path} for queue type {queue_type}")
+    print(f"Found {len(file_paths)} memory files for queue type {queue_type}")
     
-    try:
-        df = load_benchmark_file(file_path)
+    # Process each file to find peak memory
+    peak_memories = []
+    for file_path in file_paths:
+        peak_memory = find_peak_memory_in_file(file_path)
+        if peak_memory is not None:
+            peak_memories.append(peak_memory)
+    
+    # Calculate average peak memory across all files
+    if peak_memories:
+        avg_peak_memory = sum(peak_memories) / len(peak_memories)
+        print(f"Average peak memory for {queue_type}: {int(avg_peak_memory):,} bytes from {len(peak_memories)} files")
         
-        # If queue_type is provided, overwrite the Queuetype column
-        if queue_type:
-            df['Queuetype'] = queue_type
-        
-        # Calculate row means across iterations
-        means_df = calculate_row_means_across_iterations(df)
-        
-        # Add file identifier
-        means_df['Source'] = os.path.basename(file_path)
-        
-        return means_df
-    except Exception as e:
-        print(f"Error processing {file_path}: {e}")
-        return pd.DataFrame()
+        # Create a record for this queue type
+        record = {
+            'Queuetype': queue_type,
+            'Memory Allocated': avg_peak_memory,
+            'Files Processed': len(peak_memories),
+            'Individual Peaks': peak_memories
+        }
+        return record
+    else:
+        print(f"No valid peak memory data found for {queue_type}")
+        return None
 
 def process_root_folder(root_folder, selected_queues=None):
     """
@@ -113,26 +126,23 @@ def process_root_folder(root_folder, selected_queues=None):
             
         print(f"Processing queue type: {queue_type}")
         
-        # Process one file in the subfolder
+        # Process all mem* files in the subfolder and get average peak memory
         queue_data = process_queue_folder(folder, queue_type)
         
-        if not queue_data.empty:
+        if queue_data:
             all_queue_data.append(queue_data)
     
     if all_queue_data:
-        return pd.concat(all_queue_data, ignore_index=True)
+        return pd.DataFrame(all_queue_data)
     else:
         return pd.DataFrame()
 
 def plot_peak_memory_bar_graph(data):
     """
-    Create a bar graph showing peak memory usage for each queue type
+    Create a bar graph showing average peak memory usage for each queue type
     """
-    # Calculate peak memory for each queue type
-    peak_memory = data.groupby('Queuetype')['Memory Allocated'].max().reset_index()
-    
     # Sort by peak memory for better visualization
-    peak_memory = peak_memory.sort_values('Memory Allocated', ascending=False)
+    data = data.sort_values('Memory Allocated', ascending=False)
     
     # Create the figure
     plt.figure(figsize=(12, 8))
@@ -142,43 +152,53 @@ def plot_peak_memory_bar_graph(data):
     
     # Create bar plot
     bars = plt.bar(
-        x=peak_memory['Queuetype'],
-        height=peak_memory['Memory Allocated'],
+        x=data['Queuetype'],
+        height=data['Memory Allocated'],
         width=0.7,
-        color=sns.color_palette("viridis", len(peak_memory))
+        color=sns.color_palette("viridis", len(data))
     )
     
-    # Add value labels on top of each bar
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(
-            bar.get_x() + bar.get_width()/2.,
-            height * 1.01,
-            f'{int(height):,}',
-            ha='center',
-            va='bottom',
-            fontsize=11,
-            rotation=0
-        )
-    
     # Customize plot
-    plt.title('Peak Memory Usage by Queue Type', fontsize=16)
-    plt.xlabel('Queue Type', fontsize=14)
-    plt.ylabel('Peak Memory Allocated (bytes)', fontsize=14)
-    plt.xticks(fontsize=12, rotation=45 if len(peak_memory) > 6 else 0)
-    plt.yticks(fontsize=12)
+    plt.title('Average Peak Memory Usage by Queue', fontsize=16)
+    plt.xlabel('Queue', fontsize=14)
+    plt.ylabel('Average Peak Memory Allocated (bytes)', fontsize=14)
     
-    # Add grid for better readability
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    original_queue_names = data['Queuetype'].tolist()
+    translated_names = [name_translator.get(name, name) for name in original_queue_names]
+    
+    # Set x-tick alignment to right - this makes the labels end at the middle of the bar
+    ax = plt.gca()
+    ax.set_xticklabels(translated_names, fontsize=12, 
+                       ha='right', rotation=45 if len(data) > 6 else 0)
+    
+    # Set log scale for y-axis
+    plt.yscale('log')
+    
+    # Explicitly import and set minor tick locators
+    from matplotlib.ticker import LogLocator, NullLocator
+    
+    # Add minor ticks to y-axis only (more control)
+    ax.yaxis.set_minor_locator(LogLocator(subs=np.arange(2, 10)))
+    
+    # Turn off minor ticks on x-axis (since it's categorical)
+    ax.xaxis.set_minor_locator(NullLocator())
+    
+    # Make sure minor ticks are visible
+    ax.tick_params(which='minor', length=4, color='gray')
+    
+    # Add grid for better readability (both major and minor)
+    plt.grid(axis='y', which='major', linestyle='-', alpha=0.7)
+    plt.grid(axis='y', which='minor', linestyle=':', alpha=0.7)
     
     # Adjust layout
     plt.tight_layout()
-    
-    return peak_memory
+    filename = f"mem_plot.pdf"
+    plt.savefig(filename, format='pdf', bbox_inches='tight', dpi=1200)
+    return data
 
 def main():
     # Set up argument parser
-    parser = argparse.ArgumentParser(description='Analyze peak memory usage across different queue types')
+    parser = argparse.ArgumentParser(description='Analyze average peak memory usage across different queue types')
     parser.add_argument('root_folder', help='Path to the root folder containing queue type subfolders')
     parser.add_argument('--queues', nargs='+', help='Specific queue types to analyze (separated by space)')
     parser.add_argument('--list-available', action='store_true', help='List all available queue types without processing')
@@ -219,9 +239,9 @@ def main():
     # Plot peak memory bar graph
     peak_memory = plot_peak_memory_bar_graph(combined_data)
     
-    print("\nPeak memory usage by queue type:")
+    print("\nAverage peak memory usage by queue type:")
     for _, row in peak_memory.iterrows():
-        print(f"{row['Queuetype']}: {int(row['Memory Allocated']):,} bytes")
+        print(f"{row['Queuetype']}: {int(row['Memory Allocated']):,} bytes (from {int(row['Files Processed'])} files)")
     
     print("\nDisplaying interactive plot...")
     plt.show()  # Show plot interactively
