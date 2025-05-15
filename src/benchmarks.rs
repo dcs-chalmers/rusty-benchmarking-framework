@@ -13,6 +13,7 @@ use sysinfo::System;
 
 pub mod prod_con;
 pub mod enq_deq;
+pub mod enq_deq_pairs;
 #[cfg(feature = "bfs")]
 pub mod bfs;
 
@@ -58,7 +59,8 @@ macro_rules! implement_benchmark {
                 // Select which benchmark to use
                 match $bench_conf.args.benchmark {
                     Benchmarks::ProdCon(_)     => $crate::benchmarks::prod_con::benchmark_prod_con(test_q, $bench_conf)?,
-                    Benchmarks::EnqDeq(_)  => $crate::benchmarks::enq_deq::benchmark_enq_deq(test_q, $bench_conf)?,
+                    Benchmarks::EnqDeq(_)      => $crate::benchmarks::enq_deq::benchmark_enq_deq(test_q, $bench_conf)?,
+                    Benchmarks::EnqDeqPairs(_) => $crate::benchmarks::enq_deq_pairs::benchmark_enq_deq_pairs(test_q, $bench_conf)?,
                     #[cfg(feature = "bfs")]
                     Benchmarks::BFS(_)       => {
                         $crate::benchmarks::bfs::benchmark_bfs(
