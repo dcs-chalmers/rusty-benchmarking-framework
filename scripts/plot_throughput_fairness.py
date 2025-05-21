@@ -22,12 +22,12 @@ name_translator = {
         "moodycamel_cpp" : "moodycamel (C++)",
         "seg_queue" : "SegQueue",
         "array_queue" : "ArrayQueue",
-        "atomic_queue" : "atomic-queue",
+        "atomic_queue" : "atomic_queue::Queue",
         "basic_queue" : "BasicQueue",
         "bounded_ringbuffer" : "Bounded Ringbuffer",
-        "bounded_concurrent_queue" : "concurrent_queue::bounded",
-        "unbounded_concurrent_queue" : "concurrent_queue::unbounded",
-        "lf_queue" : "lf-queue",
+        "bounded_concurrent_queue" : "Bounded",
+        "unbounded_concurrent_queue" : "Unbounded",
+        "lf_queue" : "lf_queue::Queue",
         "lockfree_queue" : "lockfree::Queue",
         "lockfree_stack" : "lockfree::Stack",
         "scc2_queue" : "scc2::Queue",
@@ -37,8 +37,9 @@ name_translator = {
         "boost_cpp" : "boost (C++)",
         "faaa_queue_rust" : "Rust FAAAQueue",
         "tz_queue_hp" : "TsigasZhang (HP)",
-        "bbq" : "bbq-rs",
+        "bbq" : "Bbq",
         "ms_queue" : "MSQueue",
+        "wfqueue" : "Wfqueue",
         }
 
 def load_csv_files_by_subfolder(folder_path):
@@ -176,7 +177,7 @@ def plot_combined_metrics(df, queues=None, highlight_queues=None, ignore_queues=
     highlight_mode = highlight_queues is not None and len(highlight_queues) > 0
     
     # Create a single figure with two subplots (Throughput and Fairness)
-    fig, axs = plt.subplots(1, 2, figsize=(12, 8))
+    fig, axs = plt.subplots(1, 2, figsize=(18, 8))
     
     # Keep track of plotted queues for legend
     plotted_queues = {}
@@ -314,10 +315,11 @@ def plot_combined_metrics(df, queues=None, highlight_queues=None, ignore_queues=
                     )
         
         # Set subplot titles and axes
-        axs[i].set_title(f"{metric} vs. Thread Count", fontsize=14)
         axs[i].set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
-        axs[i].set_xlabel('Thread Count')
-        axs[i].set_ylabel(metric)
+        axs[i].tick_params(axis='x', labelsize=16)
+        axs[i].tick_params(axis='y', labelsize=16)
+        axs[i].set_xlabel('Thread Count', fontsize="16")
+        axs[i].set_ylabel(metric, fontsize="16")
         # Only use log scale for Throughput, not for Fairness
         if metric == "Throughput":
             axs[i].set_yscale('log')
@@ -341,7 +343,7 @@ def plot_combined_metrics(df, queues=None, highlight_queues=None, ignore_queues=
         handles, 
         labels,
         # fontsize='large',  # Large font for better readability
-        fontsize=16,  # Explicit larger font size
+        fontsize=20,  # Explicit larger font size
         loc='upper center',
         bbox_to_anchor=(0.5, 0.08),
         ncol=ncols,  # Set columns for two rows

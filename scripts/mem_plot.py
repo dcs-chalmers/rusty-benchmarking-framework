@@ -86,7 +86,7 @@ def process_queue_folder(folder_path, queue_type=None):
     # Calculate average peak memory across all files
     if peak_memories:
         avg_peak_memory = sum(peak_memories) / len(peak_memories)
-        print(f"Average peak memory for {queue_type}: {int(avg_peak_memory):,} bytes from {len(peak_memories)} files")
+        print(f"Mean peak memory for {queue_type}: {int(avg_peak_memory):,} bytes from {len(peak_memories)} files")
         
         # Create a record for this queue type
         record = {
@@ -145,7 +145,7 @@ def plot_peak_memory_bar_graph(data):
     data = data.sort_values('Memory Allocated', ascending=False)
     
     # Create the figure
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(12, 6))
     
     # Set style
     sns.set_style("whitegrid")
@@ -159,9 +159,9 @@ def plot_peak_memory_bar_graph(data):
     )
     
     # Customize plot
-    plt.title('Average Peak Memory Usage by Queue', fontsize=16)
+    plt.title('Mean Peak Memory Allocated by Queue', fontsize=16)
     plt.xlabel('Queue', fontsize=14)
-    plt.ylabel('Average Peak Memory Allocated (bytes)', fontsize=14)
+    plt.ylabel('Mean Peak Memory Allocated (bytes)', fontsize=14)
     
     original_queue_names = data['Queuetype'].tolist()
     translated_names = [name_translator.get(name, name) for name in original_queue_names]
@@ -239,12 +239,12 @@ def main():
     # Plot peak memory bar graph
     peak_memory = plot_peak_memory_bar_graph(combined_data)
     
-    print("\nAverage peak memory usage by queue type:")
+    print("\nMean peak memory usage by queue type:")
     for _, row in peak_memory.iterrows():
         print(f"{row['Queuetype']}: {int(row['Memory Allocated']):,} bytes (from {int(row['Files Processed'])} files)")
     
     print("\nDisplaying interactive plot...")
-    plt.show()  # Show plot interactively
+    # plt.show()  # Show plot interactively
 
 if __name__ == "__main__":
     main()

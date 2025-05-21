@@ -23,12 +23,12 @@ name_translator = {
         "moodycamel_cpp" : "moodycamel (C++)",
         "seg_queue" : "SegQueue",
         "array_queue" : "ArrayQueue",
-        "atomic_queue" : "atomic-queue",
+        "atomic_queue" : "atomic_queue::Queue",
         "basic_queue" : "BasicQueue",
         "bounded_ringbuffer" : "Bounded Ringbuffer",
-        "bounded_concurrent_queue" : "concurrent_queue::bounded",
-        "unbounded_concurrent_queue" : "concurrent_queue::unbounded",
-        "lf_queue" : "lf-queue",
+        "bounded_concurrent_queue" : "Bounded",
+        "unbounded_concurrent_queue" : "Unbounded",
+        "lf_queue" : "lf_queue::Queue",
         "lockfree_queue" : "lockfree::Queue",
         "lockfree_stack" : "lockfree::Stack",
         "scc2_queue" : "scc2::Queue",
@@ -38,7 +38,7 @@ name_translator = {
         "boost_cpp" : "boost (C++)",
         "faaa_queue_rust" : "Rust FAAAQueue",
         "tz_queue_hp" : "TsigasZhang (HP)",
-        "bbq" : "BBQ",
+        "bbq" : "Bbq",
         "ms_queue" : "MSQueue",
         }
 
@@ -106,7 +106,7 @@ def plot_side_by_side_fairness(df, right_queues, highlight_queues=None, output=N
         output: Output file path for saving the plot
     """
     metrics = ["Fairness"]
-    titles = ["Rust ecosystem and C++ queues", "Our queues"]
+    titles = ["", ""]
     
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
@@ -179,7 +179,7 @@ def plot_side_by_side_fairness(df, right_queues, highlight_queues=None, output=N
     
     # Create the figure with two subplots side by side
     # Increase the figure width to provide more space
-    fig, axes = plt.subplots(1, 2, figsize=(12, 8), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8), sharey=True)
     
     # Store all plot line objects and their labels for the combined legend
     all_lines = []
@@ -187,7 +187,10 @@ def plot_side_by_side_fairness(df, right_queues, highlight_queues=None, output=N
     
     # Common settings for both plots
     for ax, title in zip(axes, titles):
-        ax.set_xlabel('Thread Count')
+        ax.tick_params(axis='x', labelsize=14)
+        ax.tick_params(axis='y', labelsize=14)
+        ax.set_ylabel("Fairness", fontsize="14")
+        ax.set_xlabel('Thread Count', fontsize="14")
         ax.grid(True)
         ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
         ax.set_title(title)
@@ -305,15 +308,15 @@ def plot_side_by_side_fairness(df, right_queues, highlight_queues=None, output=N
     
     # Add common y-axis label
     # Increase the padding to prevent overlap with tick labels
-    fig.text(0.01, 0.5, 'Fairness', va='center', rotation='vertical', fontsize=12)
+    # fig.text(0.01, 0.5, 'Fairness', va='center', rotation='vertical', fontsize=12)
     
     # Create shared legend at the bottom
     fig.legend(
         all_lines, all_labels,
-        fontsize='large',
+        fontsize='15',
         loc='lower center', 
         bbox_to_anchor=(0.5, 0.0),
-        ncol=4,
+        ncol=5,
         frameon=True,
         fancybox=True,
         shadow=True
@@ -331,7 +334,7 @@ def plot_side_by_side_fairness(df, right_queues, highlight_queues=None, output=N
         fig.savefig('side_by_side_comparison_fairness.pdf', format='pdf', bbox_inches='tight', dpi=300)
     
     # Display the plot
-    plt.show()
+    # plt.show()
     
 def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
     """
@@ -417,7 +420,7 @@ def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
     
     # Create the figure with two subplots side by side
     # Increase the figure width to provide more space
-    fig, axes = plt.subplots(1, 2, figsize=(12, 8), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8), sharey=True)
     
     # Store all plot line objects and their labels for the combined legend
     all_lines = []
@@ -425,7 +428,10 @@ def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
     
     # Common settings for both plots
     for ax, title in zip(axes, titles):
-        ax.set_xlabel('Thread Count')
+        ax.tick_params(axis='x', labelsize=14)
+        ax.tick_params(axis='y', labelsize=14)
+        ax.set_ylabel("Throughput", fontsize="14")
+        ax.set_xlabel('Thread Count', fontsize="14")
         ax.set_yscale('log')
         ax.grid(True)
         ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
@@ -544,15 +550,15 @@ def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
     
     # Add common y-axis label
     # Increase the padding to prevent overlap with tick labels
-    fig.text(0.01, 0.5, 'Throughput', va='center', rotation='vertical', fontsize=12)
+    # fig.text(0.01, 0.5, 'Throughput', va='center', rotation='vertical', fontsize=12)
     
     # Create shared legend at the bottom
     fig.legend(
         all_lines, all_labels,
-        fontsize='large',
+        fontsize='15',
         loc='lower center', 
         bbox_to_anchor=(0.5, 0.0),
-        ncol=4,
+        ncol=5,
         frameon=True,
         fancybox=True,
         shadow=True
@@ -561,7 +567,7 @@ def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
     # Adjust layout to make room for the legend and y-axis label
     plt.tight_layout()
     # Increase left margin to make room for y-axis label
-    plt.subplots_adjust(bottom=0.2, left=0.1)
+    plt.subplots_adjust(bottom=0.3, left=0.1)
     
     # Save the figure if output is specified
     if output:
@@ -570,7 +576,7 @@ def plot_side_by_side(df, right_queues, highlight_queues=None, output=None):
         fig.savefig('side_by_side_comparison.pdf', format='pdf', bbox_inches='tight', dpi=300)
     
     # Display the plot
-    plt.show()
+    # plt.show()
 
 def main():
     parser = argparse.ArgumentParser(description='Process and plot benchmark data with side-by-side comparison.')
@@ -578,6 +584,7 @@ def main():
     parser.add_argument('--output', help='Output file path for saving the plot (optional)')
     parser.add_argument('--right', nargs='+', required=True, help='Queue types to include on the right side')
     parser.add_argument('--highlight', nargs='+', help='Queues to highlight in the right plot (optional)')
+    parser.add_argument('--fairness', action='store_true', help='Plot fairness instead of throughput')
     args = parser.parse_args()
     
     if not os.path.isdir(args.folder):
@@ -596,12 +603,22 @@ def main():
     processed_df = process_data(df, 'Thread Count')
     
     # Create side-by-side plots
-    plot_side_by_side(
-        processed_df, 
-        args.right, 
-        args.highlight, 
-        args.output
-    )
+    if args.fairness:
+        print("Output can be found in side_by_side_comparison_fairness.pdf")
+        plot_side_by_side_fairness(
+            processed_df, 
+            args.right, 
+            args.highlight, 
+            args.output
+        )
+    else:
+        print("Output can be found in side_by_side_comparison.pdf")
+        plot_side_by_side(
+            processed_df, 
+            args.right, 
+            args.highlight, 
+            args.output
+        )
 
 if __name__ == "__main__":
     main()
