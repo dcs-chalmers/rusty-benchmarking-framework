@@ -39,6 +39,7 @@ name_translator = {
         "tz_queue_hp" : "TsigasZhang (HP)",
         "bbq" : "bbq-rs",
         "ms_queue" : "MSQueue",
+        "wfqueue" : "Wfqueue",
         }
 
 def load_csv_files_by_subfolder(folder_path):
@@ -103,8 +104,8 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
         highlight_queues: List of queue types to highlight. If None or empty, all queues are displayed normally.
         ignore_queues: List of queue types to ignore/exclude from the plot. Takes precedence over queues and highlight_queues.
     """
-    metrics = ["Throughput", "Fairness"]
-    titles = ["Throughput vs. Thread Count", "Fairness vs. Thread Count"]
+    metrics = ["Throughput"]
+    titles = [""]
     
     # Define a set of line styles and marker styles for better distinction
     line_styles = ['-', '--', '-.', ':']
@@ -177,7 +178,7 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
         
     # Create a separate figure for each metric
     for i, (metric, title) in enumerate(zip(metrics, titles)):
-        fig = plt.figure(figsize=(8, 6))
+        fig = plt.figure(figsize=(10, 6))
         ax = fig.add_subplot(111)
         ax.set_title(title, fontsize=14)
         
@@ -308,13 +309,17 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
             
         ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
         ax.set_xlabel('Thread Count')
+        ax.tick_params(axis='x', labelsize=14)
+        ax.tick_params(axis='y', labelsize=14)
+        ax.set_ylabel("Throughput", fontsize="14")
+        ax.set_xlabel('Thread Count', fontsize="14")
         ax.set_ylabel(metric)
         ax.set_yscale('log')
         ax.grid(True)
         
         # Place legend at the bottom of the plot
         ax.legend(
-            fontsize='large',
+            fontsize='18',
             loc='upper center',
             bbox_to_anchor=(0.5, -0.15),
             ncol=4,
@@ -328,11 +333,9 @@ def plot_thread_count_results(df, queues=None, highlight_queues=None, ignore_que
         plt.subplots_adjust(bottom=0.2)
         
         # Save the figure with fixed dimensions
-        filename = f"{title.replace(' ', '_').replace('.','')}.pdf"
+        filename = f"regular_plot.pdf"
         fig.savefig(filename, format='pdf', bbox_inches='tight', dpi=1200)
         
-        # Display the plot
-        plt.show()
 
 
 def plot_mpsc_results(df, queues):
