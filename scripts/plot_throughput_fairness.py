@@ -95,155 +95,86 @@ def process_data(df, group_by):
     }).reset_index()
     return grouped
 
-def plot_combined_metrics(df, queues=None, highlight_queues=None, ignore_queues=None):
-    """Create a single plot window with both Throughput and Fairness metrics.
+def plot_six_subplots_combined(folder_data_list, tau_values, queues=None, ignore_queues=None, output=None):
+    """
+    Create 6 subplots (3 rows × 2 columns) with Throughput and Fairness for each tau value.
     
     Args:
-        df: The dataframe containing the data
+        folder_data_list: List of 3 dataframes, one for each folder
+        tau_values: List of 3 tau values corresponding to each folder
         queues: List of queue types to plot. If None, all queues are plotted.
-        highlight_queues: List of queue types to highlight. If None or empty, all queues are displayed normally.
-        ignore_queues: List of queue types to ignore/exclude from the plot. Takes precedence over queues and highlight_queues.
+        ignore_queues: List of queue types to ignore/exclude from the plot.
+        output: Output file path for saving the plot
     """
-    metrics = ["Throughput", "Fairness"]
-    y_labels = ["Throughput", "Fairness"]
     
-    # Define a set of line styles and marker styles for better distinction
+    # Get all unique queue types from all folders and sort them
+    all_queue_types = sorted(set().union(*[df['Queuetype'].unique() for df in folder_data_list]))
+    
+    # Simple color and style assignment based on matplotlib defaults
+    colors = plt.cm.tab10.colors + plt.cm.tab20.colors  # Use matplotlib's default color cycles
     line_styles = ['-', '--', '-.', ':']
     marker_styles = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'x', '+']
     
-    # Define a fixed, predetermined order for queue types to ensure consistent styling
-    known_queue_types = [
-        "faaaq_rust_optimised",
-        "faaaq_rust_unoptimised",
-        "faaa_queue_cpp",
-        "lprq_rust_correct",
-        "lcrq_rust_correct",
-        "lcrq_cpp",
-        "lprq_rust_unoptimised",
-        "lcrq_rust_unoptimised",
-        "lprq_cpp",
-        "lcrq_rust",
-        "lprq_rust",
-        "moodycamel_cpp",
-        "seg_queue",
-        "array_queue",
-        "atomic_queue",
-        "basic_queue",
-        "bounded_ringbuffer",
-        "bounded_concurrent_queue",
-        "unbounded_concurrent_queue",
-        "lf_queue",
-        "lockfree_queue",
-        "lockfree_stack",
-        "scc2_queue",
-        "scc2_stack",
-        "scc_queue",
-        "scc_stack",
-        "boost_cpp",
-        "faaa_queue_rust",
-        "tz_queue_hp",
-        "bbq",
-        "ms_queue",
-    ]
-    
-    # Create a mapping of queue types to styles based on the fixed order
+    # Create style mapping - each queue type gets a unique combination
     queue_style_map = {}
-    for i, qtype in enumerate(known_queue_types):
+    for i, qtype in enumerate(all_queue_types):
         queue_style_map[qtype] = {
+            'color': colors[i % len(colors)],
             'line_style': line_styles[i % len(line_styles)],
             'marker_style': marker_styles[i % len(marker_styles)]
         }
     
-    # Handle any queue types not in the predetermined list
-    all_queue_types = df['Queuetype'].unique()
-    unknown_types = [q for q in all_queue_types if q not in queue_style_map]
-    for i, qtype in enumerate(unknown_types):
-        # Use a different starting point to avoid style conflicts with known types
-        style_idx = len(known_queue_types) + i
-        queue_style_map[qtype] = {
-            'line_style': line_styles[style_idx % len(line_styles)],
-            'marker_style': marker_styles[style_idx % len(marker_styles)]
-        }
-    
-    # Use a different color for each subfolder
-    subfolders = df['Subfolder'].unique()
-    queue_types = df['Queuetype'].unique()
-    
     # Handle ignore_queues (convert None to empty list for easier processing)
     if ignore_queues is None:
         ignore_queues = []
+    
+    # Create the figure with 3 rows and 2 columns (6 subplots total)
+    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+    
+    # Store legend entries
+    legend_lines = []
+    legend_labels = []
+    added_labels = set()
+    
+    metrics = ["Throughput", "Fairness"]
+    
+    # Process each folder (row)
+    for row_idx, (df, tau) in enumerate(zip(folder_data_list, tau_values)):
+        subfolders = df['Subfolder'].unique()
+        queue_types = df['Queuetype'].unique()
         
-    # Check if we're in highlight mode
-    highlight_mode = highlight_queues is not None and len(highlight_queues) > 0
-    
-    # Create a single figure with two subplots (Throughput and Fairness)
-    fig, axs = plt.subplots(1, 2, figsize=(18, 8))
-    
-    # Keep track of plotted queues for legend
-    plotted_queues = {}
-    
-    for i, (metric, y_label) in enumerate(zip(metrics, y_labels)):
-        # First plot non-highlighted queues if in highlight mode
-        if highlight_mode:
-            # Plot non-highlighted queues first (grayed out)
-            for subfolder in subfolders:
-                subfolder_data = df[df['Subfolder'] == subfolder]
-                for qtype in queue_types:
-                    # Skip queue types to ignore
-                    if qtype in ignore_queues:
-                        continue
-                        
-                    # Skip queue types not in the specified list
-                    if queues and qtype not in queues:
-                        continue
-                        
-                    # Skip highlighted queues for now
-                    if qtype in highlight_queues:
-                        continue
-                        
-                    queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
-                    if queue_data.empty:
-                        continue
-                        
-                    queue_data = queue_data.sort_values('Thread Count')
-                    
-                    # Use consistent styling for each queue type
-                    line_style = queue_style_map[qtype]['line_style']
-                    marker_style = queue_style_map[qtype]['marker_style']
-                    
-                    if qtype in name_translator:
-                        label = f"{name_translator[qtype]}"
-                    else:
-                        label = f"{qtype}"
-                    
-                    # Only add to legend once (for the first metric)
-                    if i == 0:
-                        plotted_queues[qtype] = {'label': label, 'highlighted': False}
-                        
-                    axs[i].plot(
-                        queue_data['Thread Count'],
-                        queue_data[metric],
-                        marker=marker_style,
-                        linestyle=line_style,
-                        label=label if i == 0 else "_nolegend_",  # Only add to legend for the first subplot
-                        markevery=1,
-                        alpha=0.3,  # Reduced opacity for non-highlighted queues
-                        color='gray',
-                        linewidth=1,
-                    )
+        # Filter queue types based on parameters
+        filtered_queue_types = []
+        for qtype in queue_types:
+            if qtype in ignore_queues:
+                continue
+            if queues and qtype not in queues:
+                continue
+            filtered_queue_types.append(qtype)
+        
+        # Plot both metrics for this tau value
+        for col_idx, metric in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
             
-            # Then plot highlighted queues
+            # Configure subplot
+            ax.tick_params(axis='x', labelsize=14)
+            ax.tick_params(axis='y', labelsize=14)
+            ax.set_xlabel('Thread Count', fontsize="14")
+            ax.set_ylabel(metric, fontsize="14")
+            if metric == "Throughput":
+                ax.set_yscale('log')
+            ax.grid(True)
+            ax.set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
+            
+            # Add tau label on the right side of the Fairness plots only
+            if col_idx == 1:  # Fairness column
+                ax.text(1.02, 0.5, f"τ = {tau}", transform=ax.transAxes, 
+                       rotation=90, va='center', ha='left', fontsize=16)
+            
+            # Plot all queues for this folder
             for subfolder in subfolders:
                 subfolder_data = df[df['Subfolder'] == subfolder]
-                for qtype in highlight_queues:
-                    # Skip queue types to ignore
-                    if qtype in ignore_queues:
-                        continue
-                        
-                    # Skip queue types not in the specified list
-                    if queues and qtype not in queues:
-                        continue
-                        
+                for qtype in filtered_queue_types:
                     queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
                     if queue_data.empty:
                         continue
@@ -253,331 +184,107 @@ def plot_combined_metrics(df, queues=None, highlight_queues=None, ignore_queues=
                     # Use consistent styling for each queue type
                     line_style = queue_style_map[qtype]['line_style']
                     marker_style = queue_style_map[qtype]['marker_style']
+                    color = queue_style_map[qtype]['color']
                     
                     if qtype in name_translator:
-                        label = f"{name_translator[qtype]} ★"  # Add star to highlight in legend
+                        label = name_translator[qtype]
                     else:
-                        label = f"{qtype} ★"
+                        label = qtype
                     
-                    # Only add to legend once (for the first metric)
-                    if i == 0:
-                        plotted_queues[qtype] = {'label': label, 'highlighted': True}
-                        
-                    axs[i].plot(
+                    # Add to legend only once (for the first occurrence)
+                    if label not in added_labels:
+                        legend_lines.append(plt.Line2D([0], [0], 
+                                                      linestyle=line_style, 
+                                                      marker=marker_style,
+                                                      color=color,
+                                                      label=label))
+                        legend_labels.append(label)
+                        added_labels.add(label)
+                    
+                    ax.plot(
                         queue_data['Thread Count'],
                         queue_data[metric],
                         marker=marker_style,
                         linestyle=line_style,
-                        label=label if i == 0 else "_nolegend_",  # Only add to legend for the first subplot
-                        markevery=1,
-                        linewidth=2.5,  # Thicker lines for highlighted queues
-                        zorder=10,  # Ensure highlighted queues are drawn on top
-                    )
-        else:
-            # Normal mode - plot all queues with full colors
-            for subfolder in subfolders:
-                subfolder_data = df[df['Subfolder'] == subfolder]
-                for qtype in queue_types:
-                    # Skip queue types to ignore
-                    if qtype in ignore_queues:
-                        continue
-                        
-                    # Skip queue types not in the specified list
-                    if queues and qtype not in queues:
-                        continue
-                        
-                    queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
-                    if queue_data.empty:
-                        continue
-                        
-                    queue_data = queue_data.sort_values('Thread Count')
-                    
-                    # Use consistent styling for each queue type
-                    line_style = queue_style_map[qtype]['line_style']
-                    marker_style = queue_style_map[qtype]['marker_style']
-                    
-                    if qtype in name_translator:
-                        label = f"{name_translator[qtype]}"
-                    else:
-                        label = f"{qtype}"
-                    
-                    # Only add to legend once (for the first metric)
-                    if i == 0:
-                        plotted_queues[qtype] = {'label': label, 'highlighted': False}
-                        
-                    axs[i].plot(
-                        queue_data['Thread Count'],
-                        queue_data[metric],
-                        marker=marker_style,
-                        linestyle=line_style,
-                        label=label if i == 0 else "_nolegend_",  # Only add to legend for the first subplot
+                        color=color,
                         markevery=1,
                     )
-        
-        # Set subplot titles and axes
-        axs[i].set_xticks([2, 6, 10, 14, 18, 22, 26, 30, 34, 36])
-        axs[i].tick_params(axis='x', labelsize=16)
-        axs[i].tick_params(axis='y', labelsize=16)
-        axs[i].set_xlabel('Thread Count', fontsize="16")
-        axs[i].set_ylabel(metric, fontsize="16")
-        # Only use log scale for Throughput, not for Fairness
-        if metric == "Throughput":
-            axs[i].set_yscale('log')
-        axs[i].grid(True)
     
-    # Check if anything was plotted
-    if not plotted_queues:
-        print("Warning: No data to plot. Check if specified queues exist in the dataset.")
-        plt.close(fig)
-        return
-    
-    # Place the legend below both subplots as two rows
-    handles, labels = axs[0].get_legend_handles_labels()
-    
-    # Calculate columns needed for two rows
-    ncols = max(1, len(handles) // 2)
-    if len(handles) % 2 != 0:  # If odd number of handles, add one more column
+    # Create shared legend at the bottom using pre-created legend entries
+    ncols = max(1, len(legend_lines) // 2)
+    if len(legend_lines) % 2 != 0:  # If odd number of handles, add one more column
         ncols += 1
     
     fig.legend(
-        handles, 
-        labels,
-        # fontsize='large',  # Large font for better readability
-        fontsize=20,  # Explicit larger font size
-        loc='upper center',
-        bbox_to_anchor=(0.5, 0.08),
-        ncol=ncols,  # Set columns for two rows
+        legend_lines, legend_labels,
+        fontsize='16',
+        loc='lower center', 
+        bbox_to_anchor=(0.5, 0.0),
+        ncol=ncols,
         frameon=True,
         fancybox=True,
         shadow=True,
-        columnspacing=1.5,  # More space between columns
+        columnspacing=1.5,
     )
     
     # Adjust layout to make room for the legend
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.15)  # More space for the two-row legend
+    plt.subplots_adjust(bottom=0.15, left=0.08, right=0.95)
     
-    # Save the figure with fixed dimensions 
-    filename = "Combined_Performance_Metrics.pdf"
-    fig.savefig(filename, format='pdf', bbox_inches='tight', dpi=1200)
-    
-    # Display the plot
-    # plt.show()
-
-def plot_mpsc_results(df, queues=None, highlight_queues=None, ignore_queues=None):
-    """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
-    metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
-    titles = [
-        "Throughput vs. Producers",
-        "Fairness vs. Producers",
-        "Number of Enqueues vs. Producers",
-        "Number of Dequeues vs. Producers"
-    ]
-
-    # Define a set of line styles and marker styles for better distinction
-    line_styles = ['-', '--', '-.', ':']
-    marker_styles = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'x', '+']
-
-    # Use a different color for each subfolder
-    subfolders = df['Subfolder'].unique()
-    queue_types = df['Queuetype'].unique()
-
-    # Create a single figure with 4 subplots (one for each metric)
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-    fig.suptitle('Performance Metrics by Queuetype and Subfolder', fontsize=16)
-
-    # Flatten the axes array for easier indexing
-    axes = axes.flatten()
-
-    # Plot all combinations of Queuetypes and Subfolders
-    for i, (metric, title) in enumerate(zip(metrics, titles)):
-        line_count = 0
-        for subfolder in subfolders:
-            subfolder_data = df[df['Subfolder'] == subfolder]
-
-            for qtype in queue_types:
-                if queues and qtype not in queues:
-                    continue
-                if ignore_queues and qtype in ignore_queues:
-                    continue
-                queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
-                if queue_data.empty:
-                    continue
-
-                queue_data = queue_data.sort_values('Producers')
-
-                # Cycle through line styles and marker styles
-                line_style = line_styles[line_count % len(line_styles)]
-                marker_style = marker_styles[line_count % len(marker_styles)]
-                line_count += 1
-
-                if qtype in name_translator:
-                    label = f"{name_translator[qtype]}"
-                else:
-                    label = f"{qtype}"
-                
-                # Apply highlight styling if applicable
-                alpha = 1.0
-                linewidth = 1.5
-                color = None
-                zorder = 5
-                
-                if highlight_queues and qtype in highlight_queues:
-                    label += " ★"
-                    linewidth = 2.5
-                    zorder = 10
-                elif highlight_queues:
-                    alpha = 0.3
-                    color = 'gray'
-                
-                axes[i].plot(
-                    queue_data['Producers'],
-                    queue_data[metric],
-                    marker=marker_style,
-                    linestyle=line_style,
-                    label=label,
-                    markevery=5,
-                    alpha=alpha,
-                    color=color,
-                    linewidth=linewidth,
-                    zorder=zorder
-                )
-
-        axes[i].set_title(title)
-        axes[i].set_xlabel('Producers')
-        axes[i].set_ylabel(metric)
-        axes[i].set_yscale('log')
-        axes[i].grid(True)
-        # Create a more compact legend with smaller font
-        axes[i].legend(fontsize='small', loc='best')
-
-    plt.tight_layout()
-    plt.savefig('mpsc_benchmark.pdf', format='pdf', dpi=1200)
-    plt.show()
-
-def plot_spmc_results(df, queues=None, highlight_queues=None, ignore_queues=None):
-    """Create plots for each metric with all Queuetypes and Subfolders as separate lines."""
-    metrics = ["Throughput", "Fairness", "Enqueues", "Dequeues"]
-    titles = [
-        "Throughput vs. Consumers",
-        "Fairness vs. Consumers",
-        "Number of Enqueues vs. Consumers",
-        "Number of Dequeues vs. Consumers"
-    ]
-
-    # Define a set of line styles and marker styles for better distinction
-    line_styles = ['-', '--', '-.', ':']
-    marker_styles = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'h', 'H', 'x', '+']
-
-    # Use a different color for each subfolder
-    subfolders = df['Subfolder'].unique()
-    queue_types = df['Queuetype'].unique()
-
-    # Create a single figure with 4 subplots (one for each metric)
-    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-    fig.suptitle('Performance Metrics by Queuetype and Subfolder', fontsize=16)
-
-    # Flatten the axes array for easier indexing
-    axes = axes.flatten()
-
-    # Plot all combinations of Queuetypes and Subfolders
-    for i, (metric, title) in enumerate(zip(metrics, titles)):
-        line_count = 0
-        for subfolder in subfolders:
-            subfolder_data = df[df['Subfolder'] == subfolder]
-
-            for qtype in queue_types:
-                if queues and qtype not in queues:
-                    continue
-                if ignore_queues and qtype in ignore_queues:
-                    continue
-                queue_data = subfolder_data[subfolder_data['Queuetype'] == qtype]
-                if queue_data.empty:
-                    continue
-                queue_data = queue_data.sort_values('Consumers')
-
-                # Cycle through line styles and marker styles
-                line_style = line_styles[line_count % len(line_styles)]
-                marker_style = marker_styles[line_count % len(marker_styles)]
-                line_count += 1
-
-                if qtype in name_translator:
-                    label = f"{name_translator[qtype]}"
-                else:
-                    label = f"{qtype}"
-                
-                # Apply highlight styling if applicable
-                alpha = 1.0
-                linewidth = 1.5
-                color = None
-                zorder = 5
-                
-                if highlight_queues and qtype in highlight_queues:
-                    label += " ★"
-                    linewidth = 2.5
-                    zorder = 10
-                elif highlight_queues:
-                    alpha = 0.3
-                    color = 'gray'
-                
-                axes[i].plot(
-                    queue_data['Consumers'],
-                    queue_data[metric],
-                    marker=marker_style,
-                    linestyle=line_style,
-                    label=label,
-                    markevery=5,
-                    alpha=alpha,
-                    color=color,
-                    linewidth=linewidth,
-                    zorder=zorder
-                )
-
-        axes[i].set_title(title)
-        axes[i].set_xlabel('Consumers')
-        axes[i].set_ylabel(metric)
-        axes[i].set_yscale('log')
-        axes[i].grid(True)
-
-        # Create a more compact legend with smaller font
-        axes[i].legend(fontsize='small', loc='best')
-
-    plt.tight_layout()
-    plt.savefig('spmc_benchmark.pdf', format='pdf', dpi=1200)
-    plt.show()
+    # Save the figure
+    if output:
+        fig.savefig(output, format='pdf', bbox_inches='tight', dpi=1200)
+    else:
+        fig.savefig('six_subplot_combined_metrics.pdf', format='pdf', bbox_inches='tight', dpi=1200)
 
 def main():
-    parser = argparse.ArgumentParser(description='Process and plot benchmark data by subfolder.')
-    parser.add_argument('folder', help='Main folder containing subfolders with benchmark CSV files')
-    parser.add_argument('plot_type', choices=['spmc', 'thread_count', 'mpsc'],
-                        help='What type of benchmark to plot')
+    parser = argparse.ArgumentParser(description='Process and plot benchmark data with 6 subplots (3 folders × 2 metrics).')
+    parser.add_argument('folder1', help='First folder containing subfolders with benchmark CSV files')
+    parser.add_argument('folder2', help='Second folder containing subfolders with benchmark CSV files')
+    parser.add_argument('folder3', help='Third folder containing subfolders with benchmark CSV files')
+    parser.add_argument('--tau1', required=True, help='Tau value for first folder')
+    parser.add_argument('--tau2', required=True, help='Tau value for second folder')
+    parser.add_argument('--tau3', required=True, help='Tau value for third folder')
     parser.add_argument('--output', help='Output file path for saving the plot (optional)')
     parser.add_argument('--queues', nargs='+', help='Specific queues to plot (optional)')
-    parser.add_argument('--highlight', nargs='+', help='Queues to highlight among the plotted ones (optional)')
     parser.add_argument('--ignore', nargs='+', help='Queues to exclude from the plot (optional)')
     args = parser.parse_args()
     
-    if not os.path.isdir(args.folder):
-        print(f"Error: {args.folder} is not a valid directory")
-        sys.exit(1)
-        
-    df = load_csv_files_by_subfolder(args.folder)
-    if df is None:
-        print("No valid data was loaded.")
-        sys.exit(1)
-        
-    print(f"Loaded data from {len(df['Subfolder'].unique())} subfolders")
-    print(f"Queue types found: {df['Queuetype'].unique()}")
+    # Validate folder paths
+    folders = [args.folder1, args.folder2, args.folder3]
+    for folder in folders:
+        if not os.path.isdir(folder):
+            print(f"Error: {folder} is not a valid directory")
+            sys.exit(1)
     
-    if args.plot_type == 'spmc':
-        processed_df = process_data(df, 'Consumers')
-        plot_spmc_results(processed_df, args.queues, args.highlight, args.ignore)
-    elif args.plot_type == 'thread_count':
+    # Load data from all three folders
+    folder_data_list = []
+    tau_values = [args.tau1, args.tau2, args.tau3]
+    
+    for i, folder in enumerate(folders):
+        print(f"Loading data from folder {i+1}: {folder}")
+        df = load_csv_files_by_subfolder(folder)
+        if df is None:
+            print(f"No valid data was loaded from {folder}.")
+            sys.exit(1)
+        
+        print(f"Loaded data from {len(df['Subfolder'].unique())} subfolders in {folder}")
+        print(f"Queue types found in {folder}: {df['Queuetype'].unique()}")
+        
+        # Process data for thread count
         processed_df = process_data(df, 'Thread Count')
-        plot_combined_metrics(processed_df, args.queues, args.highlight, args.ignore)
-    elif args.plot_type == 'mpsc':
-        processed_df = process_data(df, 'Producers')
-        plot_mpsc_results(processed_df, args.queues, args.highlight, args.ignore)
+        folder_data_list.append(processed_df)
+    
+    # Create six subplot comparison
+    print("Output can be found in six_subplot_combined_metrics.pdf")
+    
+    plot_six_subplots_combined(
+        folder_data_list,
+        tau_values,
+        args.queues, 
+        args.ignore, 
+        args.output
+    )
 
 if __name__ == "__main__":
     main()
