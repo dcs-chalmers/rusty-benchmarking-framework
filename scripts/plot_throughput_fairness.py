@@ -129,7 +129,7 @@ def plot_six_subplots_combined(folder_data_list, tau_values, queues=None, ignore
         ignore_queues = []
     
     # Create the figure with 3 rows and 2 columns (6 subplots total)
-    fig, axes = plt.subplots(3, 2, figsize=(12, 12))
+    fig, axes = plt.subplots(3, 2, figsize=(9, 9))
     
     # Store legend entries
     legend_lines = []
@@ -157,7 +157,7 @@ def plot_six_subplots_combined(folder_data_list, tau_values, queues=None, ignore
             ax = axes[row_idx, col_idx]
             
             # Configure subplot
-            ax.tick_params(axis='x', labelsize=14)
+            ax.tick_params(axis='x', labelsize=12)
             ax.tick_params(axis='y', labelsize=14)
             ax.set_xlabel('Thread Count', fontsize="14")
             ax.set_ylabel(metric, fontsize="14")
@@ -197,7 +197,8 @@ def plot_six_subplots_combined(folder_data_list, tau_values, queues=None, ignore
                                                       linestyle=line_style, 
                                                       marker=marker_style,
                                                       color=color,
-                                                      label=label))
+                                                      label=label,
+                                                      linewidth=0.5))
                         legend_labels.append(label)
                         added_labels.add(label)
                     
@@ -208,6 +209,7 @@ def plot_six_subplots_combined(folder_data_list, tau_values, queues=None, ignore
                         linestyle=line_style,
                         color=color,
                         markevery=1,
+                        linewidth=0.5
                     )
     
     # Create shared legend at the bottom using pre-created legend entries
@@ -217,7 +219,7 @@ def plot_six_subplots_combined(folder_data_list, tau_values, queues=None, ignore
     
     fig.legend(
         legend_lines, legend_labels,
-        fontsize='16',
+        fontsize='13',
         loc='lower center', 
         bbox_to_anchor=(0.5, 0.0),
         ncol=ncols,

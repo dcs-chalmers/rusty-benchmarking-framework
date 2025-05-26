@@ -125,7 +125,9 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
             'line_style': line_styles[i % len(line_styles)],
             'marker_style': marker_styles[i % len(marker_styles)]
         }
-    
+    queue_style_map["lcrq_rust"]["color"] = "orange"
+    queue_style_map["lprq_rust"]["color"] = "red"
+    queue_style_map["faaa_queue_rust"]["color"] = "blue"
     # Calculate complementary queue types for the left plots
     left_queues = [q for q in all_queue_types if q not in right_queues]
     
@@ -134,7 +136,7 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
         highlight_queues = []
     
     # Create the figure with 3 rows and 2 columns (6 subplots total)
-    fig, axes = plt.subplots(3, 2, figsize=(12, 12), sharey=True)
+    fig, axes = plt.subplots(3, 2, figsize=(9, 9), sharey=True)
     
     # Pre-create legend entries for consistent styling
     legend_lines = []
@@ -179,7 +181,7 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
                                    color=color,
                                    label=label,
                                    alpha=0.3,
-                                   linewidth=1)
+                                   linewidth=0.5)
             legend_lines.append(dummy_line)
             legend_labels.append(label)
     
@@ -199,7 +201,7 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
                                marker=marker_style,
                                color=color,
                                label=label,
-                               linewidth=2.5)
+                               linewidth=1.5)
         legend_lines.append(dummy_line)
         legend_labels.append(label)
     
@@ -220,7 +222,7 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
         
         # Left subplot (all queues not in right_queues)
         ax_left = axes[row_idx, 0]
-        ax_left.tick_params(axis='x', labelsize=12)
+        ax_left.tick_params(axis='x', labelsize=10)
         ax_left.tick_params(axis='y', labelsize=12)
         ax_left.set_ylabel(ylabel, fontsize="12")
         ax_left.set_xlabel('Thread Count', fontsize="12")
@@ -231,7 +233,7 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
         
         # Right subplot (all queues, but non-highlighted ones are grayed out)
         ax_right = axes[row_idx, 1]
-        ax_right.tick_params(axis='x', labelsize=12)
+        ax_right.tick_params(axis='x', labelsize=10)
         ax_right.tick_params(axis='y', labelsize=12)
         ax_right.set_xlabel('Thread Count', fontsize="12")
         if use_log_scale:
@@ -268,6 +270,7 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
                     linestyle=line_style,
                     color=color,
                     markevery=1,
+                    linewidth=0.5
                 )
         
         # Plot right subplot - First plot non-highlighted queues (grayed out)
@@ -325,14 +328,14 @@ def plot_six_subplots(folder_data_list, tau_values, right_queues, highlight_queu
                     linestyle=line_style,
                     color=color,
                     markevery=1,
-                    linewidth=2.5,  # Thicker lines for highlighted queues
+                    linewidth=1.5,  # Thicker lines for highlighted queues
                     zorder=10,  # Ensure highlighted queues are drawn on top
                 )
     
     # Create shared legend at the bottom using pre-created legend entries
     fig.legend(
         legend_lines, legend_labels,
-        fontsize='16',
+        fontsize='12',
         loc='lower center', 
         bbox_to_anchor=(0.5, 0.0),
         ncol=4,

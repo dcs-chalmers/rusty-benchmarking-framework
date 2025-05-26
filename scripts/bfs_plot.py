@@ -55,6 +55,7 @@ def plot_bfs_benchmarks(youtube_folder, twitter_folder, graph_info=None):
             "tz_queue_hp" : "TsigasZhang (HP)",
             "bbq" : "Bbq",
             "ms_queue" : "MSQueue",
+            "wfqueue" : "Wfqueue",
             }
     # Define bounded and unbounded queue types
     bounded_queues = [
@@ -209,6 +210,12 @@ def plot_bfs_benchmarks(youtube_folder, twitter_folder, graph_info=None):
         
         bars = ax.bar(range(len(queue_types)), milliseconds, 
                      color=[queue_colors[qt] for qt in queue_types])
+        
+        # Set y-axis limits based on column position
+        if col == 0:  # Left column (soc-youtube)
+            ax.set_ylim(0, 100)
+        else:  # Right column (soc-twitter-2010)
+            ax.set_ylim(0, 10000)
         
         # Customize the subplot
         if row == 0:
