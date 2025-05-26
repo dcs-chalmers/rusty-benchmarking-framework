@@ -101,6 +101,7 @@ all_queues = [
     "lcrq_rust",
     "faaa_queue_rust",
     "faaa_queue_cpp",
+    "wfqueue",
 ]
 nightly_queues = [
     "bbq",

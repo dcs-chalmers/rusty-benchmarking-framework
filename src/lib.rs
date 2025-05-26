@@ -118,7 +118,7 @@ pub fn start_benchmark() -> Result<(), std::io::Error> {
     );
     implement_benchmark!(
         "wfqueue",
-        crate::queues::wfqueue::WFQueue<Box<usize>>,
+        crate::queues::wfqueue::WFQueue<usize>,
         &bench_conf
     );
     implement_benchmark!(
