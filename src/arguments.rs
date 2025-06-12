@@ -51,6 +51,7 @@ pub enum Benchmarks {
     /// A test where each thread performs both consume and produce based on a random floating point
     /// value. Spread is decided using the `--spread` flag.
     EnqDeq(EnqDeqArgs),
+    EnqDeqPairs(EnqDeqPairsArgs),
     #[cfg(feature = "bfs")]
     BFS(BFSArgs),
 }
@@ -75,6 +76,12 @@ pub struct EnqDeqArgs {
     pub spread: f64,
 }
 #[derive(ClapArgs, Debug)]
+pub struct EnqDeqPairsArgs {
+    /// Set the thread count for the pingpong benchmark.
+    #[arg(long = "thread-count", default_value_t = 20)]
+    pub thread_count: usize,
+}
+#[derive(ClapArgs, Debug)]
 pub struct BFSArgs {
     #[arg(short, long, default_value_t = 20)]
     pub thread_count: usize,
@@ -88,10 +95,11 @@ pub struct BFSArgs {
 impl Display for Benchmarks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Benchmarks::ProdCon(_) => write!(f, "ProdCon"),
-            Benchmarks::EnqDeq(_) => write!(f, "EnqDeq"),
+            Benchmarks::ProdCon(_)     => write!(f, "ProdCon"),
+            Benchmarks::EnqDeq(_)      => write!(f, "EnqDeq"),
+            Benchmarks::EnqDeqPairs(_) => write!(f, "EnqDeqPairs"),
             #[cfg(feature = "bfs")]
-            Benchmarks::BFS(_) => write!(f, "BFS"),
+            Benchmarks::BFS(_)         => write!(f, "BFS"),
         }
     }
 }
