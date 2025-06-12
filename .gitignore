@@ -24,3 +24,4 @@ src/cpp-ring-queues-research/include/AdditionalWork.hpp
 *.old
 *.edges
 misc/*
+*.pdf
