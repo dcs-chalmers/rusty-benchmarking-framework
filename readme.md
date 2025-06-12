@@ -48,6 +48,7 @@ You have to choose which type of benchmark you want to run on your queue. They h
 * `prod-con` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
 * `enq-deq` - Measures throughput and fairness. Threads alternate between enqueueing and dequeueing randomly. You can choose the spread of enqueuers/dequeuers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the benchmark.
 * `bfs` - Performs a parallell breadth first search on a graph of your choosing. Measures the amount of milliseconds it takes to perform the BFS. After performing the parallell BFS, the benchmark will also do it sequentially and then verify the parallell solution using the sequential solution. This can be turned off by passing the `--no-verify` flag. Choose graph file by passing the `--graph-file` flag and specifying the path. The benchmark supports `.mtx` files, but any files that follow the same structure will work as well. You can run several iterations of BFS by passing the `-i` flag, just as in the other benchmarks. The graph file will still only be loaded once, and the sequential solution will also only be generated once.
+* `enq-deq-pairs` - Measures throughput and fairness. Threads first enqueue an item, then immedietaly dequeues an item. Use `--thread-count` to change the amount of threads.
 ## Queue implementations and features
 Implemented queues are:
 * `array_queue` - A queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
@@ -103,6 +104,8 @@ To use specific values you can add different flags to the run command:
 - `enq-deq` benchmark type sub commands:
     * `--spread` - To specify the spread for the `enq-deq` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `enq-deq` benchmark type.
+- `enq-deq-pairs` benchmark type sub commands:
+    * `--thread-count` - To specify the amount of threads in the `enq-deq-pairs` benchmark type.
 
 ## Add your own queues
 To add your own queues to the framework, you first create a new file in `src/queues` for the source code. You then have to add the queue to the `src/queues.rs` file as a feature in the following way:
