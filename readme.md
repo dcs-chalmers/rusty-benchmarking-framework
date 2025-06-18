@@ -66,7 +66,7 @@ Implemented queues are:
 * `scc_queue` - An unbounded lock-free queue from the crate [`scc`](https://crates.io/crates/scc).
 * `scc_stack` - An unbounded lock-free stack from the crate [`scc`](https://crates.io/crates/scc).
 * `seg_queue` - An unbounded queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
-* `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) by William to be able to be compiled.
+* `wfqueue` - A bounded lock-free queue from the crate [`wfqueue`](https://crates.io/crates/wfqueue). Patched [here](https://github.com/WilleBerg/wfqueue) to be able to be compiled.
 * `boost_cpp` - A bounded lock-free C++ queue from the [`boost`](https://www.boost.org/) C++ library. Can be benchmarked using bindings. Required `boost` to be installed on your system. **Experimental**.
 * `moodycamel_cpp` - [A fast lock-free C++ queue](https://github.com/cameron314/concurrentqueue). **Experimental**.
 * `lcrq_cpp` - [An unbounded C++ queue](https://github.com/pramalhe/ConcurrencyFreaks/blob/master/CPP/queues/LCRQueue.hpp). **Experimental**.
