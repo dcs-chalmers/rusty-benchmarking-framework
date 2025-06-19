@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn create_bq() {
         let q: LPRQRS<i32> = LPRQRS::new(100);
-        q.lprqueue.push(1);
+        q.lprqueue.enqueue(1);
         assert_eq!(q.lprqueue.dequeue().unwrap(), 1);
     }
     #[test]
