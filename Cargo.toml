@@ -25,6 +25,7 @@ sysinfo = "0.33"
 # bbq-rs = { version = "0.1.1", optional = true }
 bbq-rs = { git = "https://github.com/WilleBerg/bbq", branch = "main", optional = true }
 lprq-rs = { git = "https://github.com/WilleBerg/lprq-rs", branch = "main", optional = true }
+faaa_queue = { git = "https://github.com/WilleBerg/faaa_queue", branch = "no_hp", optional = true }
 dashmap = { version = "6.1.0", optional = true }
 
 [target.'cfg(unix)'.dependencies]
@@ -73,6 +74,7 @@ lprq_rust = ["dep:haphazard", "dep:crossbeam"]
 lcrq_rust = ["dep:haphazard", "dep:crossbeam"]
 faaa_queue_cpp = ["dep:bindgen", "dep:cc"]
 lprq_rs = ["dep:lprq-rs"]
+faaa_queue_rs = ["dep:faaa_queue"]
 
 all_queues = [
     "lockfree_queue",
@@ -105,6 +107,7 @@ all_queues = [
     "faaa_queue_cpp",
     "wfqueue",
     "lprq_rs",
+    "faaa_queue_rs",
 ]
 nightly_queues = [
     "bbq",

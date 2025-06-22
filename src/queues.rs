@@ -56,3 +56,5 @@ pub mod faaa_queue_cpp;
 pub mod unbounded_concurrent_queue;
 #[cfg(feature = "lprq_rs")]
 pub mod lprq_rs;
+#[cfg(feature = "faaa_queue_rs")]
+pub mod faaa_queue_rs;
