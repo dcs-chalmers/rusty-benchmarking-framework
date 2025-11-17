@@ -3,12 +3,12 @@
 # I am outdated.
 # Show usage if no arguments provided
 if [ $# -eq 0 ]; then
-    echo "Usage: $0 <feature1,feature2,...> <producers-start> <producers-end> <step> <path>"
+    echo "Usage: $0 <package1,package2,...> <producers-start> <producers-end> <step> <path>"
     exit 1
 fi
 
 # Get arguments
-FEATURES=$1
+PACKAGES=$1
 PRODUCERS_START=$2
 PRODUCERS_END=$3
 STEP=$4
@@ -28,16 +28,16 @@ if ! [[ "$PRODUCERS_START" =~ ^[0-9]+$ ]] || ! [[ "$PRODUCERS_END" =~ ^[0-9]+$ ]
 fi
 
 # Split features into an array
-IFS=',' read -r -a FEATURE_ARRAY <<< "$FEATURES"
+IFS=',' read -r -a PACKAGE_ARRAY <<< "$PACKAGES"
 
 # Loop through each feature
-for FEATURE in "${FEATURE_ARRAY[@]}"; do
-    echo "Running tests for feature: $FEATURE"
-    cargo build --release --features "$FEATURE"
+for PACKAGE in "${PACKAGE_ARRAY[@]}"; do
+    echo "Running tests for package: $PACKAGE"
+    cargo build --release -p "$PACKAGE"
     # Loop through thread counts and run cargo command
     for ((i = PRODUCERS_START; i <= PRODUCERS_END; i += STEP)); do
         echo "Running with producer count: $i"
-        time ./target/release/lockfree-benchmark -t 1 -i 10 --path $OUTPUT/$FEATURE prod-con -p $i -c 1
+        time ./target/release/${PACKAGE} -t 1 -i 10 --path $OUTPUT/$PACKAGE prod-con -p $i -c 1
     done
 done
 

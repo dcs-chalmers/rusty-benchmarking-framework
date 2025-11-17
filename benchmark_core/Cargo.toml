@@ -1,0 +1,21 @@
+[package]
+name = "benchmark_core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = { workspace = true }
+env_logger = { workspace = true, optional = true }
+chrono = "0.4.39"
+clap = { version = "4.5.27", features = ["derive"] }
+core_affinity = "0.8.1"
+rand = "0.9.0"
+sysinfo = "0.33"
+dashmap = { version = "6.1.0" }
+
+[target.'cfg(unix)'.dependencies]
+jemallocator = "0.5.4"
+jemalloc-ctl = "0.5.4"
+
+[features]
+memory_tracking = []

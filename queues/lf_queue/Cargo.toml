@@ -1,0 +1,15 @@
+[package]
+name = "lf_queue"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+benchmark_core = { path = "../../benchmark_core" }
+log = { workspace = true }
+env_logger = { workspace = true, optional=true }
+lf-queue-upstream = { package = "lf-queue", version = "0.1.0" }
+
+[features]
+default = ["log/release_max_level_info", "dep:env_logger"]
+verbose-release = ["log/release_max_level_trace", "dep:env_logger"]
+silent-release = ["log/release_max_level_off"]
