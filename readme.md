@@ -3,17 +3,15 @@ This is a project to benchmark different implementations of queues (currently FI
 
 # Contents
 - [How to use](#how-to-use)
-  - [BFS](#bfs)
-- [Benchmark types](#benchmark-types)
-- [Queue implementations and features](#queue-implementations-and-features)
-  - [Optional extra feature](#optional-extra-feature)
-- [Flags](#flags)
+- [Queue implementations](#queue-implementations)
+- [Benchmarks](#benchmarks)
+  - [Flags](#flags)
+  - [Optional features](#optional-features)
 - [Add your own queues](#add-your-own-queues)
-  - [IDE Help](#ide-help)
   - [Order test](#order-test)
   - [Adding C/C++ queues](#adding-cc-queues)
 - [Output files](#output-files)
-  - [BFS](#bfs-1)
+  - [BFS](#bfs)
 - [Logging](#logging)
 
 ## How to use:
@@ -36,14 +34,7 @@ This will compile and run the benchmarking framework. It will run the `prod-con`
 
 There are several useful scripts located inside the `scripts` folder, as well as a README which describes how to use them.
 
-## Benchmark types
-You have to choose which type of benchmark you want to run for your queue. They have sub-commands specific to themselves. Use the `--help` flag to print a help text about the sub-commands.
-* `prod-con` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
-* `enq-deq` - Measures throughput and fairness. Threads alternate between enqueueing and dequeueing randomly. You can choose the spread of enqueuers/dequeuers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the benchmark.
-* `bfs` - Measures execution time. Performs a parallell breadth-first search on a graph of your choosing. After the execution, the benchmark will also do a sequential search to verify the parallel solution. The verification can be turned off by passing the `--no-verify` flag. Choose graph file by passing the `--graph-file` flag and specifying the path. The benchmark supports `.mtx` files. You can run several iterations of BFS by passing the `-i` flag, just as in the other benchmarks. The graph file will only be loaded once, and the sequential solution will also only be generated once.
-* `enq-deq-pairs` - Measures throughput and fairness. Threads first enqueue an item, then immediately dequeues an item. Use `--thread-count` to change the amount of threads.
-
-## Queue implementations and features
+## Queue implementations
 Implemented Rust queues are:
 * `array_queue` - A queue from the crate [`crossbeam`](https://crates.io/crates/crossbeam).
 * `atomic_queue` - A queue from the crate [`atomic-queue`](https://crates.io/crates/atomic-queue).
@@ -77,12 +68,15 @@ There are also the following Rust stacks:
 * `scc_stack` - An unbounded lock-free stack from the crate [`scc`](https://crates.io/crates/scc).
 * `scc2_stack` - An unbounded lock-free stack from the crate [`scc2`](https://crates.io/crates/scc2).
 
-### Optional extra feature:
-* `benchmark_core/memory_tracking` - Writes to a file the memory allocated by the program during the execution. Requires `jemalloc`, so should work on most UNIX systems.
-* `silent-release` - Compiles the benchmarking tool without any logging. Need to pass the `--no-default-features`  to work.
-* `verbose-release` - Compiles the benchmarking tool with all log levels. Need to pass the `--no-default-features`  to work.
 
-## Flags
+## Benchmarks
+You have to choose which type of benchmark you want to run for your queue. They have sub-commands specific to themselves. Use the `--help` flag to print a help text about the sub-commands.
+* `prod-con` - Measures throughput and fairness. Threads are either producers or consumers. You can choose the amount of producers and consumers using their respective flags.
+* `enq-deq` - Measures throughput and fairness. Threads alternate between enqueueing and dequeueing randomly. You can choose the spread of enqueuers/dequeuers using the `--spread` flag. Using the `--thread-count` flag you can decide how many threads you want to use for the benchmark.
+* `bfs` - Measures execution time. Performs a parallell breadth-first search on a graph of your choosing. After the execution, the benchmark will also do a sequential search to verify the parallel solution. The verification can be turned off by passing the `--no-verify` flag. Choose graph file by passing the `--graph-file` flag and specifying the path. The benchmark supports `.mtx` files. You can run several iterations of BFS by passing the `-i` flag, just as in the other benchmarks. The graph file will only be loaded once, and the sequential solution will also only be generated once.
+* `enq-deq-pairs` - Measures throughput and fairness. Threads first enqueue an item, then immediately dequeues an item. Use `--thread-count` to change the amount of threads.
+
+### Flags
 To use specific values you can add different flags to the run command:
 * General flags:
     * `-t`, `--time-limit` for specific time values.
@@ -99,11 +93,16 @@ To use specific values you can add different flags to the run command:
 * `prod-con` benchmark type sub commands:
     * `-p`, `--producers` for specified amount of producers.
     * `-c`, `--consumers` for specified amount of consumers.
-- `enq-deq` benchmark type sub commands:
+* `enq-deq` benchmark type sub commands:
     * `--spread` - To specify the spread for the `enq-deq` benchmark type.
     * `--thread-count` - To specify the amount of threads in the `enq-deq` benchmark type.
-- `enq-deq-pairs` benchmark type sub commands:
+* `enq-deq-pairs` benchmark type sub commands:
     * `--thread-count` - To specify the amount of threads in the `enq-deq-pairs` benchmark type.
+
+### Optional features
+* `benchmark_core/memory_tracking` - Writes to a file the memory allocated by the program during the execution. Requires `jemalloc`, so should work on most UNIX systems.
+* `silent-release` - Compiles the benchmarking tool without any logging. Need to pass the `--no-default-features`  to work.
+* `verbose-release` - Compiles the benchmarking tool with all log levels. Need to pass the `--no-default-features`  to work.
 
 ## Add your own queues
 To add your own queues to the benchmarking suite, it should be added as a workspace member, preferably in `queues/`. This requires adding it as a member in `Cargo.toml`, and then adding its package folder similarly to the packages in `queues` (it should have the main `main.tex`, with the exception of the selected queue).
