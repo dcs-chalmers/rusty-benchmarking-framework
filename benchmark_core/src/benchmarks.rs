@@ -243,7 +243,7 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
 
 #[cfg(test)]
 mod tests {
-    use crate::arguments::EnqDeqArgs;
+    use crate::arguments::{EnqDeqArgs, EnqDeqPairsArgs};
     use crate::benchmarks::enq_deq_pairs::benchmark_enq_deq_pairs;
     use crate::benchmarks::{
         prod_con::benchmark_prod_con,
@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn run_enqdeq_pairs_with_struct() {
         let args = Args {
-            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: Benchmarks::EnqDeqPairs(EnqDeqPairsArgs { thread_count: 10 }),
             ..Default::default()
         };
         let bench_conf = BenchConfig {
@@ -389,7 +389,7 @@ mod tests {
             benchmark_id: "test2".to_string(),
             output_filename: "".to_string()
         };
-        let queue = TestQueue::<Args>::new(0);
+        let queue = TestQueue::<usize>::new(0);
         if benchmark_enq_deq_pairs(queue, &bench_conf).is_err() {
             panic!();
         }

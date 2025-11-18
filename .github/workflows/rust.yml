@@ -18,13 +18,11 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install Boost
       run: sudo apt-get install -y libboost-all-dev
-    - name: Get submodules 
+    - name: Get submodules
       run: git submodule init && git submodule update
     - name: Build
-      run: cargo build --verbose --features all_queues
-    - name: Run queue tests
-      run: cargo test --verbose --features all_queues
+      run: cargo build --verbose --workspace --exclude bbq
+    - name: Run tests
+      run: cargo test --verbose --workspace --exclude bbq
     - name: Run nightly queues
-      run: cargo +nightly test --verbose -F nightly_queues
-    - name: Run benchmarking suite tests
-      run: cargo test --verbose --features tests_benchmark
+      run: cargo +nightly test --verbose -p bbq

@@ -10,7 +10,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_core::benchmark_target_queue::<tsigas_zhang_queue_hp::TZQueue<usize>>("tsigas_zhang_queue_hp") {
+    match benchmark_core::benchmark_target_queue::<tz_queue_hp::TZQueue<usize>>("tz_queue_hp") {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);
