@@ -1,3 +1,3 @@
 [submodule "queues/moodycamel_cpp/cpp_src/concurrentqueue"]
 	path = queues/moodycamel_cpp/cpp_src/concurrentqueue
-	url = git@github.com:cameron314/concurrentqueue.git
+	url = https://github.com/cameron314/concurrentqueue.git
