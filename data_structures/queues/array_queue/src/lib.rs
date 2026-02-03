@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use crossbeam::queue::ArrayQueue;
 
 pub struct AQueueHandle<'a, T>{
@@ -11,7 +11,7 @@ pub struct AQueue<T>{
 
 
 impl <T> ConcurrentQueue<T> for AQueue<T> {
-    fn register(&self) -> impl Handle<T>{
+    fn register(&self) -> impl HandleQueue<T>{
         AQueueHandle{
             queue: self,
         }
@@ -26,7 +26,7 @@ impl <T> ConcurrentQueue<T> for AQueue<T> {
     }
 }
 
-impl<T> Handle<T> for AQueueHandle<'_, T>{
+impl<T> HandleQueue<T> for AQueueHandle<'_, T>{
     fn push(&mut self, value: T) -> Result<(), T>{
         self.queue.array_queue.push(value)
     }

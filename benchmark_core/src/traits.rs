@@ -1,7 +1,7 @@
-/// One of the traits that all queues implemented in the benchmark
-/// needs to implement.
+/// Trait that all queues need to implement
 pub trait ConcurrentQueue<T> {
-    fn register(&self) -> impl Handle<T>;
+    /// Returns a handle that exposes the queue API
+    fn register(&self) -> impl HandleQueue<T>;
     /// Returns the name of the queue.
     fn get_id(&self) -> String;
     /// Used to create a new queue.
@@ -9,9 +9,8 @@ pub trait ConcurrentQueue<T> {
     fn new(size: usize) -> Self;
 }
 
-/// One of the traits all queues implemented in the benchmark
-/// needs to implement.
-pub trait Handle<T> {
+/// Trait that exposes the correct API for queues
+pub trait HandleQueue<T> {
     /// Pushes an item to the queue.
     /// If it fails, returns the item pushed.
     fn push(&mut self, item: T) -> Result<(), T>;

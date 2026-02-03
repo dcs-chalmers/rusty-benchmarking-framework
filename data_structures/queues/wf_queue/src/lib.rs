@@ -1,5 +1,5 @@
 use wfqueue_upstream::{Queueable, WfQueue};
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 pub struct WFQueueHandle<'a, T> {
     queue: &'a WFQueue<T>
@@ -13,7 +13,7 @@ impl<T> ConcurrentQueue<T> for WFQueue<T>
 where
     Box<T>: Queueable
 {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         WFQueueHandle {
             queue: self,
         }
@@ -30,7 +30,7 @@ where
     }
 }
 
-impl<T> Handle<T> for WFQueueHandle<'_, T>
+impl<T> HandleQueue<T> for WFQueueHandle<'_, T>
 where
     Box<T>: Queueable
 {
@@ -49,7 +49,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{ConcurrentQueue, Handle, WFQueue};
+    use super::{ConcurrentQueue, HandleQueue, WFQueue};
 
     // #[test]
     // fn create_bq() {

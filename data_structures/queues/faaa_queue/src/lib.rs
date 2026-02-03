@@ -3,7 +3,7 @@ use std::{ptr::null_mut, sync::atomic::{AtomicPtr as RawAtomicPtr, AtomicUsize, 
 use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
 use crossbeam::utils::CachePadded;
 use log::trace;
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 const BUFFER_SIZE: usize = 1024;
 
@@ -136,7 +136,7 @@ pub struct FAAAQueueHandle<'a, T> {
 }
 
 impl<T: Sync + Send> ConcurrentQueue<T> for FAAAQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         FAAAQueueHandle {
             queue: self,
             hp: HazardPointer::new(),
@@ -154,7 +154,7 @@ impl<T: Sync + Send> ConcurrentQueue<T> for FAAAQueue<T> {
     }
 }
 
-impl<T: Sync + Send> Handle<T> for FAAAQueueHandle<'_, T> {
+impl<T: Sync + Send> HandleQueue<T> for FAAAQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T> {
         self.queue.enqueue(item, &mut self.hp);
         Ok(())

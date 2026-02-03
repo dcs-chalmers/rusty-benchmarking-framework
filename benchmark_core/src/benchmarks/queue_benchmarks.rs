@@ -4,7 +4,7 @@ use clap::Parser;
 use crate::arguments::{Args, QueueBenchmarks};
 use crate::benchmarks::benchmark_helpers;
 #[allow(unused_imports)]
-use crate::traits::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, HandleQueue};
 #[allow(unused_imports)]
 use log::{self, debug, error, info};
 use std::collections::hash_map::DefaultHasher;

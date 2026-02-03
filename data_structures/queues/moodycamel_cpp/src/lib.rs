@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 // Include the generated bindings
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -49,7 +49,7 @@ struct MoodyCamelCppQueueHandle<'a,T> {
     pub q: &'a MoodyCamelCppQueue<T>
 }
 
-impl<T> Handle<T> for MoodyCamelCppQueueHandle<'_,T> {
+impl<T> HandleQueue<T> for MoodyCamelCppQueueHandle<'_,T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
         match self.q.push(ptr) {
@@ -72,7 +72,7 @@ impl<T> Handle<T> for MoodyCamelCppQueueHandle<'_,T> {
 }
 
 impl<T> ConcurrentQueue<T> for MoodyCamelCppQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         MoodyCamelCppQueueHandle {
             q: self,
         }

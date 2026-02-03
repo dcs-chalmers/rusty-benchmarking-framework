@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use log::{debug, trace};
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use std::{fmt::{Debug, Display}, sync::atomic::{AtomicPtr, AtomicUsize, Ordering}};
 
 #[derive(Copy, Clone, Debug)]
@@ -189,7 +189,7 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
     fn get_id(&self) -> String {
         String::from("tz_queue")
     }
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         TZQueueHandle {
             q: self
         }
@@ -200,7 +200,7 @@ struct TZQueueHandle<'a, T: Copy> {
     q: &'a TZQueue<T>,
 }
 
-impl<T: Copy + Send + Sync + Display> Handle<T> for TZQueueHandle<'_, T> {
+impl<T: Copy + Send + Sync + Display> HandleQueue<T> for TZQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.q.dequeue()
     }

@@ -112,7 +112,7 @@ Your queue will have to implement the traits found in `src/traits.rs` so that th
 /// The required queue trait.
 pub trait ConcurrentQueue<T> {
     /// Returns a thread-local handle for the queue.
-    fn register(&self) -> impl Handle<T>;
+    fn register(&self) -> impl HandleQueue<T>;
 
     /// Returns the name of the queue.
     fn get_id(&self) -> String;
@@ -123,7 +123,7 @@ pub trait ConcurrentQueue<T> {
 }
 
 /// The required queue handle trait.
-pub trait Handle<T> {
+pub trait HandleQueue<T> {
     /// Pushes an item to the queue.
     /// If it fails, returns the item pushed.
     fn push(&mut self, item: T) -> Result<(), T>;
@@ -252,7 +252,7 @@ Now all that is left is to create the Rust queue files. Create `lib.rs` and `mai
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 // Include the generated bindings
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -297,7 +297,7 @@ struct YourQueueHandle<'a,T> {
     pub q: &'a YourCppQueue<T>
 }
 
-impl<T> Handle<T> for YourCppQueueHandle<'_,T> {
+impl<T> HandleQueue<T> for YourCppQueueHandle<'_,T> {
     fn push(&mut self, item: T) -> Result<(), T> {
         let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
         match self.q.push(ptr) {
@@ -318,7 +318,7 @@ impl<T> Handle<T> for YourCppQueueHandle<'_,T> {
 }
 
 impl<T> ConcurrentQueue<T> for YourCppQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         YourCppQueueHandle {
             q: self,
         }

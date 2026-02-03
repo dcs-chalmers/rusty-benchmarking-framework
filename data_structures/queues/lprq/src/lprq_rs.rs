@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use lprq_rs::LPRQueue;
 
 pub struct LPRQueueRSHandle<'a, T>{
@@ -10,7 +10,7 @@ pub struct LPRQRS<T>{
 }
 
 impl <T> ConcurrentQueue<T> for LPRQRS<T>{
-    fn register(&self) -> impl Handle<T>{
+    fn register(&self) -> impl HandleQueue<T>{
         LPRQueueRSHandle{
             queue: self,
         }
@@ -27,7 +27,7 @@ impl <T> ConcurrentQueue<T> for LPRQRS<T>{
     }
 }
 
-impl <T> Handle<T> for LPRQueueRSHandle<'_, T> {
+impl <T> HandleQueue<T> for LPRQueueRSHandle<'_, T> {
     fn push(&mut self, value: T) -> Result<(), T> {
         self.queue.lprqueue.enqueue(value);
         Ok(())

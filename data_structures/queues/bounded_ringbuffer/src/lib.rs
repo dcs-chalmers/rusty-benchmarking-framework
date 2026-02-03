@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use std::sync::Mutex;
 
 pub struct BRingBuffer<T> {
@@ -67,7 +67,7 @@ pub struct BRingBufferHandle<'a, T>{
 }
 
 
-impl<T> Handle<T> for BRingBufferHandle<'_, T>{
+impl<T> HandleQueue<T> for BRingBufferHandle<'_, T>{
     fn pop(&mut self) -> Option<T>{
         let mut buf = self.queue.brbuffer.bounded_ringbuffer.lock().unwrap();
         buf.pop()
@@ -80,7 +80,7 @@ impl<T> Handle<T> for BRingBufferHandle<'_, T>{
 }
 
 impl <T: Clone + Default>ConcurrentQueue<T> for BoundedRingBuffer<T>{
-    fn register(&self) -> impl Handle<T>{
+    fn register(&self) -> impl HandleQueue<T>{
         BRingBufferHandle::<T> {
             queue: self,
         }

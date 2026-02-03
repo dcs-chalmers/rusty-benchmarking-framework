@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use log::{debug, trace};
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use std::{fmt::{Debug, Display}, sync::atomic::{AtomicUsize, Ordering}};
 use haphazard::HazardPointer;
 
@@ -198,7 +198,7 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
     fn get_id(&self) -> String {
         String::from("tz_queue_hp")
     }
-    fn register(&self) -> impl benchmark_core::traits::Handle<T> {
+    fn register(&self) -> impl benchmark_core::traits::HandleQueue<T> {
         TZQueueHandle {
             q:      self,
             hp1:    HazardPointer::new(),
@@ -211,7 +211,7 @@ struct TZQueueHandle<'a, T: Copy> {
     hp1: HazardPointer<'static>,
 }
 
-impl<T: Copy + Send + Sync + Display> Handle<T> for TZQueueHandle<'_, T> {
+impl<T: Copy + Send + Sync + Display> HandleQueue<T> for TZQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.q.dequeue(&mut self.hp1)
     }

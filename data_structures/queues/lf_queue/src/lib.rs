@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 pub struct LFQueue<T> {
     pub lfq: lf_queue_upstream::Queue<T>
@@ -9,7 +9,7 @@ pub struct LFQueueHandle<'a, T> {
 }
 
 impl<T> ConcurrentQueue<T> for LFQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         LFQueueHandle {
             queue: self,
         }
@@ -24,7 +24,7 @@ impl<T> ConcurrentQueue<T> for LFQueue<T> {
     }
 }
 
-impl<T> Handle<T> for LFQueueHandle<'_, T> {
+impl<T> HandleQueue<T> for LFQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         self.queue.lfq.push(item);
         Ok(())

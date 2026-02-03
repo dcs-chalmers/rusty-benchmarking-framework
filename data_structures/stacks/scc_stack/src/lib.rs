@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 pub struct SCCStack<T: 'static> {
     pub queue: scc::Stack<T>,
@@ -9,7 +9,7 @@ pub struct SCCStackHandle<'a, T: 'static> {
 }
 
 impl<T: Clone + Copy> ConcurrentQueue<T> for SCCStack<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         SCCStackHandle {
             queue: self,
         }
@@ -24,7 +24,7 @@ impl<T: Clone + Copy> ConcurrentQueue<T> for SCCStack<T> {
     }
 }
 
-impl<T: Clone + Copy> Handle<T> for SCCStackHandle<'_, T> {
+impl<T: Clone + Copy> HandleQueue<T> for SCCStackHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T> {
         let _ = self.queue.queue.push(item);
         Ok(())

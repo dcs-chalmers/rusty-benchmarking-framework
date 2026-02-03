@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 
 pub struct LockfreeQueueHandle<'a, T> {
@@ -10,7 +10,7 @@ pub struct LockfreeQueue<T> {
 }
 
 impl<T> ConcurrentQueue<T> for LockfreeQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         LockfreeQueueHandle {
             queue: self,
         }
@@ -25,7 +25,7 @@ impl<T> ConcurrentQueue<T> for LockfreeQueue<T> {
     }
 }
 
-impl<T> Handle<T> for LockfreeQueueHandle<'_, T> {
+impl<T> HandleQueue<T> for LockfreeQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         self.queue.lfq.push(item);
         Ok(())

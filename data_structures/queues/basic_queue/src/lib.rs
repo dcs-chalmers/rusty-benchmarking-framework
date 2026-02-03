@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use std::{collections::VecDeque, sync::Mutex};
 
 pub struct BQueue<T> {
@@ -39,7 +39,7 @@ pub struct BasicQueueHandle<'a, T> {
 }
 
 impl<T> ConcurrentQueue<T> for BasicQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         BasicQueueHandle {
             queue: self,
         }
@@ -54,7 +54,7 @@ impl<T> ConcurrentQueue<T> for BasicQueue<T> {
     }
 }
 
-impl<T> Handle<T> for BasicQueueHandle<'_, T> {
+impl<T> HandleQueue<T> for BasicQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         self.queue.bqueue.push(item);
         Ok(())

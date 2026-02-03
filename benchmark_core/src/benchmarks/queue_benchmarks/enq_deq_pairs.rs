@@ -2,7 +2,7 @@ use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
-use crate::traits::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
 use std::io::Write;

@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 pub struct AtomicQueue<T> {
     pub queue: atomic_queue_upstream::Queue<T>,
@@ -9,7 +9,7 @@ pub struct AtomicQueueHandle<'a, T> {
 }
 
 impl<T: Default> ConcurrentQueue<T> for AtomicQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         AtomicQueueHandle {
             queue: self,
         }
@@ -24,7 +24,7 @@ impl<T: Default> ConcurrentQueue<T> for AtomicQueue<T> {
     }
 }
 
-impl<T: Default> Handle<T> for AtomicQueueHandle<'_, T> {
+impl<T: Default> HandleQueue<T> for AtomicQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         if !self.queue.queue.push(item) {
             return Err(T::default());

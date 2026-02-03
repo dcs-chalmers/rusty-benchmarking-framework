@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use haphazard::{raw::Pointer, AtomicPtr, HazardPointer};
 use log::{error, trace};
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 struct Node<T> {
     next: AtomicPtr<Node<T>>,
@@ -162,7 +162,7 @@ pub struct MSQueueHandle<'a, T> {
 }
 
 impl<T: Sync + Send> ConcurrentQueue<T> for MSQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         MSQueueHandle {
             queue: self,
             hp1: HazardPointer::new(),
@@ -181,7 +181,7 @@ impl<T: Sync + Send> ConcurrentQueue<T> for MSQueue<T> {
     }
 }
 
-impl<T: Sync + Send> Handle<T> for MSQueueHandle<'_, T> {
+impl<T: Sync + Send> HandleQueue<T> for MSQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         self.queue.enqueue(&mut self.hp1, item);
         Ok(())

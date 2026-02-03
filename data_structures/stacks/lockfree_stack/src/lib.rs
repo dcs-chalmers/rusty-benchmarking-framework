@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 pub struct LockfreeStack<T>{
     pub lfs: lockfree::stack::Stack<T>
 }
@@ -8,7 +8,7 @@ pub struct LockFreeStacKHandle<'a, T> {
 }
 
 impl<T> ConcurrentQueue<T> for LockfreeStack<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         LockFreeStacKHandle{
             stack: self,
         }
@@ -23,7 +23,7 @@ impl<T> ConcurrentQueue<T> for LockfreeStack<T> {
     }
 }
 
-impl<T> Handle<T> for LockFreeStacKHandle<'_, T>{
+impl<T> HandleQueue<T> for LockFreeStacKHandle<'_, T>{
     fn push(&mut self, item: T) -> Result<(), T>{
         self.stack.lfs.push(item);
         Ok(())

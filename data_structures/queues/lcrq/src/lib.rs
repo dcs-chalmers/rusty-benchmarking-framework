@@ -8,7 +8,7 @@ use haphazard::{raw::Pointer, AtomicPtr as HpAtomicPtr, HazardPointer};
 #[allow(unused_imports)]
 use log::{debug, error, trace};
 #[allow(unused_imports)]
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use crossbeam::utils::CachePadded;
 
 static RING_SIZE: usize = 1024;
@@ -380,7 +380,7 @@ impl<T: std::fmt::Debug> ConcurrentQueue<T> for LCRQueue<T> {
     fn new(_size: usize) -> Self {
         LCRQueue::new()
     }
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         LCRQueueHandle {
             queue: self,
             hp1: HazardPointer::new(),
@@ -395,7 +395,7 @@ struct LCRQueueHandle<'a, T: std::fmt::Debug> {
     // hp2: HazardPointer<'static>,
 }
 
-impl<T: std::fmt::Debug> Handle<T> for LCRQueueHandle<'_, T> {
+impl<T: std::fmt::Debug> HandleQueue<T> for LCRQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.queue.dequeue(&mut self.hp1)
     }

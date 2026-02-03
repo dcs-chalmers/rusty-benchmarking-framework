@@ -1,7 +1,7 @@
 use concurrent_queue::PushError;
 use log::warn;
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 pub struct UnboundedCQueue<T> {
     q: concurrent_queue::ConcurrentQueue<T>,
@@ -12,7 +12,7 @@ pub struct UnboundedCQueueHandle<'a, T> {
 }
 
 impl<T> ConcurrentQueue<T> for UnboundedCQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         UnboundedCQueueHandle {
             queue: self,
         }
@@ -27,7 +27,7 @@ impl<T> ConcurrentQueue<T> for UnboundedCQueue<T> {
     }
 }
 
-impl<T> Handle<T> for UnboundedCQueueHandle<'_, T> {
+impl<T> HandleQueue<T> for UnboundedCQueueHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T>{
         if let Err(err) = self.queue.q.push(item) {
             let i = match err {

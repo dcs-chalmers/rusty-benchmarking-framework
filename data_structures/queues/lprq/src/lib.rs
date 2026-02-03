@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering::SeqCst as SeqCst;
 use haphazard::{AtomicPtr as HpAtomicPtr, HazardPointer};
 use log::{debug, trace};
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use crossbeam::utils::CachePadded;
 
 static RING_SIZE: u64 = 1024;
@@ -338,7 +338,7 @@ impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
     fn new(_size: usize) -> Self {
         LPRQueue::new()
     }
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         LPRQueueHandle {
             queue: self,
             hp: HazardPointer::new(),
@@ -351,7 +351,7 @@ struct LPRQueueHandle<'a, T> {
     hp: HazardPointer<'static>,
 }
 
-impl<T: std::fmt::Debug> Handle<T> for LPRQueueHandle<'_, T> {
+impl<T: std::fmt::Debug> HandleQueue<T> for LPRQueueHandle<'_, T> {
     fn pop(&mut self) -> Option<T> {
         self.queue.dequeue(&mut self.hp)
     }

@@ -1,5 +1,5 @@
 use crate::arguments::{BFSArgs, QueueBenchmarks};
-use crate::traits::{ConcurrentQueue, Handle};
+use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers;
 use std::{fs::OpenOptions, sync::{atomic::{AtomicUsize, Ordering}, Barrier}};
 use core_affinity::CoreId;
@@ -189,7 +189,7 @@ C: ConcurrentQueue<usize>,
 }
 
 fn pbfs_helper(
-    mut handle: impl Handle<usize>,
+    mut handle: impl HandleQueue<usize>,
     result_vector: &[AtomicUsize],
     graph: &[Vec<usize>],
     i: usize,

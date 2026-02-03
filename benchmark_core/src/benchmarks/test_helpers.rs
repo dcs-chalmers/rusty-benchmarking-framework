@@ -1,6 +1,6 @@
 /// A very simple ConcurrentQueue implementation for testing
 pub(crate) mod test_queue {
-    use crate::traits::{ConcurrentQueue, Handle};
+    use crate::traits::{ConcurrentQueue, HandleQueue};
     use std::collections::VecDeque;
     use std::sync::Mutex;
 
@@ -12,7 +12,7 @@ pub(crate) mod test_queue {
         queue: &'a TestQueue<T>,
     }
 
-    impl<T> Handle<T> for TestQueueHandle<'_, T> {
+    impl<T> HandleQueue<T> for TestQueueHandle<'_, T> {
         fn push(&mut self, item: T) -> Result<(), T> {
             self.queue.queue.lock().unwrap().push_back(item);
             Ok(())
@@ -24,7 +24,7 @@ pub(crate) mod test_queue {
     }
 
     impl<T> ConcurrentQueue<T> for TestQueue<T> {
-        fn register(&self) -> impl Handle<T> {
+        fn register(&self) -> impl HandleQueue<T> {
             TestQueueHandle { queue: self }
         }
 

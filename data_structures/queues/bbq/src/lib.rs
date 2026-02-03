@@ -1,4 +1,4 @@
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 use bbq_upstream::BlockingQueue;
 
 pub struct BBQueue<T>{
@@ -10,7 +10,7 @@ pub struct BBQHandle<'a, T> {
 }
 
 impl<T: Default> ConcurrentQueue<T> for BBQueue <T>{
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         BBQHandle::<T> {
             queue: self,
         }
@@ -25,7 +25,7 @@ impl<T: Default> ConcurrentQueue<T> for BBQueue <T>{
     }
 }
 
-impl<T: Default> Handle<T> for BBQHandle<'_, T> {
+impl<T: Default> HandleQueue<T> for BBQHandle<'_, T> {
     fn push(&mut self, item: T) -> Result<(), T> {
         self.queue.queue.push(item).expect("failed push");
         Ok(())
