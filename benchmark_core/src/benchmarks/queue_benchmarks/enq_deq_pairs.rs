@@ -151,3 +151,31 @@ T: Default,
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arguments::EnqDeqPairsArgs;
+    use crate::benchmarks::enq_deq_pairs::benchmark_enq_deq_pairs;
+
+    use super::*;
+
+    use crate::benchmarks::test_helpers::test_queue::TestQueue;
+
+    #[test]
+    fn run_enqdeq_pairs_with_struct() {
+        let args = Args {
+            benchmark: Benchmarks::EnqDeqPairs(EnqDeqPairsArgs { thread_count: 10 }),
+            ..Default::default()
+        };
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        let queue = TestQueue::<usize>::new(0);
+        if benchmark_enq_deq_pairs(queue, &bench_conf).is_err() {
+            panic!();
+        }
+    }
+}

@@ -168,3 +168,49 @@ T: Default,
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arguments::EnqDeqArgs;
+    use crate::benchmarks::enq_deq::benchmark_enq_deq;
+
+    use super::*;
+
+    use crate::benchmarks::test_helpers::test_queue::TestQueue;
+
+    #[test]
+    fn run_pingpong() {
+        let args = Args {
+            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            ..Default::default()
+        };
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        let queue = TestQueue::<usize>::new(0);
+        if benchmark_enq_deq(queue, &bench_conf).is_err() {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn run_pingpong_with_bool() {
+        let args = Args {
+            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            ..Default::default()
+        };
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test2".to_string(),
+            output_filename: "".to_string()
+        };
+        let queue = TestQueue::<bool>::new(0);
+        if benchmark_enq_deq(queue, &bench_conf).is_err() {
+            panic!();
+        }
+    }
+}

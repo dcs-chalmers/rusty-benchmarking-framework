@@ -206,3 +206,54 @@ where
 }
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::benchmarks::test_helpers::test_queue::TestQueue;
+
+    #[test]
+    fn run_basic_prod_con() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test1".to_string(),
+            output_filename: "".to_string()
+        };
+        let queue: TestQueue<i32> = TestQueue::new(0);
+        if benchmark_prod_con(queue, &bench_conf).is_err() {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn run_basic_with_string() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test1".to_string(),
+            output_filename: "".to_string()
+        };
+        let queue = TestQueue::<String>::new(0);
+        if benchmark_prod_con(queue, &bench_conf).is_err() {
+            panic!();
+        }
+    }
+
+    #[test]
+    fn run_basic_with_struct() {
+        let args = Args::default();
+        let bench_conf = BenchConfig {
+            args,
+            date_time: "".to_string(),
+            benchmark_id: "test1".to_string(),
+            output_filename: "".to_string()
+        };
+        let queue = TestQueue::<Args>::new(0);
+        if benchmark_prod_con(queue, &bench_conf).is_err() {
+            panic!();
+        }
+    }
+}
