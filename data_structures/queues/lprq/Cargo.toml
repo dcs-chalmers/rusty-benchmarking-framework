@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-benchmark_core = { path = "../../benchmark_core" }
+benchmark_core = { path = "../../../benchmark_core" }
 log = { workspace = true }
 env_logger = { workspace = true, optional=true }
 haphazard = { workspace = true }
