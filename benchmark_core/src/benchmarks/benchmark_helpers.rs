@@ -1,6 +1,13 @@
 #[cfg(feature = "memory_tracking")]
 use jemalloc_ctl::{epoch, stats};
+use crate::arguments::Args;
+#[cfg(feature = "memory_tracking")]
+use crate::traits::ConcurrentQueue;
 use log::{debug, error, trace};
+use std::fs::OpenOptions;
+use std::io::Write;
+#[cfg(feature = "memory_tracking")]
+use std::sync::atomic::AtomicBool;
 use sysinfo::System;
 
 /// Benchmark config struct

@@ -1,4 +1,5 @@
 use log::*;
+use benchmark_core::benchmarks::queue_benchmarks::benchmark_queue;
 
 
 fn main() {
@@ -10,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_core::benchmark_target_queue::<unbounded_concurrent_queue::UnboundedCQueue<usize>>("unbounded_concurrent_queue") {
+    match benchmark_queue::<unbounded_concurrent_queue::UnboundedCQueue<usize>>("unbounded_concurrent_queue") {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

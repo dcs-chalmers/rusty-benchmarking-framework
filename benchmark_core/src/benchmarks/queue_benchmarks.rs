@@ -1,7 +1,8 @@
 use chrono::Local;
 use clap::Parser;
 #[allow(unused_imports)]
-use crate::arguments::{Args, Benchmarks};
+use crate::arguments::{Args, QueueBenchmarks};
+use crate::benchmarks::benchmark_helpers;
 #[allow(unused_imports)]
 use crate::traits::{ConcurrentQueue, Handle};
 #[allow(unused_imports)]
@@ -26,17 +27,18 @@ where
 {
     // Setup output and parse arguments
     let SetupResult { bench_conf, .. } = setup_benchmark()?;
+    let bench_conf = &bench_conf;
 
     // Create a runner lambda for the different benchmarks, mainly needed for eg. BFS to load graph and so on
-    let mut runner: Box<dyn FnMut(Q, &BenchConfig) -> Result<(), std::io::Error>> = match &bench_conf.args.benchmark {
-        Benchmarks::ProdCon(_)     => Box::new(move |q, bench_conf| prod_con::benchmark_prod_con(q, bench_conf)),
-        Benchmarks::EnqDeq(_)      => Box::new(move |q, bench_conf| enq_deq::benchmark_enq_deq(q, bench_conf)),
-        Benchmarks::EnqDeqPairs(_) => Box::new(move |q, bench_conf| enq_deq_pairs::benchmark_enq_deq_pairs(q, bench_conf)),
-        Benchmarks::BFS(args) => {
+    let mut runner: Box<dyn FnMut(Q, &benchmark_helpers::BenchConfig) -> Result<(), std::io::Error>> = match &bench_conf.args.benchmark {
+        QueueBenchmarks::ProdCon(_)     => Box::new(move |q, bench_conf| prod_con::benchmark_prod_con(q, bench_conf)),
+        QueueBenchmarks::EnqDeq(_)      => Box::new(move |q, bench_conf| enq_deq::benchmark_enq_deq(q, bench_conf)),
+        QueueBenchmarks::EnqDeqPairs(_) => Box::new(move |q, bench_conf| enq_deq_pairs::benchmark_enq_deq_pairs(q, bench_conf)),
+        QueueBenchmarks::BFS(args) => {
             let (graph, seq_ret_vec, start_node) =
                 bfs::pre_bfs_work(
                     Q::new(bench_conf.args.queue_size as usize),
-                    args,
+                    &args,
                 );
             Box::new(move |q, _conf| bfs::benchmark_bfs(
                 q,
@@ -57,7 +59,7 @@ where
         #[cfg(feature = "memory_tracking")]
         let (done, mem_thread_handle) = {
             let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let handle = create_mem_tracking_thread(
+            let handle = benchmark_helpers::create_mem_tracking_thread(
                 bench_conf,
                 _current_iteration,
                 &test_q,
@@ -85,14 +87,14 @@ where
     }
 
     if bench_conf.args.print_info {
-        print_info(queue_name.to_string(), bench_conf)?;
+        benchmark_helpers::print_info(queue_name.to_string(), bench_conf)?;
     }
 
     Ok(())
 }
 
 pub struct SetupResult {
-    pub bench_conf: benchmarks::BenchConfig,
+    pub bench_conf: benchmark_helpers::BenchConfig,
     pub columns: String, // Optional, but alreadyy written (TODO: have a stream of some sort here)
 }
 
@@ -118,7 +120,7 @@ pub fn setup_benchmark() -> Result<SetupResult, std::io::Error> {
     }
 
     let output_filename = format!("{}/{}", args.path_output, date_time);
-    let bench_conf = benchmarks::BenchConfig {
+    let bench_conf = benchmark_helpers::BenchConfig {
         args,
         date_time,
         benchmark_id,
@@ -126,7 +128,7 @@ pub fn setup_benchmark() -> Result<SetupResult, std::io::Error> {
     };
 
     let columns = match bench_conf.args.benchmark {
-        arguments::Benchmarks::BFS(_) => {
+        QueueBenchmarks::BFS(_) => {
             "Milliseconds,Queuetype,Thread Count,Test ID"
         },
         _ => {

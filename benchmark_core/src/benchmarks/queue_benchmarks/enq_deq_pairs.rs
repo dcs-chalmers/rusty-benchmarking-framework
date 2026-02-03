@@ -2,21 +2,22 @@ use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
-use crate::{traits::{ConcurrentQueue, Handle}, benchmarks::{calc_fairness, BenchConfig}};
+use crate::traits::{ConcurrentQueue, Handle};
+use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{mpsc, Arc};
 
 /// # Explanation:
 #[allow(dead_code)]
-pub fn benchmark_enq_deq_pairs<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_enq_deq_pairs<C, T> (cqueue: C, bench_conf: &benchmark_helpers::BenchConfig) -> Result<(), std::io::Error>
 where
 C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::Benchmarks::EnqDeqPairs(a) => a,
+        crate::arguments::QueueBenchmarks::EnqDeqPairs(a) => a,
         _ => panic!(),
     };
     {
@@ -111,7 +112,7 @@ T: Default,
         }
         vals
     };
-    let fairness = calc_fairness(ops_per_thread);
+    let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
 
     // If a thread crashed, pad the results with zero-values
     let formatted = if thread_failed.load(Ordering::Relaxed) {
@@ -154,8 +155,10 @@ T: Default,
 
 #[cfg(test)]
 mod tests {
+    use crate::arguments::Args;
     use crate::arguments::EnqDeqPairsArgs;
-    use crate::benchmarks::enq_deq_pairs::benchmark_enq_deq_pairs;
+    use crate::arguments::QueueBenchmarks;
+    use crate::benchmarks::queue_benchmarks::enq_deq_pairs::benchmark_enq_deq_pairs;
 
     use super::*;
 
@@ -164,10 +167,10 @@ mod tests {
     #[test]
     fn run_enqdeq_pairs_with_struct() {
         let args = Args {
-            benchmark: Benchmarks::EnqDeqPairs(EnqDeqPairsArgs { thread_count: 10 }),
+            benchmark: QueueBenchmarks::EnqDeqPairs(EnqDeqPairsArgs { thread_count: 10 }),
             ..Default::default()
         };
-        let bench_conf = BenchConfig {
+        let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test2".to_string(),

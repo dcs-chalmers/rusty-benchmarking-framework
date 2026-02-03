@@ -1,4 +1,6 @@
-use crate::{arguments::{BFSArgs, Benchmarks}, benchmarks::BenchConfig, traits::{ConcurrentQueue, Handle}};
+use crate::arguments::{BFSArgs, QueueBenchmarks};
+use crate::traits::{ConcurrentQueue, Handle};
+use crate::benchmarks::benchmark_helpers;
 use std::{fs::OpenOptions, sync::{atomic::{AtomicUsize, Ordering}, Barrier}};
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
@@ -57,7 +59,7 @@ dist_to_start_node
 pub fn benchmark_bfs<C> (
     cqueue: C,
     graph: &[Vec<usize>],
-    bench_conf: &BenchConfig,
+    bench_conf: &benchmark_helpers::BenchConfig,
     seq_ret_vec: &[usize],
     start_node: usize,
     ) -> Result<(), std::io::Error>
@@ -65,9 +67,9 @@ where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
-    assert!(matches!(bench_conf.args.benchmark, Benchmarks::BFS(_)));
+    assert!(matches!(bench_conf.args.benchmark, QueueBenchmarks::BFS(_)));
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::Benchmarks::BFS(a) => a,
+        QueueBenchmarks::BFS(a) => a,
         _ => panic!(),
     };
     let thread_count = args.thread_count;
@@ -111,7 +113,7 @@ fn parallell_bfs <C> (
     graph: &[Vec<usize>],
     start_node: usize,
     thread_count: usize,
-    bench_conf: &BenchConfig)
+    bench_conf: &benchmark_helpers::BenchConfig)
 -> (std::time::Duration, Vec<usize>)
 where
 C: ConcurrentQueue<usize>,

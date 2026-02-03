@@ -1,10 +1,11 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
-use crate::{traits::{ConcurrentQueue, Handle}, benchmarks::BenchConfig};
+use crate::traits::{ConcurrentQueue, Handle};
+use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use std::sync::{mpsc, Arc};
 
 /// # Explanation:
@@ -15,14 +16,14 @@ use std::sync::{mpsc, Arc};
 /// * -p        Set specified amount of producers
 /// * -c        Set specified amount of consumers
 #[allow(dead_code)]
-pub fn benchmark_prod_con<C, T>(cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_prod_con<C, T>(cqueue: C, bench_conf: &benchmark_helpers::BenchConfig) -> Result<(), std::io::Error>
 where 
     C: ConcurrentQueue<T>,
     T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::Benchmarks::ProdCon(a) => a,
+        crate::arguments::QueueBenchmarks::ProdCon(a) => a,
         _ => panic!(),
     };
     {
@@ -175,7 +176,7 @@ where
         format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, cqueue.get_id(), bench_conf.args.benchmark, bench_conf.benchmark_id, bench_conf.args.queue_size)
     }
     else {
-        let fairness = crate::benchmarks::calc_fairness(ops_per_thread);
+        let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
         format!("{},{},{},{},{},{},{},{},{},{},{},{}",
             (pushes + pops) as f64 / time_limit as f64,
             pushes,
@@ -210,12 +211,13 @@ where
 mod tests {
     use super::*;
 
+    use crate::arguments::Args;
     use crate::benchmarks::test_helpers::test_queue::TestQueue;
 
     #[test]
     fn run_basic_prod_con() {
         let args = Args::default();
-        let bench_conf = BenchConfig {
+        let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
@@ -230,7 +232,7 @@ mod tests {
     #[test]
     fn run_basic_with_string() {
         let args = Args::default();
-        let bench_conf = BenchConfig {
+        let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
@@ -245,7 +247,7 @@ mod tests {
     #[test]
     fn run_basic_with_struct() {
         let args = Args::default();
-        let bench_conf = BenchConfig {
+        let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),

@@ -27,7 +27,7 @@ pub struct Args {
     pub path_output: String,
     /// Choose which benchmark to run.
     #[command(subcommand)]
-    pub benchmark: Benchmarks,
+    pub benchmark: QueueBenchmarks,
     /// If set to true, benchmark will output to stdout instead of to files.
     #[arg(long = "write-stdout", default_value_t = false)]
     pub write_to_stdout: bool,
@@ -45,7 +45,7 @@ pub struct Args {
 
 /// Possible benchmark types.
 #[derive(Subcommand, Debug)]
-pub enum Benchmarks {
+pub enum QueueBenchmarks {
     /// ProdCon throughput test. Decide amount of producers and consumers using flags.
     ProdCon(ProdConArgs),
     /// A test where each thread performs both consume and produce based on a random floating point
@@ -91,14 +91,14 @@ pub struct BFSArgs {
 }
 /// This is used to write the benchmark type to the output.
 /// That is why the arguments are discarded.
-impl Display for Benchmarks {
+impl Display for QueueBenchmarks {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Benchmarks::ProdCon(_)     => write!(f, "ProdCon"),
-            Benchmarks::EnqDeq(_)      => write!(f, "EnqDeq"),
-            Benchmarks::EnqDeqPairs(_) => write!(f, "EnqDeqPairs"),
+            QueueBenchmarks::ProdCon(_)     => write!(f, "ProdCon"),
+            QueueBenchmarks::EnqDeq(_)      => write!(f, "EnqDeq"),
+            QueueBenchmarks::EnqDeqPairs(_) => write!(f, "EnqDeqPairs"),
             // #[cfg(feature = "bfs")]
-            Benchmarks::BFS(_)         => write!(f, "BFS"),
+            QueueBenchmarks::BFS(_)         => write!(f, "BFS"),
         }
     }
 }
@@ -130,7 +130,7 @@ impl Default for Args {
             queue_size: 10000,
             delay: 10,
             path_output: "".to_string(),
-            benchmark: Benchmarks::ProdCon(ProdConArgs {
+            benchmark: QueueBenchmarks::ProdCon(ProdConArgs {
                 producers: 5,
                 consumers: 5,
             }),

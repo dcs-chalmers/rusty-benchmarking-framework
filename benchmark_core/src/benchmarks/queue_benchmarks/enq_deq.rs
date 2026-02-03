@@ -1,10 +1,11 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
-use crate::{traits::{ConcurrentQueue, Handle}, benchmarks::{calc_fairness, BenchConfig}};
+use crate::traits::{ConcurrentQueue, Handle};
+use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use std::sync::{mpsc, Arc};
 
 /// # Explanation:
@@ -14,14 +15,14 @@ use std::sync::{mpsc, Arc};
 /// * --spread              Set the spread of consumers/producers, value between 0 - 1.        Ex. --spread 0.3,  gives 30% consume, 70% produce        
 /// * --thread-count        Set the amount of threads to run in the benchmark
 #[allow(dead_code)]
-pub fn benchmark_enq_deq<C, T> (cqueue: C, bench_conf: &BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_enq_deq<C, T> (cqueue: C, bench_conf: &benchmark_helpers::BenchConfig) -> Result<(), std::io::Error>
 where
 C: ConcurrentQueue<T>,
 T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::Benchmarks::EnqDeq(a) => a,
+        crate::arguments::QueueBenchmarks::EnqDeq(a) => a,
         _ => panic!(),
     };
     {
@@ -128,7 +129,7 @@ T: Default,
         }
         vals
     };
-    let fairness = calc_fairness(ops_per_thread);
+    let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
 
     // If a thread crashed, pad the results with zero-values
     let formatted = if thread_failed.load(Ordering::Relaxed) {
@@ -171,8 +172,10 @@ T: Default,
 
 #[cfg(test)]
 mod tests {
+    use crate::arguments::Args;
+    use crate::arguments::QueueBenchmarks;
     use crate::arguments::EnqDeqArgs;
-    use crate::benchmarks::enq_deq::benchmark_enq_deq;
+    use crate::benchmarks::queue_benchmarks::enq_deq::benchmark_enq_deq;
 
     use super::*;
 
@@ -181,10 +184,10 @@ mod tests {
     #[test]
     fn run_pingpong() {
         let args = Args {
-            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: QueueBenchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
-        let bench_conf = BenchConfig {
+        let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test2".to_string(),
@@ -199,10 +202,10 @@ mod tests {
     #[test]
     fn run_pingpong_with_bool() {
         let args = Args {
-            benchmark: Benchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: QueueBenchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
             ..Default::default()
         };
-        let bench_conf = BenchConfig {
+        let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test2".to_string(),
