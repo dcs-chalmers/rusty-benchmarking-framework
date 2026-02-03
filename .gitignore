@@ -1,5 +1,6 @@
 /target
 /output
+/scripts/output
 Cargo.lock
 /venv
 src/cpp-ring-queues-research/benchmarks.sh
