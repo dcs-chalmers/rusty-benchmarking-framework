@@ -17,3 +17,24 @@ pub trait HandleQueue<T> {
     /// Pops an item from the queue.
     fn pop(&mut self) -> Option<T>;
 }
+
+/// Trait that all priority queues need to implement
+pub trait ConcurrentPriorityQueue<P: Ord, T> {
+    /// Returns a handle that exposes the priority queue API
+    fn register(&self) -> impl HandlePriorityQueue<P, T>;
+    /// Returns the name of the queue.
+    fn get_id(&self) -> String;
+    /// Used to create a new queue.
+    /// `size` is discarded for unbounded queues.
+    fn new(size: usize) -> Self;
+}
+
+/// Trait that exposes the correct API for priority queues
+pub trait HandlePriorityQueue<P: Ord, T> {
+    /// Inserts an item into the priority queue.
+    /// In case of failure, returns the item and priority that failed to insert.
+    fn insert(&mut self, priority: P, item: T) -> Result<(), (P, T)>;
+    /// Deletes the minimum item from the queue
+    /// Returns nothing if the queue is empty
+    fn delete_min(&mut self) -> Option<T>;
+}

@@ -28,7 +28,8 @@ members = [
     "data_structures/queues/seg_queue",
     "data_structures/queues/tz_queue_leak",
     "data_structures/queues/tz_queue_hp",
-    "data_structures/queues/wf_queue",
+    "data_structures/queues/wf_queue", 
+    "data_structures/priority_queues/basic_priority_queue",
 ]
 
 [workspace.dependencies]
