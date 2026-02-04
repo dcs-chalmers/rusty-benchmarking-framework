@@ -37,4 +37,12 @@ pub trait HandlePriorityQueue<P: Ord, T> {
     /// Deletes the minimum item from the queue
     /// Returns nothing if the queue is empty
     fn delete_min(&mut self) -> Option<T>;
+    /// Checks if the priority queue is empty
+    fn is_empty(&mut self) -> bool;
+    /// Peeks at the smallest key-value pair but doesn't remove it from the
+    /// queue
+    /// Returns an enum wrapped in a Some() of the form (key, value) if there 
+    /// exists a smallest value
+    /// Returns None if there is no item in the queue
+    fn min(&mut self) -> Option<(&P, &T)>;
 }
