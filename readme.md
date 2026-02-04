@@ -2,6 +2,7 @@
 This is a project to benchmark different implementations of queues (currently FIFO, LIFO, bounded or unbounded) to measure their output and performance.
 
 # Contents
+- [Disclaimer](#disclaimer)
 - [How to use](#how-to-use)
 - [Queue implementations](#queue-implementations)
 - [Benchmarks](#benchmarks)
@@ -13,6 +14,10 @@ This is a project to benchmark different implementations of queues (currently FI
 - [Output files](#output-files)
   - [BFS](#bfs)
 - [Logging](#logging)
+
+## Disclaimer
+
+This project is currently undergoing a rework. The basic functionality still works but some features don't work as described in this README. Some arguments have been reworked to support other data structures, so the description below is not currently valid. Use the `--help` command to get the up-to-date arguments. Some features don't work for certain data structures, for example, `benchmark_core/memeory_tracking` doesn't work for the priority_queue data structures. The output will also look slightly different, but this is planned to be fixed in the future.
 
 ## How to use:
 ```bash

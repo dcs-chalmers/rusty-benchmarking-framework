@@ -1,13 +1,15 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use crate::arguments::{BenchmarkTypes, QueueBenchmarks};
-use crate::traits::{ConcurrentQueue, HandleQueue};
+use crate::arguments::{BenchmarkTypes, PriorityQueueBenchmarks};
+use crate::traits::{ConcurrentPriorityQueue, HandlePriorityQueue};
 use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use std::sync::{mpsc, Arc};
+
+// TODO(emilbjornlinger): Change benchmark to something reasonable
 
 /// # Explanation:
 /// A simple benchmark that measures the throughput of a queue.
@@ -17,32 +19,33 @@ use std::sync::{mpsc, Arc};
 /// * -p        Set specified amount of producers
 /// * -c        Set specified amount of consumers
 #[allow(dead_code)]
-pub fn benchmark_prod_con<C, T>(cqueue: C, bench_conf: &benchmark_helpers::BenchConfig) -> Result<(), std::io::Error>
+pub fn benchmark_prod_con<C, P, T>(cqueue: C, bench_conf: &benchmark_helpers::BenchConfig) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentQueue<T>,
+    C: ConcurrentPriorityQueue<P, T>,
+    P: Ord + From<usize>,
     T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        BenchmarkTypes::Queue(args) => match &args.benchmark_runner {
-            QueueBenchmarks::ProdCon(a) => a,
-            _ => panic!(),
+        BenchmarkTypes::PriorityQueue(args) => match &args.benchmark_runner {
+            PriorityQueueBenchmarks::ProdCon(a) => a,
         }
         _ => panic!(),
     };
 
     let queue_args = match &bench_conf.args.benchmark {
-        BenchmarkTypes::Queue(queue_args) => queue_args.clone(),
+        BenchmarkTypes::PriorityQueue(queue_args) => queue_args.clone(),
         _ => panic!(
             "Trying to run a queue benchmark with another benchmark type"
         ),
     };
 
     {
-        debug!("Prefilling queue with {} items.", bench_conf.args.prefill_amount);
+        debug!("Prefilling priority queue with {} items.", bench_conf.args.prefill_amount);
         let mut tmp_handle = cqueue.register();
-        for _ in 0..bench_conf.args.prefill_amount {
-            let _ = tmp_handle.push(Default::default());
+        for i in 0..bench_conf.args.prefill_amount {
+            let prio: usize = i.try_into().unwrap();
+            let _ = tmp_handle.insert(P::from(prio), Default::default());
         } 
     }
     let producers = args.producers;
@@ -89,12 +92,12 @@ where
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
                 // push
-                let mut l_pushes = 0; 
+                let mut l_pushes= 0; 
                 let _thread_failed = thread_failed.clone(); // Every thread clones the thread_failed bool
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
                     // NOTE: Maybe we should care about this result?
-                    let _ = handle.push(T::default());
+                    let _ = handle.insert(P::from(l_pushes), T::default());
                     l_pushes += 1;
                     // Add some delay to simulate real workload
                     for _ in 0..bench_conf.args.delay {
@@ -135,7 +138,7 @@ where
                 barrier.wait();
                 // TODO: add empty pops probably to fairness calculations
                 while !done.load(Ordering::Relaxed) {
-                    match handle.pop() {
+                    match handle.delete_min() {
                         Some(_) => l_pops += 1,
                         None => {
                             // if bench_conf.args.empty_pops {
@@ -218,24 +221,33 @@ where
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::arguments::Args;
-    use crate::benchmarks::test_helpers::test_queue::TestQueue;
+    use crate::arguments::{Args, PQProdConArgs, PriorityQueueArgs};
+    use crate::benchmarks::test_helpers::test_priority_queue::TestPriorityQueue;
 
     #[test]
     fn run_basic_prod_con() {
-        let args = Args::default();
+        let def_args = Args::default();
+        let args = Args {
+            benchmark: BenchmarkTypes::PriorityQueue(PriorityQueueArgs {
+                queue_size: 10000,
+                benchmark_runner: PriorityQueueBenchmarks::ProdCon(PQProdConArgs {
+                    producers: 10,
+                    consumers: 10,
+                })
+            }),
+            ..def_args
+        };
         let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
             output_filename: "".to_string()
         };
-        let queue: TestQueue<i32> = TestQueue::new(0);
+        let queue: TestPriorityQueue<usize, i32> = TestPriorityQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf).is_err() {
             panic!();
         }
@@ -243,14 +255,24 @@ mod tests {
 
     #[test]
     fn run_basic_with_string() {
-        let args = Args::default();
+        let def_args = Args::default();
+        let args = Args {
+            benchmark: BenchmarkTypes::PriorityQueue(PriorityQueueArgs {
+                queue_size: 10000,
+                benchmark_runner: PriorityQueueBenchmarks::ProdCon(PQProdConArgs {
+                    producers: 10,
+                    consumers: 10,
+                })
+            }),
+            ..def_args
+        };
         let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
             output_filename: "".to_string()
         };
-        let queue = TestQueue::<String>::new(0);
+        let queue: TestPriorityQueue<usize, String> = TestPriorityQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf).is_err() {
             panic!();
         }
@@ -258,14 +280,24 @@ mod tests {
 
     #[test]
     fn run_basic_with_struct() {
-        let args = Args::default();
+        let args = Args {
+            benchmark: BenchmarkTypes::PriorityQueue(PriorityQueueArgs {
+                queue_size: 10000,
+                benchmark_runner: PriorityQueueBenchmarks::ProdCon(PQProdConArgs {
+                    producers: 10,
+                    consumers: 10,
+                })
+            }),
+            ..Default::default()
+        };
         let bench_conf = benchmark_helpers::BenchConfig {
             args,
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
             output_filename: "".to_string()
         };
-        let queue = TestQueue::<Args>::new(0);
+        // TODO(emilbjornlinger): Change this struct
+        let queue: TestPriorityQueue<usize, Args> = TestPriorityQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf).is_err() {
             panic!();
         }

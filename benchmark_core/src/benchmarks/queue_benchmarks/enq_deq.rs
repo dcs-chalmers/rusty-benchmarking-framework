@@ -1,6 +1,7 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
+use crate::arguments::{BenchmarkTypes, QueueBenchmarks};
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
@@ -22,9 +23,20 @@ T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::QueueBenchmarks::EnqDeq(a) => a,
+        BenchmarkTypes::Queue(args) => match &args.benchmark_runner {
+            QueueBenchmarks::EnqDeq(a) => a,
+            _ => panic!(),
+        }
         _ => panic!(),
     };
+
+    let queue_args = match &bench_conf.args.benchmark {
+        BenchmarkTypes::Queue(queue_args) => queue_args.clone(),
+        _ => panic!(
+            "Trying to run a queue benchmark with another benchmark type"
+        ),
+    };
+
     {
         debug!("Prefilling queue with {} items.", bench_conf.args.prefill_amount);
         let mut tmp_handle = cqueue.register();
@@ -85,7 +97,7 @@ T: Default,
                             match handle.pop() {
                                 Some(_) => l_pops += 1,
                                 None => {
-                                    if bench_conf.args.empty_pops {
+                                    if queue_args.empty_pops {
                                         l_pops += 1;
                                     }
                                 }
@@ -139,7 +151,7 @@ T: Default,
             bench_conf.args.benchmark,
             bench_conf.benchmark_id,
             args.spread,
-            bench_conf.args.queue_size
+            queue_args.queue_size
             )
     }
     else {
@@ -155,7 +167,7 @@ T: Default,
         bench_conf.benchmark_id,
         fairness,
         args.spread,
-        bench_conf.args.queue_size)
+        queue_args.queue_size)
     };
     // Write to file or stdout depending on flag
     if !bench_conf.args.write_to_stdout {
@@ -174,7 +186,8 @@ T: Default,
 mod tests {
     use crate::arguments::Args;
     use crate::arguments::QueueBenchmarks;
-    use crate::arguments::EnqDeqArgs;
+    use crate::arguments::QueueEnqDeqArgs;
+    use crate::arguments::QueueArgs;
     use crate::benchmarks::queue_benchmarks::enq_deq::benchmark_enq_deq;
 
     use super::*;
@@ -184,7 +197,14 @@ mod tests {
     #[test]
     fn run_pingpong() {
         let args = Args {
-            benchmark: QueueBenchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: BenchmarkTypes::Queue(QueueArgs {
+                empty_pops: Default::default(),
+                queue_size: 10000,
+                benchmark_runner: QueueBenchmarks::EnqDeq(QueueEnqDeqArgs {
+                    thread_count: 10,
+                    spread: 0.5,
+                })
+            }),
             ..Default::default()
         };
         let bench_conf = benchmark_helpers::BenchConfig {
@@ -202,7 +222,14 @@ mod tests {
     #[test]
     fn run_pingpong_with_bool() {
         let args = Args {
-            benchmark: QueueBenchmarks::EnqDeq(EnqDeqArgs { thread_count: 10, spread: 0.5 }),
+            benchmark: BenchmarkTypes::Queue(QueueArgs {
+                empty_pops: Default::default(),
+                queue_size: 10000,
+                benchmark_runner: QueueBenchmarks::EnqDeq(QueueEnqDeqArgs {
+                    thread_count: 10,
+                    spread: 0.5,
+                })
+            }),
             ..Default::default()
         };
         let bench_conf = benchmark_helpers::BenchConfig {

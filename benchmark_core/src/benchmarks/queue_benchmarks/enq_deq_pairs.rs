@@ -2,6 +2,7 @@ use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
+use crate::arguments::{BenchmarkTypes, QueueBenchmarks};
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers;
 use std::fs::OpenOptions;
@@ -17,9 +18,20 @@ T: Default,
     for<'a> &'a C: Send
 {
     let args = match &bench_conf.args.benchmark {
-        crate::arguments::QueueBenchmarks::EnqDeqPairs(a) => a,
+        BenchmarkTypes::Queue(args) => match &args.benchmark_runner {
+            QueueBenchmarks::EnqDeqPairs(a) => a,
+            _ => panic!(),
+        }
         _ => panic!(),
     };
+
+    let queue_args = match &bench_conf.args.benchmark {
+        BenchmarkTypes::Queue(queue_args) => queue_args.clone(),
+        _ => panic!(
+            "Trying to run a queue benchmark with another benchmark type"
+        ),
+    };
+
     {
         debug!("Prefilling queue with {} items.", bench_conf.args.prefill_amount);
         let mut tmp_handle = cqueue.register();
@@ -122,7 +134,7 @@ T: Default,
             bench_conf.args.benchmark,
             bench_conf.benchmark_id,
             -1,
-            bench_conf.args.queue_size
+            queue_args.queue_size
             )
     }
     else {
@@ -138,7 +150,7 @@ T: Default,
         bench_conf.benchmark_id,
         fairness,
         -1,
-        bench_conf.args.queue_size)
+        queue_args.queue_size)
     };
     // Write to file or stdout depending on flag
     if !bench_conf.args.write_to_stdout {
@@ -156,8 +168,9 @@ T: Default,
 #[cfg(test)]
 mod tests {
     use crate::arguments::Args;
-    use crate::arguments::EnqDeqPairsArgs;
+    use crate::arguments::QueueEnqDeqPairsArgs;
     use crate::arguments::QueueBenchmarks;
+    use crate::arguments::QueueArgs;
     use crate::benchmarks::queue_benchmarks::enq_deq_pairs::benchmark_enq_deq_pairs;
 
     use super::*;
@@ -167,7 +180,13 @@ mod tests {
     #[test]
     fn run_enqdeq_pairs_with_struct() {
         let args = Args {
-            benchmark: QueueBenchmarks::EnqDeqPairs(EnqDeqPairsArgs { thread_count: 10 }),
+            benchmark: BenchmarkTypes::Queue(QueueArgs {
+                empty_pops: Default::default(),
+                queue_size: 10000,
+                benchmark_runner: QueueBenchmarks::EnqDeqPairs(QueueEnqDeqPairsArgs {
+                    thread_count: 10,
+                })
+            }),
             ..Default::default()
         };
         let bench_conf = benchmark_helpers::BenchConfig {

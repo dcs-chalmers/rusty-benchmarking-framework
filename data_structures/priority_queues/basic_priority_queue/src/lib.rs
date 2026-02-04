@@ -55,10 +55,6 @@ impl<P: Ord, T> BinHeapWrap<P, T> {
         self.bin_heap.lock().unwrap().is_empty()
     }
 
-    pub fn min(&self) -> Option<&KeyValuePair> {
-        self.bin_heap.lock().unwrap().peek()
-    }
-
     pub fn new() -> Self {
         BinHeapWrap {
             bin_heap: Mutex::new(BinaryHeap::new()),
@@ -99,25 +95,19 @@ impl<P: Ord, T> ConcurrentPriorityQueue<P, T> for BasicPriorityQueue<P, T> {
 impl<P: Ord, T> HandlePriorityQueue<P, T>
     for BasicPriorityQueueHandle<'_, P, T>
 {
-    fn insert(&self, priority: P, item: T) -> Result<(), (P, T)> {
+    fn insert(&mut self, priority: P, item: T) -> Result<(), (P, T)> {
         let kv_pair = KeyValuePair::new(priority, item);
         self.priority_queue.basic_priority_queue.insert(kv_pair);
         Ok(())
     }
-    fn delete_min(&self) -> Option<T> {
+    fn delete_min(&mut self) -> Option<T> {
         match self.priority_queue.basic_priority_queue.delete_min() {
             Some(kv_pair) => Some(kv_pair.item),
             None => None,
         }
     }
-    fn is_empty(&self) -> bool {
+    fn is_empty(&mut self) -> bool {
         self.priority_queue.basic_priority_queue.is_empty()
-    }
-    fn min(&self) -> Option<(&P, &T)> {
-        match self.priority_queue.basic_priority_queue.min() {
-            Some(kv_pair) => Some((kv_pair.key, kv_pair.item)),
-            None => None,
-        }
     }
 }
 

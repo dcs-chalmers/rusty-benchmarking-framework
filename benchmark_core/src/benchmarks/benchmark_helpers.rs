@@ -1,8 +1,8 @@
-#[cfg(feature = "memory_tracking")]
-use jemalloc_ctl::{epoch, stats};
 use crate::arguments::Args;
 #[cfg(feature = "memory_tracking")]
 use crate::traits::ConcurrentQueue;
+#[cfg(feature = "memory_tracking")]
+use jemalloc_ctl::{epoch, stats};
 use log::{debug, error, trace};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -20,16 +20,15 @@ pub struct BenchConfig {
 }
 
 #[cfg(feature = "memory_tracking")]
-pub fn create_mem_tracking_thread<Q,T>(
+pub fn create_mem_tracking_thread<Q, T>(
     bench_conf: &BenchConfig,
     _current_iteration: u32,
     test_q: &Q,
-    _done: &std::sync::Arc<AtomicBool>)
--> Result<std::thread::JoinHandle<Result<(), std::io::Error>>, std::io::Error>
+    _done: &std::sync::Arc<AtomicBool>,
+) -> Result<std::thread::JoinHandle<Result<(), std::io::Error>>, std::io::Error>
 where
-    Q: ConcurrentQueue<T>
+    Q: ConcurrentQueue<T>,
 {
-
     use std::sync::atomic::Ordering;
     // TODO: Check if core stuff is possible here as well.
     // let mut core : CoreId = core_iter.next().unwrap();
@@ -47,7 +46,10 @@ where
     // Create file if printing to stdout is disabled
     let top_line = "Memory Allocated,Queuetype,Benchmark,Test ID,Iteration";
     let mut memfile = if !to_stdout {
-        let output_filename = format!("{}/mem{}", bench_conf.args.path_output, bench_conf.date_time);
+        let output_filename = format!(
+            "{}/mem{}",
+            bench_conf.args.path_output, bench_conf.date_time
+        );
         let mut file = OpenOptions::new()
             .append(true)
             .create(true)
@@ -66,7 +68,7 @@ where
     // Spawn thread to check total memory allocated every 50ms
     let interval = bench_conf.args.memory_tracking_interval;
     debug!("Spawning memory thread.");
-    Ok(std::thread::spawn(move|| -> Result<(), std::io::Error>{
+    Ok(std::thread::spawn(move || -> Result<(), std::io::Error> {
         while !_done.load(Ordering::Relaxed) {
             // Update stats
             if let Err(e) = epoch::advance() {
@@ -75,7 +77,14 @@ where
             // Get allocated bytes
             let allocated = stats::allocated::read().unwrap();
 
-            let output = format!("{},{},{},{},{}", allocated, queue_type, bench_type, &benchmark_id, _current_iteration);
+            let output = format!(
+                "{},{},{},{},{}",
+                allocated,
+                queue_type,
+                bench_type,
+                &benchmark_id,
+                _current_iteration
+            );
 
             match &mut memfile {
                 Some(file) => writeln!(file, "{}", output)?,
@@ -96,7 +105,7 @@ pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
 
     let length: f64 = ops_per_thread.len() as f64;
     debug!("The vector {:?}", ops_per_thread);
-    debug!("Sum: {}, Length: {}",sum, length);
+    debug!("Sum: {}, Length: {}", sum, length);
 
     // The thread that does the least amount of ops
     let minop: f64 = match ops_per_thread.iter().min() {
@@ -118,20 +127,27 @@ pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
     };
     trace!("Maxop fairness: {}", maxop);
 
-    let fairness: f64 = f64::min((length * minop) /  sum as f64, sum as f64 / (length * maxop));
+    let fairness: f64 =
+        f64::min((length * minop) / sum as f64, sum as f64 / (length * maxop));
 
     debug!("Calculated fairness: {}", fairness);
     fairness
 }
 
 /// Function to print the specifications of the hardware used and the benchmnark configs that ran
-pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io::Error>{
+pub fn print_info(
+    queue: String,
+    bench_conf: &BenchConfig,
+) -> Result<(), std::io::Error> {
     // Create file if printing to stdout is disabled
     if bench_conf.args.write_to_stdout {
         return Ok(());
     }
     let memfile = {
-        let output_filename = format!("{}/info{}.txt", bench_conf.args.path_output, bench_conf.benchmark_id);
+        let output_filename = format!(
+            "{}/info{}.txt",
+            bench_conf.args.path_output, bench_conf.benchmark_id
+        );
         let file = OpenOptions::new()
             .append(true)
             .create(true)
@@ -141,7 +157,11 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
     let num: u64 = 1000;
     let sys = System::new_all();
     if let Some(mut file) = memfile {
-        writeln!(file, "Benchmark done:              {}", bench_conf.args.benchmark)?;
+        writeln!(
+            file,
+            "Benchmark done:              {}",
+            bench_conf.args.benchmark
+        )?;
         writeln!(file, "With queue:             {}", queue)?;
 
         writeln!(file, "Arguments used in test:")?;
@@ -149,12 +169,22 @@ pub fn print_info(queue: String, bench_conf: &BenchConfig) -> Result<(), std::io
 
         writeln!(file, "Test ran on hardware specs:")?;
         writeln!(file, "System name:            {}", System::name().unwrap())?;
-        writeln!(file, "System kernel version:  {}", System::kernel_version().unwrap())?;
-        writeln!(file, "System OS version:      {}", System::os_version().unwrap())?;
-        writeln!(file, "Total RAM (in GB):      {:?}", sys.total_memory()/(num.pow(3)))?;
-
-    }
-    else {
+        writeln!(
+            file,
+            "System kernel version:  {}",
+            System::kernel_version().unwrap()
+        )?;
+        writeln!(
+            file,
+            "System OS version:      {}",
+            System::os_version().unwrap()
+        )?;
+        writeln!(
+            file,
+            "Total RAM (in GB):      {:?}",
+            sys.total_memory() / (num.pow(3))
+        )?;
+    } else {
         eprintln!("Error producing info file")
     }
     Ok(())

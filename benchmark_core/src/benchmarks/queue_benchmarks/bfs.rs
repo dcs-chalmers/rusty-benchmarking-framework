@@ -1,4 +1,4 @@
-use crate::arguments::{BFSArgs, QueueBenchmarks};
+use crate::arguments::{QueueBFSArgs, BenchmarkTypes, QueueBenchmarks};
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers;
 use std::{fs::OpenOptions, sync::{atomic::{AtomicUsize, Ordering}, Barrier}};
@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader, Write};
 
 /// Generates the graph, generates the sequential solution and gets which
 /// node to start at.
-pub fn pre_bfs_work<C>(cqueue: C, args: &BFSArgs)
+pub fn pre_bfs_work<C>(cqueue: C, args: &QueueBFSArgs)
     -> (Vec<Vec<usize>>, Vec<usize>, usize)
 where
 C: ConcurrentQueue<usize>,
@@ -67,9 +67,11 @@ where
 C: ConcurrentQueue<usize>,
     for<'a> &'a C: Send
 {
-    assert!(matches!(bench_conf.args.benchmark, QueueBenchmarks::BFS(_)));
     let args = match &bench_conf.args.benchmark {
-        QueueBenchmarks::BFS(a) => a,
+        BenchmarkTypes::Queue(args) => match &args.benchmark_runner {
+            QueueBenchmarks::BFS(a) => a,
+            _ => panic!(),
+        }
         _ => panic!(),
     };
     let thread_count = args.thread_count;
