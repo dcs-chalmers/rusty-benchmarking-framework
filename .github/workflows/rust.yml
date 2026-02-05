@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install Boost
-      run: sudo apt-get install -y libboost-all-dev
+      run: sudo apt-get update && sudo apt-get install -y libboost-all-dev
     - name: Get submodules
       run: git submodule init && git submodule update
     - name: Build
