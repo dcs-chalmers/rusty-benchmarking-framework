@@ -1,15 +1,13 @@
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use crate::arguments::{PriorityQueueArgs, PriorityQueueBenchmarks};
-use crate::traits::{ConcurrentPriorityQueue, HandlePriorityQueue};
+use crate::arguments::{FifoQueueArgs, FifoQueueBenchmarks};
+use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers::{self, BenchConfig};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use std::sync::{mpsc, Arc};
-
-// TODO(emilbjornlinger): Change benchmark to something reasonable
 
 /// # Explanation:
 /// A simple benchmark that measures the throughput of a queue.
@@ -19,24 +17,24 @@ use std::sync::{mpsc, Arc};
 /// * -p        Set specified amount of producers
 /// * -c        Set specified amount of consumers
 #[allow(dead_code)]
-pub fn benchmark_prod_con<C, P, T>(cqueue: C, bench_conf: &BenchConfig, pq_args: &PriorityQueueArgs) -> Result<(), std::io::Error>
+pub fn benchmark_prod_con<C, T>(cqueue: C, bench_conf: &BenchConfig, fifo_queue_args: &FifoQueueArgs) -> Result<(), std::io::Error>
 where 
-    C: ConcurrentPriorityQueue<P, T>,
-    P: Ord + From<usize>,
+    C: ConcurrentQueue<T>,
     T: Default,
     for<'a> &'a C: Send
 {
     // Extract specific arguments for this benchmark runner
-    let prod_con_args = match &pq_args.benchmark_runner {
-        PriorityQueueBenchmarks::ProdCon(a) => a,
+    let prod_con_args = match &fifo_queue_args.benchmark_runner {
+        FifoQueueBenchmarks::ProdCon(a) => a,
+        _ => panic!("benchmark_prod_con called with another FIFO Queue \
+            configured. This is an implementation error.")
     };
 
     {
-        debug!("Prefilling priority queue with {} items.", pq_args.prefill_amount);
+        debug!("Prefilling queue with {} items.", fifo_queue_args.prefill_amount);
         let mut tmp_handle = cqueue.register();
-        for i in 0..pq_args.prefill_amount {
-            let prio: usize = i.try_into().unwrap();
-            let _ = tmp_handle.insert(P::from(prio), Default::default());
+        for _ in 0..fifo_queue_args.prefill_amount {
+            let _ = tmp_handle.push(Default::default());
         } 
     }
     let producers = prod_con_args.producers;
@@ -83,12 +81,12 @@ where
                 core_affinity::set_for_current(core);
                 let mut handle = queue.register();
                 // push
-                let mut l_pushes= 0; 
+                let mut l_pushes = 0; 
                 let _thread_failed = thread_failed.clone(); // Every thread clones the thread_failed bool
                 barrier.wait();
                 while !done.load(Ordering::Relaxed) {
                     // NOTE: Maybe we should care about this result?
-                    let _ = handle.insert(P::from(l_pushes), T::default());
+                    let _ = handle.push(T::default());
                     l_pushes += 1;
                     // Add some delay to simulate real workload
                     for _ in 0..bench_conf.args.delay {
@@ -129,7 +127,7 @@ where
                 barrier.wait();
                 // TODO: add empty pops probably to fairness calculations
                 while !done.load(Ordering::Relaxed) {
-                    match handle.delete_min() {
+                    match handle.pop() {
                         Some(_) => l_pops += 1,
                         None => {
                             // if bench_conf.args.empty_pops {
@@ -179,7 +177,7 @@ where
     };
     // If a thread crashed, pad the results with zero-values 
     let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, cqueue.get_id(), pq_args.benchmark_runner, bench_conf.benchmark_id, pq_args.queue_size)
+        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, cqueue.get_id(), fifo_queue_args.benchmark_runner, bench_conf.benchmark_id, fifo_queue_args.queue_size)
     }
     else {
         let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
@@ -191,11 +189,11 @@ where
             producers,
             -1,
             cqueue.get_id(),
-            pq_args.benchmark_runner,
+            fifo_queue_args.benchmark_runner,
             bench_conf.benchmark_id,
             fairness,
             -1,
-            pq_args.queue_size)
+            fifo_queue_args.queue_size)
     };
     if !bench_conf.args.write_to_stdout {
         let mut file = OpenOptions::new()
@@ -212,55 +210,54 @@ where
     Ok(())
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use crate::arguments::PriorityQueueArgs;
-
-    use crate::benchmarks::test_helpers::test_priority_queue::TestPriorityQueue;
+    use crate::benchmarks::test_helpers::test_queue::TestQueue;
 
     #[test]
     fn run_basic_prod_con() {
-        let pq_args = PriorityQueueArgs::default();
-        let bench_conf = BenchConfig {
-            args: pq_args.general_args.clone(),
+        let fifo_queue_args = FifoQueueArgs::default();
+        let bench_conf = benchmark_helpers::BenchConfig {
+            args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
             output_filename: "".to_string()
         };
-        let queue: TestPriorityQueue<usize, i32> = TestPriorityQueue::new(0);
-        if benchmark_prod_con(queue, &bench_conf, &pq_args).is_err() {
+        let queue: TestQueue<i32> = TestQueue::new(0);
+        if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
             panic!();
         }
     }
 
     #[test]
     fn run_basic_with_string() {
-        let pq_args = PriorityQueueArgs::default();
-        let bench_conf = BenchConfig {
-            args: pq_args.general_args.clone(),
+        let fifo_queue_args = FifoQueueArgs::default();
+        let bench_conf = benchmark_helpers::BenchConfig {
+            args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
             output_filename: "".to_string()
         };
-        let queue: TestPriorityQueue<usize, String> = TestPriorityQueue::new(0);
-        if benchmark_prod_con(queue, &bench_conf, &pq_args).is_err() {
+        let queue: TestQueue<String> = TestQueue::new(0);
+        if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
             panic!();
         }
     }
 
     #[test]
     fn run_basic_with_struct() {
-        let pq_args = PriorityQueueArgs::default();
-        let bench_conf = BenchConfig {
-            args: pq_args.general_args.clone(),
+        let fifo_queue_args = FifoQueueArgs::default();
+        let bench_conf = benchmark_helpers::BenchConfig {
+            args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
             output_filename: "".to_string()
         };
-        let queue: TestPriorityQueue<usize, PriorityQueueArgs> = TestPriorityQueue::new(0);
-        if benchmark_prod_con(queue, &bench_conf, &pq_args).is_err() {
+        let queue: TestQueue<FifoQueueArgs> = TestQueue::new(0);
+        if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
             panic!();
         }
     }

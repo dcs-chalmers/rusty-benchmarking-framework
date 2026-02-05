@@ -1,10 +1,13 @@
-use crate::arguments::Args;
+use crate::arguments::GeneralArgs;
 #[cfg(feature = "memory_tracking")]
 use crate::traits::ConcurrentQueue;
+use chrono::Local;
 #[cfg(feature = "memory_tracking")]
 use jemalloc_ctl::{epoch, stats};
 use log::{debug, error, trace};
+use std::collections::hash_map::DefaultHasher;
 use std::fs::OpenOptions;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 #[cfg(feature = "memory_tracking")]
 use std::sync::atomic::AtomicBool;
@@ -13,7 +16,7 @@ use sysinfo::System;
 /// Benchmark config struct
 /// Needs to be fully filled for benchmarks to be able to run.
 pub struct BenchConfig {
-    pub args: Args,
+    pub args: GeneralArgs,
     pub date_time: String,
     pub benchmark_id: String,
     pub output_filename: String,
@@ -138,6 +141,7 @@ pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
 pub fn print_info(
     queue: String,
     bench_conf: &BenchConfig,
+    benchmark: String,
 ) -> Result<(), std::io::Error> {
     // Create file if printing to stdout is disabled
     if bench_conf.args.write_to_stdout {
@@ -157,11 +161,7 @@ pub fn print_info(
     let num: u64 = 1000;
     let sys = System::new_all();
     if let Some(mut file) = memfile {
-        writeln!(
-            file,
-            "Benchmark done:              {}",
-            bench_conf.args.benchmark
-        )?;
+        writeln!(file, "Benchmark done:              {}", benchmark)?;
         writeln!(file, "With queue:             {}", queue)?;
 
         writeln!(file, "Arguments used in test:")?;
@@ -187,5 +187,52 @@ pub fn print_info(
     } else {
         eprintln!("Error producing info file")
     }
+    Ok(())
+}
+
+pub fn create_bench_config(
+    general_args: &GeneralArgs,
+) -> Result<BenchConfig, std::io::Error> {
+    let date_time = Local::now().format("%Y%m%d%H%M%S").to_string();
+
+    // Create benchmark hashed id
+    let benchmark_id = {
+        let mut hasher = DefaultHasher::new();
+        date_time.hash(&mut hasher);
+        format!("{:x}", hasher.finish())
+    };
+
+    debug!("Benchmark ID: {}", benchmark_id);
+    debug!("Arguments: {:?}", general_args);
+
+    // Create dir if it doesn't already exist.
+    if !std::path::Path::new(&general_args.path_output).exists() {
+        std::fs::create_dir(&general_args.path_output)?;
+    }
+
+    let output_filename = format!("{}/{}", general_args.path_output, date_time);
+
+    Ok(BenchConfig {
+        args: general_args.clone(),
+        date_time,
+        benchmark_id,
+        output_filename,
+    })
+}
+
+pub fn output_result_header(
+    output: String,
+    bench_config: &BenchConfig,
+) -> Result<(), std::io::Error> {
+    if bench_config.args.write_to_stdout {
+        println!("{output}")
+    } else {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_config.output_filename)?;
+        writeln!(file, "{output}")?;
+    }
+
     Ok(())
 }
