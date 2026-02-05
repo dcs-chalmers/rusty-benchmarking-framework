@@ -1,4 +1,5 @@
 /// A simple ConcurrentQueue implementation for testing
+#[cfg(test)]
 pub(crate) mod test_queue {
     use crate::traits::{ConcurrentQueue, HandleQueue};
     use std::collections::VecDeque;
@@ -41,6 +42,7 @@ pub(crate) mod test_queue {
 }
 
 /// A very simple ConcurrentPriorityQueue implementation for testing
+#[cfg(test)]
 pub(crate) mod test_priority_queue {
     use crate::traits::{ConcurrentPriorityQueue, HandlePriorityQueue};
     use std::cmp::{Ordering, Reverse};
