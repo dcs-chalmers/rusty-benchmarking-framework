@@ -2,6 +2,7 @@
 This is a project to benchmark different implementations of queues (currently FIFO, LIFO, bounded or unbounded) to measure their output and performance.
 
 # Contents
+- [Disclaimer](#disclaimer)
 - [How to use](#how-to-use)
 - [Queue implementations](#queue-implementations)
 - [Benchmarks](#benchmarks)
@@ -13,6 +14,10 @@ This is a project to benchmark different implementations of queues (currently FI
 - [Output files](#output-files)
   - [BFS](#bfs)
 - [Logging](#logging)
+
+## Disclaimer
+
+This project is currently undergoing a rework. The basic functionality still works but some features don't work as described in this README. Some arguments have been reworked to support other data structures, so the description below is not currently valid. Use the `--help` command to get the up-to-date arguments. Some features don't work for certain data structures, for example, `benchmark_core/memeory_tracking` doesn't work for the priority_queue data structures. The output will also look slightly different, but this is planned to be fixed in the future.
 
 ## How to use:
 ```bash
@@ -112,7 +117,7 @@ Your queue will have to implement the traits found in `src/traits.rs` so that th
 /// The required queue trait.
 pub trait ConcurrentQueue<T> {
     /// Returns a thread-local handle for the queue.
-    fn register(&self) -> impl Handle<T>;
+    fn register(&self) -> impl HandleQueue<T>;
 
     /// Returns the name of the queue.
     fn get_id(&self) -> String;
@@ -123,7 +128,7 @@ pub trait ConcurrentQueue<T> {
 }
 
 /// The required queue handle trait.
-pub trait Handle<T> {
+pub trait HandleQueue<T> {
     /// Pushes an item to the queue.
     /// If it fails, returns the item pushed.
     fn push(&mut self, item: T) -> Result<(), T>;
@@ -252,7 +257,7 @@ Now all that is left is to create the Rust queue files. Create `lib.rs` and `mai
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use benchmark_core::traits::{ConcurrentQueue, Handle};
+use benchmark_core::traits::{ConcurrentQueue, HandleQueue};
 
 // Include the generated bindings
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
@@ -297,7 +302,7 @@ struct YourQueueHandle<'a,T> {
     pub q: &'a YourCppQueue<T>
 }
 
-impl<T> Handle<T> for YourCppQueueHandle<'_,T> {
+impl<T> HandleQueue<T> for YourCppQueueHandle<'_,T> {
     fn push(&mut self, item: T) -> Result<(), T> {
         let ptr: *mut std::ffi::c_void = Box::<T>::into_raw(Box::new(item)) as *mut std::ffi::c_void;
         match self.q.push(ptr) {
@@ -318,7 +323,7 @@ impl<T> Handle<T> for YourCppQueueHandle<'_,T> {
 }
 
 impl<T> ConcurrentQueue<T> for YourCppQueue<T> {
-    fn register(&self) -> impl Handle<T> {
+    fn register(&self) -> impl HandleQueue<T> {
         YourCppQueueHandle {
             q: self,
         }
