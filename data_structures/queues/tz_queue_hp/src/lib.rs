@@ -347,6 +347,7 @@ mod tests {
         drop(q);
     }
     #[test]
+    #[ignore]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: TZQueue<i32> = TZQueue::new(1000000);

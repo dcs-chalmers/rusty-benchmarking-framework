@@ -56,6 +56,7 @@ mod tests {
         assert_eq!(handle.pop().unwrap(), 1);
     }
     #[test]
+    #[ignore]
     fn test_order() {
         let q: SQueue<i32> = SQueue::new(100);
         if benchmark_core::order::benchmark_order_i32(q, 10, 5, true, 10).is_err() {

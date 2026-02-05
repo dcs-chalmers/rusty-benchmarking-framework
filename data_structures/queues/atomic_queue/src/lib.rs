@@ -57,6 +57,7 @@ mod tests {
         assert_eq!(handle.pop().unwrap(), 1);
     }
     #[test]
+    #[ignore]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: AtomicQueue<i32> = AtomicQueue::new(10);

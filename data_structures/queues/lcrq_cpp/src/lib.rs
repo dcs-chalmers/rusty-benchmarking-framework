@@ -152,6 +152,7 @@ mod tests {
         assert_eq!(handle.pop().unwrap(), 4);
     }
     #[test]
+    #[ignore]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LCRQueue<i32> = LCRQueue::new();

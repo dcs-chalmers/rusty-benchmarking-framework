@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn test_order_basic_priority_queue() {
+    fn basic_usage_basic_priority_queue() {
         let pq = BasicPriorityQueue::<i32, i32>::new(0);
 
         let mut handle = pq.register();

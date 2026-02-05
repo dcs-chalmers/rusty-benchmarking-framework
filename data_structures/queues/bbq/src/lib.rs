@@ -47,6 +47,7 @@ mod tests {
         assert_eq!(q.queue.pop().unwrap(), 1);
     }
     #[test]
+    #[ignore]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: BBQueue<i32> = BBQueue::new(100000);

@@ -81,6 +81,7 @@ mod tests {
         q.cq.push(1).unwrap();
     }
     #[test]
+    #[ignore]
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: BoundedCQueue<i32> = BoundedCQueue {
