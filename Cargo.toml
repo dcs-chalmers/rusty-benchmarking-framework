@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "benchmark_core",
+    "memory_management",
     "data_structures/fifo_queues/array_queue",
     "data_structures/fifo_queues/atomic_queue",
     "data_structures/fifo_queues/basic_queue",
