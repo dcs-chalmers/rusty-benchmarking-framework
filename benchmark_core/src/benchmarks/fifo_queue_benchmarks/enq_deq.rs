@@ -105,7 +105,9 @@ T: Default,
                             l_pushes += 1;
                         }
                         for _ in 0..bench_conf.args.delay {
-                            let _some_num = rand::rng().random::<f64>();
+                            let _some_num = std::hint::black_box(
+                                rand::rng().random::<f64>()
+                            );
                         }
                     }
             

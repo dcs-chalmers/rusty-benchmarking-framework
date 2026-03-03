@@ -90,7 +90,9 @@ where
                     l_pushes += 1;
                     // Add some delay to simulate real workload
                     for _ in 0..bench_conf.args.delay {
-                        let _some_num = rand::rng().random::<f64>();
+                        let _some_num = std::hint::black_box(
+                            rand::rng().random::<f64>()
+                        );
                     }
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
@@ -137,7 +139,9 @@ where
                         }
                     }
                     for _ in 0..bench_conf.args.delay {
-                        let _some_num = rand::rng().random::<f64>();
+                        let _some_num = std::hint::black_box(
+                            rand::rng().random::<f64>()
+                        );
                     }
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
