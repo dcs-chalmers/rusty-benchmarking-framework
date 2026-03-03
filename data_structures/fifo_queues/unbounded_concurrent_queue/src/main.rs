@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<unbounded_concurrent_queue::UnboundedCQueue<usize>>("unbounded_concurrent_queue") {
+    match benchmark_fifo_queue::<unbounded_concurrent_queue::UnboundedCQueue<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<faaa_queue::FAAAQueue<usize>>("faa_array_queue") {
+    match benchmark_fifo_queue::<faaa_queue::FAAAQueue<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

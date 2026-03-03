@@ -15,7 +15,7 @@ pub mod enq_deq_pairs;
 pub mod prod_con;
 
 /// Create the fifo queue, and run the selected benchmark a set of times
-pub fn benchmark_fifo_queue<Q>(queue_name: &str) -> Result<(), std::io::Error>
+pub fn benchmark_fifo_queue<Q>() -> Result<(), std::io::Error>
 where
     Q: ConcurrentQueue<usize> + Send,
     for<'a> &'a Q: Send,
@@ -102,7 +102,7 @@ where
 
     if bench_conf.args.print_info {
         benchmark_helpers::print_info(
-            queue_name.to_string(),
+            Q::get_id().to_string(),
             &bench_conf,
             fifo_queue_args.benchmark_runner.to_string(),
         )?;

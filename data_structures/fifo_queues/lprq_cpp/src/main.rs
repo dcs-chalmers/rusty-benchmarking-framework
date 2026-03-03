@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<lprq_cpp::LPRQueue<usize>>("lprq_queue_cpp") {
+    match benchmark_fifo_queue::<lprq_cpp::LPRQueue<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<scc2_stack::SCC2Stack<usize>>("scc2_stack") {
+    match benchmark_fifo_queue::<scc2_stack::SCC2Stack<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);
