@@ -139,9 +139,9 @@ pub fn calc_fairness(ops_per_thread: Vec<usize>) -> f64 {
 
 /// Function to print the specifications of the hardware used and the benchmnark configs that ran
 pub fn print_info(
-    queue: String,
+    data_structure_name: &str,
     bench_conf: &BenchConfig,
-    benchmark: String,
+    benchmark_name: String,
 ) -> Result<(), std::io::Error> {
     // Create file if printing to stdout is disabled
     if bench_conf.args.write_to_stdout {
@@ -161,8 +161,8 @@ pub fn print_info(
     let num: u64 = 1000;
     let sys = System::new_all();
     if let Some(mut file) = memfile {
-        writeln!(file, "Benchmark done:              {}", benchmark)?;
-        writeln!(file, "With queue:             {}", queue)?;
+        writeln!(file, "Benchmark done:              {}", benchmark_name)?;
+        writeln!(file, "With data structure:             {}", data_structure_name)?;
 
         writeln!(file, "Arguments used in test:")?;
         writeln!(file, "\n{}\n", bench_conf.args)?;

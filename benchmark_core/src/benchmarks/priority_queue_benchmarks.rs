@@ -81,7 +81,7 @@ where
 
     if bench_conf.args.print_info {
         benchmark_helpers::print_info(
-            queue_name.to_string(),
+            queue_name,
             bench_conf,
             pq_args.benchmark_runner.to_string(),
         )?;

@@ -102,7 +102,7 @@ where
 
     if bench_conf.args.print_info {
         benchmark_helpers::print_info(
-            Q::get_id().to_string(),
+            Q::get_id(),
             &bench_conf,
             fifo_queue_args.benchmark_runner.to_string(),
         )?;
