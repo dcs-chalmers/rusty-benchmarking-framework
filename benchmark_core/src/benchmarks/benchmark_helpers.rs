@@ -20,17 +20,16 @@ pub struct BenchConfig {
     pub date_time: String,
     pub benchmark_id: String,
     pub output_filename: String,
+    pub benchmark_name: String,
 }
 
 #[cfg(feature = "memory_tracking")]
-pub fn create_mem_tracking_thread<Q, T>(
+pub fn create_mem_tracking_thread(
     bench_conf: &BenchConfig,
+    data_structure_name: String,
     _current_iteration: u32,
-    test_q: &Q,
     _done: &std::sync::Arc<AtomicBool>,
 ) -> Result<std::thread::JoinHandle<Result<(), std::io::Error>>, std::io::Error>
-where
-    Q: ConcurrentQueue<T>,
 {
     use std::sync::atomic::Ordering;
     // TODO: Check if core stuff is possible here as well.
@@ -42,12 +41,11 @@ where
     // }
     let _done = std::sync::Arc::clone(_done);
     let benchmark_id = bench_conf.benchmark_id.clone();
-    let bench_type = format!("{}", bench_conf.args.benchmark);
+    let bench_type = bench_conf.benchmark_name.clone();
     let to_stdout = bench_conf.args.write_to_stdout;
-    let queue_type = test_q.get_id();
 
     // Create file if printing to stdout is disabled
-    let top_line = "Memory Allocated,Queuetype,Benchmark,Test ID,Iteration";
+    let top_line = "Memory Allocated,Data Structure,Benchmark,Test ID,Iteration";
     let mut memfile = if !to_stdout {
         let output_filename = format!(
             "{}/mem{}",
@@ -83,7 +81,7 @@ where
             let output = format!(
                 "{},{},{},{},{}",
                 allocated,
-                queue_type,
+                data_structure_name,
                 bench_type,
                 &benchmark_id,
                 _current_iteration
@@ -192,6 +190,7 @@ pub fn print_info(
 
 pub fn create_bench_config(
     general_args: &GeneralArgs,
+    benchmark_name: String,
 ) -> Result<BenchConfig, std::io::Error> {
     let date_time = Local::now().format("%Y%m%d%H%M%S").to_string();
 
@@ -217,6 +216,7 @@ pub fn create_bench_config(
         date_time,
         benchmark_id,
         output_filename,
+        benchmark_name,
     })
 }
 

@@ -192,6 +192,7 @@ mod tests {
             date_time: "".to_string(),
             benchmark_id: "test2".to_string(),
             output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<usize> = TestQueue::new(0);
         if benchmark_enq_deq_pairs(queue, &bench_conf, &fifo_queue_args)

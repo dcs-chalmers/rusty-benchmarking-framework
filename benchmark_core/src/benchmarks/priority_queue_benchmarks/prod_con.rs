@@ -227,7 +227,8 @@ mod tests {
             args: pq_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: pq_args.benchmark_runner.to_string(),
         };
         let queue: TestPriorityQueue<usize, i32> = TestPriorityQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &pq_args).is_err() {
@@ -242,7 +243,8 @@ mod tests {
             args: pq_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: pq_args.benchmark_runner.to_string(),
         };
         let queue: TestPriorityQueue<usize, String> = TestPriorityQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &pq_args).is_err() {
@@ -257,7 +259,8 @@ mod tests {
             args: pq_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: pq_args.benchmark_runner.to_string(),
         };
         let queue: TestPriorityQueue<usize, PriorityQueueArgs> = TestPriorityQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &pq_args).is_err() {

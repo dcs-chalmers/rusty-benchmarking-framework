@@ -54,8 +54,8 @@ where
                 std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
             let handle = benchmark_helpers::create_mem_tracking_thread(
                 bench_conf,
+                test_q.get_id(), // needs fixing
                 _current_iteration,
-                &test_q,
                 &done,
             )?;
             (done, handle)
@@ -94,8 +94,9 @@ where
 pub fn setup_benchmark(
 ) -> Result<(BenchConfig, PriorityQueueArgs), std::io::Error> {
     let args = crate::arguments::PriorityQueueArgs::parse();
+    let benchmark_name = args.benchmark_runner.to_string();
     let bench_config =
-        benchmark_helpers::create_bench_config(&args.general_args)?;
+        benchmark_helpers::create_bench_config(&args.general_args, benchmark_name)?;
 
     let columns = "Throughput,Enqueues,Dequeues,Consumers,Producers,\
         Thread Count,Queuetype,Benchmark,Test ID,Fairness,Spread,Queue Size";

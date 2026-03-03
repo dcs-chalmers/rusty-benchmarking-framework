@@ -224,7 +224,8 @@ mod tests {
             args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<i32> = TestQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
@@ -239,7 +240,8 @@ mod tests {
             args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<String> = TestQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
@@ -254,7 +256,8 @@ mod tests {
             args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<FifoQueueArgs> = TestQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
