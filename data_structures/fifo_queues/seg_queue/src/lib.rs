@@ -16,8 +16,8 @@ impl <T> ConcurrentQueue<T> for SQueue<T>{
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("seg_queue")
+    fn get_id() -> &'static str {
+        "seg_queue"
     }
 
     fn new(_size: usize) -> Self {

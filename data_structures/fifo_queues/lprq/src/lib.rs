@@ -332,8 +332,8 @@ impl<T> Drop for LPRQueue<T> {
 }
 
 impl<T: std::fmt::Debug> ConcurrentQueue<T> for LPRQueue<T> {
-    fn get_id(&self) -> String {
-        "lprq_rust".to_string()
+    fn get_id() -> &'static str {
+        "lprq_rust"
     }
     fn new(_size: usize) -> Self {
         LPRQueue::new()

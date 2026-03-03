@@ -29,8 +29,8 @@ pub(crate) mod test_queue {
             TestQueueHandle { queue: self }
         }
 
-        fn get_id(&self) -> String {
-            "test_queue".to_string()
+        fn get_id() -> &'static str {
+            "test_queue"
         }
 
         fn new(_size: usize) -> Self {

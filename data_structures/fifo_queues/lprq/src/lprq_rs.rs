@@ -16,8 +16,8 @@ impl <T> ConcurrentQueue<T> for LPRQRS<T>{
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("lprq-rs")
+    fn get_id() -> &'static str {
+        "lprq-rs"
     }
 
     fn new(_size: usize) -> Self {

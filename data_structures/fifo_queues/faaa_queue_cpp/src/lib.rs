@@ -106,8 +106,8 @@ impl<T> ConcurrentQueue<T> for FAAAQueue<T> {
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("faaa_queue_cpp")
+    fn get_id() -> &'static str {
+        "faaa_queue_cpp"
     }
 
     fn new(_capacity: usize) -> Self {

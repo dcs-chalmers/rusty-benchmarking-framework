@@ -169,8 +169,8 @@ impl<T: Sync + Send> ConcurrentQueue<T> for MSQueue<T> {
             hp2: HazardPointer::new(),
         }
     }
-    fn get_id(&self) -> String {
-        String::from("ms_queue")
+    fn get_id() -> &'static str {
+        "ms_queue"
     }
     fn new(_size: usize) -> Self {
         let dummy = Box::new(Node::empty()).into_raw();

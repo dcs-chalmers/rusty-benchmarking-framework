@@ -101,8 +101,8 @@ impl<T> ConcurrentQueue<T> for LCRQueue<T> {
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("lcrq_cpp")
+    fn get_id() -> &'static str {
+        "lcrq_cpp"
     }
 
     fn new(_capacity: usize) -> Self {

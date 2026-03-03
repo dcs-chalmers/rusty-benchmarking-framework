@@ -186,8 +186,8 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
     fn new(c: usize) -> Self {
         TZQueue::new(c)
     }
-    fn get_id(&self) -> String {
-        String::from("tz_queue")
+    fn get_id() -> &'static str {
+        "tz_queue"
     }
     fn register(&self) -> impl HandleQueue<T> {
         TZQueueHandle {

@@ -17,8 +17,8 @@ impl<T> ConcurrentQueue<T> for UnboundedCQueue<T> {
             queue: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("unbounded_concurrent_queue")
+    fn get_id() -> &'static str {
+        "unbounded_concurrent_queue"
     }
     fn new(_size: usize) -> Self {
         UnboundedCQueue {

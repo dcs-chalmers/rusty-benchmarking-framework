@@ -133,7 +133,7 @@ where
         format!(
             "0,0,0,-1,-1,{},{},{},{},0,{},{}",
             thread_count,
-            cqueue.get_id(),
+            C::get_id(),
             fifo_queue_args.benchmark_runner,
             bench_conf.benchmark_id,
             -1,
@@ -148,7 +148,7 @@ where
             -1,
             -1,
             thread_count,
-            cqueue.get_id(),
+            C::get_id(),
             fifo_queue_args.benchmark_runner,
             bench_conf.benchmark_id,
             fairness,

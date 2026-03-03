@@ -120,7 +120,7 @@ pub trait ConcurrentQueue<T> {
     fn register(&self) -> impl HandleQueue<T>;
 
     /// Returns the name of the queue.
-    fn get_id(&self) -> String;
+    fn get_id() -> &'static str;
 
     /// Used to create a new queue.
     /// `size` is discarded for unbounded queues.
@@ -329,8 +329,8 @@ impl<T> ConcurrentQueue<T> for YourCppQueue<T> {
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("your_queue")
+    fn get_id() -> &'static str; {
+        "your_queue"
     }
 
     fn new(capacity: usize) -> Self {

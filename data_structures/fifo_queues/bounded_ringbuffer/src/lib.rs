@@ -85,8 +85,8 @@ impl <T: Clone + Default>ConcurrentQueue<T> for BoundedRingBuffer<T>{
             queue: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("bounded_ringbuffer")
+    fn get_id() -> &'static str {
+        "bounded_ringbuffer"
     }
     fn new(size: usize) -> Self {
         BoundedRingBuffer {

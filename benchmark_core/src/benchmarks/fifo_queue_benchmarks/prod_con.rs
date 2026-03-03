@@ -177,7 +177,7 @@ where
     };
     // If a thread crashed, pad the results with zero-values 
     let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, cqueue.get_id(), fifo_queue_args.benchmark_runner, bench_conf.benchmark_id, fifo_queue_args.queue_size)
+        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, C::get_id(), fifo_queue_args.benchmark_runner, bench_conf.benchmark_id, fifo_queue_args.queue_size)
     }
     else {
         let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
@@ -188,7 +188,7 @@ where
             consumers,
             producers,
             -1,
-            cqueue.get_id(),
+            C::get_id(),
             fifo_queue_args.benchmark_runner,
             bench_conf.benchmark_id,
             fairness,

@@ -78,8 +78,8 @@ impl<T> ConcurrentQueue<T> for MoodyCamelCppQueue<T> {
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("moodycamel_cpp")
+    fn get_id() -> &'static str {
+        "moodycamel_cpp"
     }
 
     fn new(_capacity: usize) -> Self {
