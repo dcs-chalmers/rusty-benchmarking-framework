@@ -23,7 +23,7 @@ pub trait ConcurrentPriorityQueue<P: Ord, T> {
     /// Returns a handle that exposes the priority queue API
     fn register(&self) -> impl HandlePriorityQueue<P, T>;
     /// Returns the name of the queue.
-    fn get_id(&self) -> String; // should be `fn get_id() -> &'static str;`
+    fn get_id() -> &'static str;
     /// Used to create a new queue.
     /// `size` is discarded for unbounded queues.
     fn new(size: usize) -> Self;
