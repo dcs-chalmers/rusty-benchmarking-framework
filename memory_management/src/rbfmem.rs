@@ -19,7 +19,70 @@ thread_local! {
     static LOCAL_ALLOCATOR_COUNT: Cell<usize> = const { Cell::new(0) };
 }
 
-/// A thread specific Allocator that allocates instances of type `T`.
+/// Clean up the global state of RBFMEM for all threads.
+/// This is useful before exiting the program or between iterations of benchmarks.
+/// # Safety
+/// The function assumes that there are no allocators currently existing in any threads.
+/// Thus, this function may only be safely called when the programmer knows that:
+/// - All running threads which could use an allocator have been terminated.
+/// - The destructors of all allocators have been called.
+///
+/// Failing to meet these conditions will result in undefined behaviour and use-after free bugs.
+pub unsafe fn global_reset() {
+    // reset the global thread id counter back to zero
+    GLOBAL_NEXT_ID.store(0, atomic::Ordering::Release);
+    // reset thread timestamps linked list to be empty
+    let mut timestamps_head = GLOBAL_TIMESTAMPS.swap(null_mut(), atomic::Ordering::Acquire);
+    // drop the previous thread timestamps linked list starting from the head of the list
+    while !timestamps_head.is_null() {
+        let node = unsafe { Box::from_raw(timestamps_head) };
+        timestamps_head = node.next;
+        drop(node);
+    }
+}
+
+/// Preallocate with RBFMEM a new object of type `T` with assigned `value`
+/// returning a mutable reference guaranteed to be non null to this memory.
+/// This is useful for initializing data structures that use RBFMEM for memory management.
+/// # Important!
+/// The developer is solely responsible for giving the memory back to an allocator,
+/// otherwise the program will leak memory.
+pub fn preallocate<T>(value: T) -> *mut T {
+    Box::into_raw(Box::new(value))
+}
+
+/// Takes ownership of the `obj` returning the value wrapped in an owned type.
+/// This is useful for dropping a shared data structure, from the main thread.
+/// # Safety
+/// - The programmer is solely responsible for only calling `take_ownership`
+/// once per object as it otherwise will result in a double free.
+/// - The programmer must only call `take_ownership` on memory allocated
+/// by the allocator or `rbfmem::preallocate()`.
+pub unsafe fn take_ownership<T>(obj: *mut T) -> Box<T> {
+    unsafe {
+        // better to use `Box::into_inner()`, but it is experimental
+        Box::from_raw(obj)
+    }
+}
+
+/// Indicate that the current thread is done with access to shared global data
+/// and that memory previously freed by other threads now can be safely reclaimed.
+/// This is useful for threads that do not modify shared global data but reads it
+/// ensuring that memory is being reclaimed.
+/// # Panics
+/// This function will panic if the current thread has not joined global garbage collection.
+pub fn safe_to_reclaim_memory() {
+    let timestamp = LOCAL_TIMESTAMP.get();
+    assert!(
+        !LOCAL_TIMESTAMP.get().is_null(),
+        "Each thread must have at least one allocator to join the global garbage collection",
+    );
+    unsafe {
+        (*timestamp).version.increment();
+    }
+}
+
+/// A thread local Allocator that allocates instances of type `T`.
 /// The allocator synchronizes with other threads when freeing memory
 /// by using a minimalistic Epoch-based memory reclamation scheme.
 ///
@@ -100,8 +163,8 @@ impl<T, const FREE_LEN: usize> Allocator<T, FREE_LEN> {
     /// # Safety
     /// - The programmer is solely responsible for only calling `free`
     /// once per object as it otherwise will result in a double free.
-    /// - The programmer must only call free on memory allocated by the allocator or
-    /// a raw pointer from a `Box`.
+    /// - The programmer must only call free on memory allocated by
+    /// the allocator or `rbfmem::preallocate()`.
     pub unsafe fn free(&mut self, obj: *mut T) {
         // check if current free list is full
         if self.free_list.object_index == self.free_list.objects.len() {
@@ -229,23 +292,6 @@ impl<T, const FREE_LEN: usize> Drop for Allocator<T, FREE_LEN> {
     }
 }
 
-/// Indicate that the current thread is done with access to shared global data
-/// and that memory previously freed by other threads now can be safely reclaimed.
-/// This is useful for threads that do not modify shared global data but reads it
-/// ensuring that memory is being reclaimed.
-/// # Panics
-/// This function will panic if the current thread has not joined global garbage collection.
-pub fn safe_to_reclaim_memory() {
-    let timestamp = LOCAL_TIMESTAMP.get();
-    assert!(
-        !LOCAL_TIMESTAMP.get().is_null(),
-        "Each thread must have at least one allocator to join the global garbage collection",
-    );
-    unsafe {
-        (*timestamp).version.increment();
-    }
-}
-
 /// Thread specific timestamp node.
 #[derive(Clone, Copy)]
 struct ThreadTimeStamp {
@@ -255,7 +301,7 @@ struct ThreadTimeStamp {
     version: TimeValue,
     /// Next thread timestamp node in
     /// the global linked list of thread timestamps.
-    next: *const ThreadTimeStamp,
+    next: *mut ThreadTimeStamp,
 }
 
 /// Timestamp value used for Epoch-based memory reclamation comparisons.
