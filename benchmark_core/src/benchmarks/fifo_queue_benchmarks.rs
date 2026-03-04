@@ -1,11 +1,14 @@
 #[allow(unused_imports)]
 use crate::arguments::{FifoQueueArgs, FifoQueueBenchmarks, GeneralArgs};
 use crate::benchmarks::benchmark_helpers::{self, BenchConfig};
+use crate::benchmark_stats::BenchmarkStats;
 #[allow(unused_imports)]
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use clap::Parser;
 #[allow(unused_imports)]
 use log::{self, debug, error, info};
+use std::fs::OpenOptions;
+use std::io::Write;
 #[allow(unused_imports)]
 use std::sync::atomic::AtomicBool;
 
@@ -29,20 +32,21 @@ where
 
     // Create a runner lambda for the different benchmarks, mainly needed for eg. BFS to load graph and so on
     let mut runner: Box<
-        dyn FnMut(Q, &BenchConfig) -> Result<(), std::io::Error>,
+        dyn FnMut(Q, &BenchConfig, &mut BenchmarkStats) -> Result<(), std::io::Error>,
     > = match &fifo_queue_args.benchmark_runner {
-        FifoQueueBenchmarks::ProdCon(_) => Box::new(move |q, bench_conf| {
-            prod_con::benchmark_prod_con(q, bench_conf, fifo_queue_args)
+        FifoQueueBenchmarks::ProdCon(_) => Box::new(move |q, bench_conf, stats| {
+            prod_con::benchmark_prod_con(q, bench_conf, fifo_queue_args, stats)
         }),
-        FifoQueueBenchmarks::EnqDeq(_) => Box::new(move |q, bench_conf| {
-            enq_deq::benchmark_enq_deq(q, bench_conf, fifo_queue_args)
+        FifoQueueBenchmarks::EnqDeq(_) => Box::new(move |q, bench_conf, stats| {
+            enq_deq::benchmark_enq_deq(q, bench_conf, fifo_queue_args, stats)
         }),
         FifoQueueBenchmarks::EnqDeqPairs(_) => {
-            Box::new(move |q, bench_conf| {
+            Box::new(move |q, bench_conf, stats| {
                 enq_deq_pairs::benchmark_enq_deq_pairs(
                     q,
                     bench_conf,
                     fifo_queue_args,
+                    stats,
                 )
             })
         }
@@ -51,7 +55,7 @@ where
                 Q::new(fifo_queue_args.queue_size as usize),
                 &args,
             );
-            Box::new(move |q, _conf| {
+            Box::new(move |q, _conf, stats| {
                 bfs::benchmark_bfs(
                     q,
                     &graph,
@@ -59,10 +63,13 @@ where
                     &seq_ret_vec,
                     start_node,
                     fifo_queue_args,
+                    stats,
                 )
             })
         }
     };
+
+    let mut stats = BenchmarkStats::new("0");
 
     for _current_iteration in 0..bench_conf.args.iterations {
         // Create the queue.
@@ -83,7 +90,7 @@ where
         };
 
         // Execute the benchmark
-        runner(test_q, &bench_conf)?;
+        runner(test_q, &bench_conf, &mut stats)?;
 
         // Join the thread again
         debug!("Queue should have been dropped now.");
@@ -100,6 +107,17 @@ where
         }
     }
 
+    // write to file or stdout depending on commandline flag
+    if !bench_conf.args.write_to_stdout {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&bench_conf.output_filename)?;
+        writeln!(file, "{}", stats.to_csv())?;
+    } else {
+        println!("{}", stats.to_table_string());
+    }
+    
     if bench_conf.args.print_info {
         benchmark_helpers::print_info(
             Q::get_id(),
@@ -118,20 +136,5 @@ pub fn setup_benchmark() -> Result<(BenchConfig, FifoQueueArgs), std::io::Error>
     let benchmark_name = args.benchmark_runner.to_string();
     let bench_config =
         benchmark_helpers::create_bench_config(&args.general_args, benchmark_name)?;
-
-    let columns = match args.benchmark_runner {
-        FifoQueueBenchmarks::BFS(_) => {
-            "Milliseconds,Queuetype,Thread Count,Test ID"
-        },
-        _ => {
-            "Throughput,Enqueues,Dequeues,Consumers,Producers,Thread Count,Queuetype,Benchmark,Test ID,Fairness,Spread,Queue Size"
-        }
-    };
-
-    benchmark_helpers::output_result_header(
-        columns.to_string(),
-        &bench_config,
-    )?;
-
     Ok((bench_config, args))
 }

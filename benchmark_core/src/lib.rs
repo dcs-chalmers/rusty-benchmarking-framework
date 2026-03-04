@@ -9,3 +9,4 @@ pub mod benchmarks;
 pub mod order;
 pub mod arguments;
 pub mod traits;
+mod benchmark_stats;

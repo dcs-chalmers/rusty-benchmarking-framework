@@ -4,8 +4,7 @@ use rand::Rng;
 use crate::arguments::{FifoQueueArgs, FifoQueueBenchmarks};
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use crate::benchmarks::benchmark_helpers::{self, BenchConfig};
-use std::fs::OpenOptions;
-use std::io::Write;
+use crate::benchmark_stats::BenchmarkStats;
 use std::sync::{atomic::{AtomicBool, AtomicUsize, Ordering}, Barrier};
 use std::sync::{mpsc, Arc};
 
@@ -17,7 +16,12 @@ use std::sync::{mpsc, Arc};
 /// * -p        Set specified amount of producers
 /// * -c        Set specified amount of consumers
 #[allow(dead_code)]
-pub fn benchmark_prod_con<C, T>(cqueue: C, bench_conf: &BenchConfig, fifo_queue_args: &FifoQueueArgs) -> Result<(), std::io::Error>
+pub fn benchmark_prod_con<C, T>(
+    cqueue: C,
+    bench_conf: &BenchConfig,
+    fifo_queue_args: &FifoQueueArgs,
+    stats: &mut BenchmarkStats,
+) -> Result<(), std::io::Error>
 where 
     C: ConcurrentQueue<T>,
     T: Default,
@@ -179,38 +183,29 @@ where
         };
         vals
     };
-    // If a thread crashed, pad the results with zero-values 
-    let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, C::get_id(), fifo_queue_args.benchmark_runner, bench_conf.benchmark_id, fifo_queue_args.queue_size)
+
+    // compute and store statistics
+    let mut throughput = Some((pushes + pops) as f64 / time_limit as f64);
+    let mut pushes = Some(pushes);
+    let mut pops = Some(pops);
+    let mut fairness = Some(benchmark_helpers::calc_fairness(ops_per_thread));
+    if thread_failed.load(Ordering::Relaxed) {
+        // a failed benchmark does not have some values
+        throughput = None;
+        pushes = None;
+        pops = None;
+        fairness = None;
     }
-    else {
-        let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
-        format!("{},{},{},{},{},{},{},{},{},{},{},{}",
-            (pushes + pops) as f64 / time_limit as f64,
-            pushes,
-            pops,
-            consumers,
-            producers,
-            -1,
-            C::get_id(),
-            fifo_queue_args.benchmark_runner,
-            bench_conf.benchmark_id,
-            fairness,
-            -1,
-            fifo_queue_args.queue_size)
-    };
-    if !bench_conf.args.write_to_stdout {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&bench_conf.output_filename)?;
-
-        writeln!(file, "{}", formatted)?;
-
-    } else {
-        println!("{}", formatted);
-    }
-
+    stats.insert("Throughput", throughput);
+    stats.insert("Enqueues", pushes);
+    stats.insert("Dequeues", pops);
+    stats.insert("Consumers", Some(consumers));
+    stats.insert("Producers", Some(producers));
+    stats.insert("Queuetype", Some(C::get_id()));
+    stats.insert("Benchmark", Some(fifo_queue_args.benchmark_runner.to_string()));
+    stats.insert("Test ID", Some(bench_conf.benchmark_id.to_owned()));
+    stats.insert("Fairness", fairness);
+    stats.insert("Queue Size", Some(fifo_queue_args.queue_size));
     Ok(())
 }
 
@@ -232,9 +227,8 @@ mod tests {
             benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<i32> = TestQueue::new(0);
-        if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
-            panic!();
-        }
+        let mut stats = BenchmarkStats::new("0");
+        assert!(benchmark_prod_con(queue, &bench_conf, &fifo_queue_args, &mut stats).is_ok());
     }
 
     #[test]
@@ -248,9 +242,8 @@ mod tests {
             benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<String> = TestQueue::new(0);
-        if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
-            panic!();
-        }
+        let mut stats = BenchmarkStats::new("0");
+        assert!(benchmark_prod_con(queue, &bench_conf, &fifo_queue_args, &mut stats).is_ok());
     }
 
     #[test]
@@ -264,8 +257,7 @@ mod tests {
             benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<FifoQueueArgs> = TestQueue::new(0);
-        if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
-            panic!();
-        }
+        let mut stats = BenchmarkStats::new("0");
+        assert!(benchmark_prod_con(queue, &bench_conf, &fifo_queue_args, &mut stats).is_ok());
     }
 }

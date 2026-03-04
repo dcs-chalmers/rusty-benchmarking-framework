@@ -1,11 +1,10 @@
 use crate::arguments::{FifoQueueArgs, FifoQueueBenchmarks};
 use crate::benchmarks::benchmark_helpers::{self, BenchConfig};
+use crate::benchmark_stats::BenchmarkStats;
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use rand::Rng;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Barrier,
@@ -18,6 +17,7 @@ pub fn benchmark_enq_deq_pairs<C, T>(
     cqueue: C,
     bench_conf: &BenchConfig,
     fifo_queue_args: &FifoQueueArgs,
+    stats: &mut BenchmarkStats,
 ) -> Result<(), std::io::Error>
 where
     C: ConcurrentQueue<T>,
@@ -128,46 +128,28 @@ where
         }
         vals
     };
-    let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
 
-    // If a thread crashed, pad the results with zero-values
-    let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!(
-            "0,0,0,-1,-1,{},{},{},{},0,{},{}",
-            thread_count,
-            C::get_id(),
-            fifo_queue_args.benchmark_runner,
-            bench_conf.benchmark_id,
-            -1,
-            fifo_queue_args.queue_size
-        )
-    } else {
-        format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{}",
-            (pushes + pops) as f64 / time_limit as f64,
-            pushes,
-            pops,
-            -1,
-            -1,
-            thread_count,
-            C::get_id(),
-            fifo_queue_args.benchmark_runner,
-            bench_conf.benchmark_id,
-            fairness,
-            -1,
-            fifo_queue_args.queue_size
-        )
-    };
-    // Write to file or stdout depending on flag
-    if !bench_conf.args.write_to_stdout {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&bench_conf.output_filename)?;
-        writeln!(file, "{}", formatted)?;
-    } else {
-        println!("{}", formatted);
+    // compute and store statistics
+    let mut throughput = Some((pushes + pops) as f64 / time_limit as f64);
+    let mut pushes = Some(pushes);
+    let mut pops = Some(pops);
+    let mut fairness = Some(benchmark_helpers::calc_fairness(ops_per_thread));
+    if thread_failed.load(Ordering::Relaxed) {
+        // a failed benchmark does not have some values
+        throughput = None;
+        pushes = None;
+        pops = None;
+        fairness = None;
     }
+    stats.insert("Throughput", throughput);
+    stats.insert("Enqueues", pushes);
+    stats.insert("Dequeues", pops);
+    stats.insert("Thread Count", Some(thread_count));
+    stats.insert("Queuetype", Some(C::get_id()));
+    stats.insert("Benchmark", Some(fifo_queue_args.benchmark_runner.to_string()));
+    stats.insert("Test ID", Some(bench_conf.benchmark_id.to_owned()));
+    stats.insert("Fairness", fairness);
+    stats.insert("Queue Size", Some(fifo_queue_args.queue_size));
     Ok(())
 }
 
@@ -197,10 +179,7 @@ mod tests {
             benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<usize> = TestQueue::new(0);
-        if benchmark_enq_deq_pairs(queue, &bench_conf, &fifo_queue_args)
-            .is_err()
-        {
-            panic!();
-        }
+        let mut stats = BenchmarkStats::new("0");
+        assert!(benchmark_enq_deq_pairs(queue, &bench_conf, &fifo_queue_args, &mut stats).is_ok());
     }
 }

@@ -1,12 +1,12 @@
 use crate::arguments::{FifoQueueArgs, FifoQueueBFSArgs, FifoQueueBenchmarks};
 use crate::benchmarks::benchmark_helpers::BenchConfig;
+use crate::benchmark_stats::BenchmarkStats;
 use crate::traits::{ConcurrentQueue, HandleQueue};
 use core_affinity::CoreId;
 use log::{debug, error, info, trace};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::{
-    fs::OpenOptions,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Barrier,
@@ -67,7 +67,8 @@ pub fn benchmark_bfs<C>(
     bench_conf: &BenchConfig,
     seq_ret_vec: &[usize],
     start_node: usize,
-    fifo_queue_args: &FifoQueueArgs
+    fifo_queue_args: &FifoQueueArgs,
+    stats: &mut BenchmarkStats,
 ) -> Result<(), std::io::Error>
 where
     C: ConcurrentQueue<usize>,
@@ -102,23 +103,12 @@ where
         }
         debug!("Solution looks good.");
     }
-    let formatted = format!(
-        "{},{},{},{}",
-        dur_par.as_millis(),
-        C::get_id(),
-        bfs_args.thread_count,
-        bench_conf.benchmark_id
-    );
-    if !bench_conf.args.write_to_stdout {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&bench_conf.output_filename)?;
 
-        writeln!(file, "{}", formatted)?;
-    } else {
-        println!("{}", formatted);
-    }
+    // store statistics
+    stats.insert("Milliseconds", Some(dur_par.as_millis()));
+    stats.insert("Queuetype", Some(C::get_id()));
+    stats.insert("Thread Count", Some(bfs_args.thread_count));
+    stats.insert("Test ID", Some(bench_conf.benchmark_id.to_owned()));
 
     Ok(())
 }
@@ -369,4 +359,3 @@ pub fn create_graph(
 
     Ok(graph)
 }
-// Milliseconds,Queuetype,Thread Count,Test ID
