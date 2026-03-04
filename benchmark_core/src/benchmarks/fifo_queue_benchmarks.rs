@@ -15,7 +15,7 @@ pub mod enq_deq_pairs;
 pub mod prod_con;
 
 /// Create the fifo queue, and run the selected benchmark a set of times
-pub fn benchmark_fifo_queue<Q>(queue_name: &str) -> Result<(), std::io::Error>
+pub fn benchmark_fifo_queue<Q>() -> Result<(), std::io::Error>
 where
     Q: ConcurrentQueue<usize> + Send,
     for<'a> &'a Q: Send,
@@ -75,8 +75,8 @@ where
                 std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
             let handle = benchmark_helpers::create_mem_tracking_thread(
                 bench_conf,
+                Q::get_id().to_string(),
                 _current_iteration,
-                &test_q,
                 &done,
             )?;
             (done, handle)
@@ -102,7 +102,7 @@ where
 
     if bench_conf.args.print_info {
         benchmark_helpers::print_info(
-            queue_name.to_string(),
+            Q::get_id(),
             &bench_conf,
             fifo_queue_args.benchmark_runner.to_string(),
         )?;
@@ -115,8 +115,9 @@ where
 pub fn setup_benchmark() -> Result<(BenchConfig, FifoQueueArgs), std::io::Error>
 {
     let args = crate::arguments::FifoQueueArgs::parse();
+    let benchmark_name = args.benchmark_runner.to_string();
     let bench_config =
-        benchmark_helpers::create_bench_config(&args.general_args)?;
+        benchmark_helpers::create_bench_config(&args.general_args, benchmark_name)?;
 
     let columns = match args.benchmark_runner {
         FifoQueueBenchmarks::BFS(_) => {

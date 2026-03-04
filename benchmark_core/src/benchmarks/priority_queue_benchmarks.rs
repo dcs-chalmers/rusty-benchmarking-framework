@@ -14,9 +14,7 @@ use std::sync::atomic::AtomicBool;
 pub mod prod_con;
 
 /// Create the queue, and run the selected benchmark a set of times
-pub fn benchmark_priority_queue<Q, T>(
-    queue_name: &str,
-) -> Result<(), std::io::Error>
+pub fn benchmark_priority_queue<Q, T>() -> Result<(), std::io::Error>
 where
     Q: ConcurrentPriorityQueue<usize, T> + Send,
     T: Default,
@@ -54,8 +52,8 @@ where
                 std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
             let handle = benchmark_helpers::create_mem_tracking_thread(
                 bench_conf,
+                Q::get_id().to_string(),
                 _current_iteration,
-                &test_q,
                 &done,
             )?;
             (done, handle)
@@ -81,7 +79,7 @@ where
 
     if bench_conf.args.print_info {
         benchmark_helpers::print_info(
-            queue_name.to_string(),
+            Q::get_id(),
             bench_conf,
             pq_args.benchmark_runner.to_string(),
         )?;
@@ -94,8 +92,11 @@ where
 pub fn setup_benchmark(
 ) -> Result<(BenchConfig, PriorityQueueArgs), std::io::Error> {
     let args = crate::arguments::PriorityQueueArgs::parse();
-    let bench_config =
-        benchmark_helpers::create_bench_config(&args.general_args)?;
+    let benchmark_name = args.benchmark_runner.to_string();
+    let bench_config = benchmark_helpers::create_bench_config(
+        &args.general_args,
+        benchmark_name,
+    )?;
 
     let columns = "Throughput,Enqueues,Dequeues,Consumers,Producers,\
         Thread Count,Queuetype,Benchmark,Test ID,Fairness,Spread,Queue Size";

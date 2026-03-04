@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<moodycamel_cpp::MoodyCamelCppQueue<usize>>("moodycamel_cpp") {
+    match benchmark_fifo_queue::<moodycamel_cpp::MoodyCamelCppQueue<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

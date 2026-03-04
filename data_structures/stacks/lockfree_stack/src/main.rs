@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<lockfree_stack::LockfreeStack<usize>>("lockfree_stack") {
+    match benchmark_fifo_queue::<lockfree_stack::LockfreeStack<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

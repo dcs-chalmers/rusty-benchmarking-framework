@@ -44,8 +44,8 @@ impl<T> ConcurrentQueue<T> for BasicQueue<T> {
             queue: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("basic_queue")
+    fn get_id() -> &'static str {
+        "basic_queue"
     }
     fn new(_size: usize) -> Self {
         BasicQueue {

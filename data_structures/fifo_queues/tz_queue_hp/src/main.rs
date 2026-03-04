@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<tz_queue_hp::TZQueue<usize>>("tz_queue_hp") {
+    match benchmark_fifo_queue::<tz_queue_hp::TZQueue<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

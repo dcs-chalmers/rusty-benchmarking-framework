@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<boost_queue_cpp::BoostCppQueue<usize>>("boost_queue_cpp") {
+    match benchmark_fifo_queue::<boost_queue_cpp::BoostCppQueue<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

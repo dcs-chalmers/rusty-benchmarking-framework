@@ -90,7 +90,9 @@ where
                     l_pushes += 1;
                     // Add some delay to simulate real workload
                     for _ in 0..bench_conf.args.delay {
-                        let _some_num = rand::rng().random::<f64>();
+                        let _some_num = std::hint::black_box(
+                            rand::rng().random::<f64>()
+                        );
                     }
                 }
                 pushes.fetch_add(l_pushes, Ordering::Relaxed);
@@ -137,7 +139,9 @@ where
                         }
                     }
                     for _ in 0..bench_conf.args.delay {
-                        let _some_num = rand::rng().random::<f64>();
+                        let _some_num = std::hint::black_box(
+                            rand::rng().random::<f64>()
+                        );
                     }
                 }
                 pops.fetch_add(l_pops, Ordering::Relaxed);
@@ -177,7 +181,7 @@ where
     };
     // If a thread crashed, pad the results with zero-values 
     let formatted = if thread_failed.load(Ordering::Relaxed) {
-        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, cqueue.get_id(), fifo_queue_args.benchmark_runner, bench_conf.benchmark_id, fifo_queue_args.queue_size)
+        format!("0,0,0,{},{},-1,{},{},{},0,-1,{}", producers, consumers, C::get_id(), fifo_queue_args.benchmark_runner, bench_conf.benchmark_id, fifo_queue_args.queue_size)
     }
     else {
         let fairness = benchmark_helpers::calc_fairness(ops_per_thread);
@@ -188,7 +192,7 @@ where
             consumers,
             producers,
             -1,
-            cqueue.get_id(),
+            C::get_id(),
             fifo_queue_args.benchmark_runner,
             bench_conf.benchmark_id,
             fairness,
@@ -224,7 +228,8 @@ mod tests {
             args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<i32> = TestQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
@@ -239,7 +244,8 @@ mod tests {
             args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<String> = TestQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {
@@ -254,7 +260,8 @@ mod tests {
             args: fifo_queue_args.general_args.clone(),
             date_time: "".to_string(),
             benchmark_id: "test1".to_string(),
-            output_filename: "".to_string()
+            output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<FifoQueueArgs> = TestQueue::new(0);
         if benchmark_prod_con(queue, &bench_conf, &fifo_queue_args).is_err() {

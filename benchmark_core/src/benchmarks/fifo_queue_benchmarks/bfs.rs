@@ -105,7 +105,7 @@ where
     let formatted = format!(
         "{},{},{},{}",
         dur_par.as_millis(),
-        cqueue.get_id(),
+        C::get_id(),
         bfs_args.thread_count,
         bench_conf.benchmark_id
     );

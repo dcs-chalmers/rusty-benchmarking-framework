@@ -105,7 +105,9 @@ T: Default,
                             l_pushes += 1;
                         }
                         for _ in 0..bench_conf.args.delay {
-                            let _some_num = rand::rng().random::<f64>();
+                            let _some_num = std::hint::black_box(
+                                rand::rng().random::<f64>()
+                            );
                         }
                     }
             
@@ -145,7 +147,7 @@ T: Default,
     let formatted = if thread_failed.load(Ordering::Relaxed) {
         format!("0,0,0,-1,-1,{},{},{},{},0,{},{}",
             thread_count, 
-            cqueue.get_id(),
+            C::get_id(),
             fifo_queue_args.benchmark_runner,
             bench_conf.benchmark_id,
             enq_deq_args.spread,
@@ -160,7 +162,7 @@ T: Default,
         -1,
         -1,
         thread_count,
-        cqueue.get_id(),
+        C::get_id(),
         fifo_queue_args.benchmark_runner,
         bench_conf.benchmark_id,
         fairness,
@@ -204,6 +206,7 @@ mod tests {
             date_time: "".to_string(),
             benchmark_id: "test2".to_string(),
             output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<usize> = TestQueue::new(0);
         if benchmark_enq_deq(queue, &bench_conf, &fifo_queue_args)
@@ -226,6 +229,7 @@ mod tests {
             date_time: "".to_string(),
             benchmark_id: "test2".to_string(),
             output_filename: "".to_string(),
+            benchmark_name: fifo_queue_args.benchmark_runner.to_string(),
         };
         let queue: TestQueue<bool> = TestQueue::new(0);
         if benchmark_enq_deq(queue, &bench_conf, &fifo_queue_args)

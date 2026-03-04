@@ -11,7 +11,7 @@ fn main() {
     }
     log::info!("Starting benchmark");
 
-    match benchmark_fifo_queue::<bounded_ringbuffer::BoundedRingBuffer<usize>>("bounded_ringbuffer") {
+    match benchmark_fifo_queue::<bounded_ringbuffer::BoundedRingBuffer<usize>>() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

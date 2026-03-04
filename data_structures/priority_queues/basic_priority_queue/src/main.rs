@@ -13,8 +13,7 @@ fn main() {
     match benchmark_priority_queue::<
         basic_priority_queue::BasicPriorityQueue<usize, i32>,
         i32,
-    >("basic_priority_queue")
-    {
+    >() {
         Ok(_) => println!("Benchmark done."),
         Err(e) => {
             eprintln!("Benchmark received error: {}", e);

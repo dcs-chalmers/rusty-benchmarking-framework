@@ -82,8 +82,8 @@ impl<P: Ord, T> ConcurrentPriorityQueue<P, T> for BasicPriorityQueue<P, T> {
             priority_queue: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("basic_priority_queue")
+    fn get_id() -> &'static str {
+        "basic_priority_queue"
     }
     fn new(_size: usize) -> Self {
         BasicPriorityQueue {

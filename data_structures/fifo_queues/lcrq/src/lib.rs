@@ -374,8 +374,8 @@ pub fn cas2(
 }
 
 impl<T: std::fmt::Debug> ConcurrentQueue<T> for LCRQueue<T> {
-    fn get_id(&self) -> String {
-        "lcrq_rust".to_string()
+    fn get_id() -> &'static str{
+        "lcrq_rust"
     }
     fn new(_size: usize) -> Self {
         LCRQueue::new()

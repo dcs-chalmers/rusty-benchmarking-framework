@@ -60,7 +60,9 @@ where
                 barrier.wait();
                 while !done_pushing.load(Ordering::Relaxed) {
                     for _ in 0..delay {
-                        let _some_num = rand::rng().random::<f64>();
+                        let _some_num = std::hint::black_box(
+                            rand::rng().random::<f64>()
+                        );
                     }
                     {
                         let mut q = lock.lock().unwrap();
@@ -169,7 +171,9 @@ where
                 barrier.wait();
                 while !done_pushing.load(Ordering::Relaxed) {
                     for _ in 0..delay {
-                        let _some_num = rand::rng().random::<f64>();
+                        let _some_num = std::hint::black_box(
+                            rand::rng().random::<f64>()
+                        );
                     }
                     {
                         let mut q = lock.lock().unwrap();

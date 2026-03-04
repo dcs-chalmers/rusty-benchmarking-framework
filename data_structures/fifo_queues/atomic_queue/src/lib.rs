@@ -14,8 +14,8 @@ impl<T: Default> ConcurrentQueue<T> for AtomicQueue<T> {
             queue: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("atomic_queue")
+    fn get_id() -> &'static str {
+        "atomic_queue"
     }
     fn new(size: usize) -> Self {
         AtomicQueue {

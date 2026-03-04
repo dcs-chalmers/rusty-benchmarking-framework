@@ -13,8 +13,8 @@ impl<T> ConcurrentQueue<T> for LockfreeStack<T> {
             stack: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("lockfree_stack")
+    fn get_id() -> &'static str {
+        "lockfree_stack"
     }
     fn new(_size: usize) -> Self {
         LockfreeStack{

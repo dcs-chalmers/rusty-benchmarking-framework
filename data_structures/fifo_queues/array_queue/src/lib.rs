@@ -16,8 +16,8 @@ impl <T> ConcurrentQueue<T> for AQueue<T> {
             queue: self,
         }
     }
-    fn get_id(&self) -> String {
-        String::from("array_queue")
+    fn get_id() -> &'static str {
+        "array_queue"
     }
     fn new(size: usize) -> Self {
         AQueue {

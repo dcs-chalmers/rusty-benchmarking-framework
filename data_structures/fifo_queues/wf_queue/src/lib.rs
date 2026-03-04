@@ -19,8 +19,8 @@ where
         }
     }
 
-    fn get_id(&self) -> String {
-        String::from("wfqueue")
+    fn get_id() -> &'static str {
+        "wfqueue"
     }
 
     fn new(_size: usize) -> Self {

@@ -195,8 +195,8 @@ impl<T: Copy + Send + Sync + Display> ConcurrentQueue<T> for TZQueue<T> {
     fn new(c: usize) -> Self {
         TZQueue::new(c)
     }
-    fn get_id(&self) -> String {
-        String::from("tz_queue_hp")
+    fn get_id() -> &'static str {
+        "tz_queue_hp"
     }
     fn register(&self) -> impl benchmark_core::traits::HandleQueue<T> {
         TZQueueHandle {
