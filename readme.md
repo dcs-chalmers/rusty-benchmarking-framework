@@ -152,7 +152,7 @@ In the file `order.rs`, there are two functions that test that the queue dequeue
         let q: BasicQueue<i32> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if crate::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+        if crate::benchmark_core::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }
@@ -161,7 +161,7 @@ In the file `order.rs`, there are two functions that test that the queue dequeue
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: LCRQueue = LCRQueue::new(10);
-        if crate::order::benchmark_order_box(q, 20, 5, true, 10).is_err() {
+        if crate::benchmark_core::benchmark_order_box(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }

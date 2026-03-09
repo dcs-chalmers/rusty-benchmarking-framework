@@ -96,7 +96,7 @@ mod tests {
         let q: BasicQueue<i32> = BasicQueue {
             bqueue: BQueue::new()
         };
-        if benchmark_core::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+        if benchmark_core::tests::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }

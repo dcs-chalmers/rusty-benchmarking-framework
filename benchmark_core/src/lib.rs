@@ -5,8 +5,8 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
-pub mod benchmarks;
-pub mod order;
 pub mod arguments;
-pub mod traits;
 mod benchmark_stats;
+pub mod benchmarks;
+pub mod tests;
+pub mod traits;

@@ -87,7 +87,7 @@ mod tests {
         let q: BoundedCQueue<i32> = BoundedCQueue {
             cq: concurrent_queue::ConcurrentQueue::bounded(1)
         };
-        if benchmark_core::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+        if benchmark_core::tests::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }

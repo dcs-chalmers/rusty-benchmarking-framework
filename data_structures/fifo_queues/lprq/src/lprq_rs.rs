@@ -59,7 +59,7 @@ mod tests {
     #[ignore]
     fn test_order() {
         let q: LPRQRS<i32> = LPRQRS::new(100);
-        if benchmark_core::order::benchmark_order_i32(q, 10, 5, true, 10).is_err() {
+        if benchmark_core::tests::order::benchmark_order_i32(q, 10, 5, true, 10).is_err() {
             panic!();
         }
     }

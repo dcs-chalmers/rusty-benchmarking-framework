@@ -72,7 +72,7 @@ mod tests {
     fn test_order() {
         let _ = env_logger::builder().is_test(true).try_init();
         let q: UnboundedCQueue<i32> = UnboundedCQueue::new(0);
-        if benchmark_core::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
+        if benchmark_core::tests::order::benchmark_order_i32(q, 20, 5, true, 10).is_err() {
             panic!();
         }
     }
